@@ -1,0 +1,294 @@
+//Modal printe
+  if (showPdfOverlay) {
+    return (
+      <ScrollView style={styles.containerMobile} contentContainerStyle={{ paddingBottom: 100 }}>
+        {/* Header avec bouton retour */}
+        <View style={{
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          padding: 16,
+          backgroundColor: '#FFFFFF',
+          borderBottomWidth: 1,
+          borderBottomColor: '#E5E7EB',
+        }}>
+          <TouchableOpacity
+            style={{ padding: 8 }}
+            onPress={() => setShowPdfOverlay(false)}
+          >
+            <Ionicons name="arrow-back" size={24} color="#7C3AED" />
+          </TouchableOpacity>
+          <Text style={{
+            fontSize: 18,
+            fontWeight: 'bold',
+            color: '#1F2937',
+          }}>{pdfTitle}</Text>
+          <View style={{ width: 40 }} />
+        </View>
+
+        {/* Contenu du rapport */}
+        <View style={{ padding: 16 }}>
+          {/* Titre et informations */}
+          <Text style={{
+            fontSize: 24,
+            fontWeight: 'bold',
+            color: '#1F2937',
+            textAlign: 'center',
+            marginBottom: 12,
+          }}>{pdfTitle}</Text>
+
+          <Text style={{
+            fontSize: 14,
+            color: '#6B7280',
+            textAlign: 'center',
+            marginBottom: 8,
+          }}>
+            Période: {new Date(dateRange.startDate).toLocaleDateString('fr-FR')} - {new Date(dateRange.endDate).toLocaleDateString('fr-FR')}
+          </Text>
+
+          <Text style={{
+            fontSize: 14,
+            color: '#6B7280',
+            textAlign: 'center',
+            marginBottom: 24,
+          }}>
+            Généré le: {new Date().toLocaleDateString('fr-FR')}
+          </Text>
+
+          {/* Résumé */}
+          <View style={{
+            backgroundColor: '#F8FAFC',
+            padding: 16,
+            borderRadius: 12,
+            marginBottom: 24,
+            borderWidth: 1,
+            borderColor: '#E5E7EB',
+          }}>
+            <Text style={{
+              fontSize: 18,
+              fontWeight: 'bold',
+              color: '#374151',
+              marginBottom: 16,
+              textAlign: 'center',
+            }}>Résumé</Text>
+
+            {pdfTitle.includes('Vente') ? (
+              <View>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <Text style={{ fontSize: 14, color: '#6B7280' }}>Chiffre d'affaires USD:</Text>
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: '#10B981' }}>
+                    ${sellingReportSummary.totalRevenueUsd.toFixed(2)}
+                  </Text>
+                </View>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <Text style={{ fontSize: 14, color: '#6B7280' }}>Chiffre d'affaires CDF:</Text>
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: '#059669' }}>
+                    {sellingReportSummary.totalRevenueCdf.toLocaleString()} CDF
+                  </Text>
+                </View>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <Text style={{ fontSize: 14, color: '#6B7280' }}>Transactions:</Text>
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: '#3B82F6' }}>
+                    {sellingReportSummary.totalTransactions}
+                  </Text>
+                </View>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                  <Text style={{ fontSize: 14, color: '#6B7280' }}>Quantité vendue:</Text>
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: '#EF4444' }}>
+                    {sellingReportSummary.totalQuantity}
+                  </Text>
+                </View>
+              </View>
+            ) : (
+              <View>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <Text style={{ fontSize: 14, color: '#6B7280' }}>Produits:</Text>
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: '#7C3AED' }}>
+                    {consumptionReportSummary.totalProducts}
+                  </Text>
+                </View>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <Text style={{ fontSize: 14, color: '#6B7280' }}>Quantité vendue:</Text>
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: '#EF4444' }}>
+                    {consumptionReportSummary.totalQuantitySold}
+                  </Text>
+                </View>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <Text style={{ fontSize: 14, color: '#6B7280' }}>Revenus USD:</Text>
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: '#10B981' }}>
+                    ${consumptionReportSummary.totalRevenueUsd.toFixed(2)}
+                  </Text>
+                </View>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <Text style={{ fontSize: 14, color: '#6B7280' }}>Revenus CDF:</Text>
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: '#059669' }}>
+                    {consumptionReportSummary.totalRevenueCdf.toLocaleString()} CDF
+                  </Text>
+                </View>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                  <Text style={{ fontSize: 14, color: '#6B7280' }}>Nombre de ventes:</Text>
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: '#3B82F6' }}>
+                    {consumptionReportSummary.totalSales}
+                  </Text>
+                </View>
+              </View>
+            )}
+          </View>
+
+          {/* Détails */}
+          <View style={{ marginBottom: 24 }}>
+            <Text style={{
+              fontSize: 18,
+              fontWeight: 'bold',
+              color: '#374151',
+              marginBottom: 16,
+              textAlign: 'center',
+            }}>Détails</Text>
+
+            {pdfData && pdfData.map((item: any, index: number) => (
+              <View key={index} style={{
+                backgroundColor: '#FFFFFF',
+                borderWidth: 1,
+                borderColor: '#E5E7EB',
+                borderRadius: 12,
+                padding: 16,
+                marginBottom: 12,
+              }}>
+                {pdfTitle.includes('Vente') ? (
+                  <>
+                    <Text style={{
+                      fontSize: 16,
+                      fontWeight: 'bold',
+                      color: '#1F2937',
+                      marginBottom: 8,
+                    }}>{index + 1}. {item.productName}</Text>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <Text style={{ fontSize: 12, color: '#6B7280' }}>Client:</Text>
+                      <Text style={{ fontSize: 12, color: '#1F2937' }}>{item.factureClient}</Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <Text style={{ fontSize: 12, color: '#6B7280' }}>Table:</Text>
+                      <Text style={{ fontSize: 12, color: '#1F2937' }}>{item.tableNomination}</Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <Text style={{ fontSize: 12, color: '#6B7280' }}>Quantité:</Text>
+                      <Text style={{ fontSize: 12, color: '#1F2937' }}>{item.qte}</Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <Text style={{ fontSize: 12, color: '#6B7280' }}>Prix USD:</Text>
+                      <Text style={{ fontSize: 12, color: '#10B981', fontWeight: '600' }}>
+                        ${item.subTotalUsd.toFixed(2)}
+                      </Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <Text style={{ fontSize: 12, color: '#6B7280' }}>Prix CDF:</Text>
+                      <Text style={{ fontSize: 12, color: '#059669', fontWeight: '600' }}>
+                        {item.subTotalCdf.toLocaleString()} CDF
+                      </Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <Text style={{ fontSize: 12, color: '#6B7280' }}>Date:</Text>
+                      <Text style={{ fontSize: 12, color: '#1F2937' }}>
+                        {new Date(item.created).toLocaleDateString('fr-FR')}
+                      </Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                      <Text style={{ fontSize: 12, color: '#6B7280' }}>Utilisateur:</Text>
+                      <Text style={{ fontSize: 12, color: '#1F2937' }}>{item.userName}</Text>
+                    </View>
+                  </>
+                ) : (
+                  <>
+                    <Text style={{
+                      fontSize: 16,
+                      fontWeight: 'bold',
+                      color: '#1F2937',
+                      marginBottom: 8,
+                    }}>{index + 1}. {item.productName} ({item.categoryName})</Text>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <Text style={{ fontSize: 12, color: '#6B7280' }}>Quantité vendue:</Text>
+                      <Text style={{ fontSize: 12, color: '#EF4444', fontWeight: '600' }}>
+                        {item.totalQuantitySold}
+                      </Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <Text style={{ fontSize: 12, color: '#6B7280' }}>Revenus USD:</Text>
+                      <Text style={{ fontSize: 12, color: '#10B981', fontWeight: '600' }}>
+                        ${item.totalRevenueUsd.toFixed(2)}
+                      </Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <Text style={{ fontSize: 12, color: '#6B7280' }}>Revenus CDF:</Text>
+                      <Text style={{ fontSize: 12, color: '#059669', fontWeight: '600' }}>
+                        {item.totalRevenueCdf.toLocaleString()} CDF
+                      </Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <Text style={{ fontSize: 12, color: '#6B7280' }}>Nombre de ventes:</Text>
+                      <Text style={{ fontSize: 12, color: '#3B82F6', fontWeight: '600' }}>
+                        {item.numberOfSales}
+                      </Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                      <Text style={{ fontSize: 12, color: '#6B7280' }}>Période:</Text>
+                      <Text style={{ fontSize: 12, color: '#1F2937' }}>
+                        {new Date(item.firstSaleDate).toLocaleDateString('fr-FR')} - {new Date(item.lastSaleDate).toLocaleDateString('fr-FR')}
+                      </Text>
+                    </View>
+                  </>
+                )}
+              </View>
+            ))}
+          </View>
+        </View>
+
+        {/* Boutons de partage */}
+        <View style={{
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          flexDirection: 'row',
+          padding: 16,
+          backgroundColor: '#FFFFFF',
+          borderTopWidth: 1,
+          borderTopColor: '#E5E7EB',
+          gap: 12,
+        }}>
+          <TouchableOpacity
+            style={{
+              flex: 1,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              paddingVertical: 16,
+              borderRadius: 12,
+              backgroundColor: '#25D366',
+              gap: 8,
+            }}
+            onPress={handleShareWhatsApp}
+          >
+            <Ionicons name="logo-whatsapp" size={24} color="#FFFFFF" />
+            <Text style={{ fontSize: 16, fontWeight: '600', color: '#FFFFFF' }}>WhatsApp</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={{
+              flex: 1,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              paddingVertical: 16,
+              borderRadius: 12,
+              backgroundColor: '#3B82F6',
+              gap: 8,
+            }}
+            onPress={handleShareEmail}
+          >
+            <Ionicons name="mail" size={24} color="#FFFFFF" />
+            <Text style={{ fontSize: 16, fontWeight: '600', color: '#FFFFFF' }}>Email</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    )
+  }
