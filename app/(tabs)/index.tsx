@@ -385,7 +385,7 @@ export default function HomeScreen() {
           {/* Logo/Titre */}
           <View style={styles.headerTitleContainerMobile}>
             <Text style={styles.headerTitleMobile}>
-              Restaurant Manager
+              POST-MARKET Pro
             </Text>
             {userData && (
               <>
@@ -409,7 +409,7 @@ export default function HomeScreen() {
               <Ionicons name="log-out-outline" size={20} color="#FFFFFF" />
             </TouchableOpacity>
             <TouchableOpacity style={styles.avatarMobile}>
-              <Ionicons name="restaurant" size={24} color="#FFFFFF" />
+              <Ionicons name="calculator" size={24} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
         </View>

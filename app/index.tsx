@@ -245,9 +245,9 @@ const LoginScreen = () => {
       <View style={styles.loginCardMobile}>
         <View style={styles.loginHeaderMobile}>
           <View style={styles.logoContainerMobile}>
-            <Ionicons name="restaurant" size={32} color="#7C3AED" />
+            <Ionicons name="calculator" size={32} color="#282828" />
           </View>
-          <Text style={styles.loginTitleMobile}>Restaurant Manager</Text>
+          <Text style={styles.loginTitleMobile}>POST-MARKET Pro</Text>
           <Text style={styles.loginSubtitleMobile}>Connectez-vous à votre compte</Text>
         </View>
         

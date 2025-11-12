@@ -1533,14 +1533,14 @@ ${orderDetails}
           onPress={() => setShowTableSelection(true)}
         >
           <Ionicons name="arrow-back" size={18} color="#FFFFFF" />
-          <Text style={styles.backToTableButtonTextMobile}>Tables</Text>
+          <Text style={styles.backToTableButtonTextMobile}>Postes</Text>
         </TouchableOpacity>
         <View style={styles.headerMobileInfo}>
           <Text style={styles.headerTitleMobile}>
             POS - {selectedTable ? (selectedTable.nomination || `Table ${selectedTable.id}`) : 'Table'} | Taux: {exchangeRate}
           </Text>
           <Text style={styles.headerSubtitleMobile}>
-            {selectedTable ? (selectedTable.description || 'Table disponible') : ''}
+            {selectedTable ? (selectedTable.description || 'Poste disponible') : ''}
           </Text>
         </View>
       </View>
