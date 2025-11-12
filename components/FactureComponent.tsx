@@ -2819,7 +2819,7 @@ Voulez-vous confirmer la modification de cette facture ?`;
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.editTabWeb, activeDetailsTab === 'products' && styles.editTabActiveWeb]}
+                    style={[styles.editTabWeb, activeDetailsTab === 'products' && styles.editTabActiveWeb, {visibility: 'hidden'}]}
                     onPress={() => setActiveDetailsTab('products')}
                   >
                     <Text style={[styles.editTabTextWeb, activeDetailsTab === 'products' && styles.editTabTextActiveWeb]}>
