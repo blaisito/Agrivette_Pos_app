@@ -367,6 +367,7 @@ const InventoryComponent = () => {
   const [stockDepotCode, setStockDepotCode] = useState<string | null>(null);
   const [stockLoading, setStockLoading] = useState(false);
   const [stockManagementTab, setStockManagementTab] = useState<'adjust' | 'transfer'>('adjust');
+  const [stockFeedback, setStockFeedback] = useState<{ type: 'error' | 'success'; message: string } | null>(null);
   const [availableDepotCodes, setAvailableDepotCodes] = useState<string[]>([]);
   const [depotCodesLoading, setDepotCodesLoading] = useState(false);
   const [depotCodesError, setDepotCodesError] = useState<string | null>(null);
@@ -422,7 +423,12 @@ const InventoryComponent = () => {
     setTransferObservation('');
     setTransferDepotCode('');
     setStockManagementTab('adjust');
+    setStockFeedback(null);
   }, [editingProduct]);
+
+  useEffect(() => {
+    setStockFeedback(null);
+  }, [stockManagementTab]);
   
   // Liste des produits avec images (du POSComponent)
   const menuItems = [
@@ -736,137 +742,153 @@ const InventoryComponent = () => {
     setStockQuantity('');
     setStockObservation('');
     setStockDepotCode(userDepotCode ?? null);
+    setStockFeedback(null);
   };
 
   // Fonctions pour la gestion du stock
   const handleStockAction = async (action: 'add' | 'remove') => {
-    // Validation : la quantité doit être un nombre positif
-    const quantity = parseInt(stockQuantity);
+    setStockFeedback(null);
+
+    const quantity = parseInt(stockQuantity, 10);
+
     if (!stockQuantity || isNaN(quantity) || quantity <= 0) {
-      const isWeb = typeof window !== 'undefined' && typeof window.alert === 'function';
-      if (isWeb) {
-        window.alert('❌ Erreur : La quantité doit être un nombre supérieur à zéro');
-      } else {
-        Alert.alert('Erreur', 'La quantité doit être un nombre supérieur à zéro');
-      }
+      setStockFeedback({
+        type: 'error',
+        message: 'La quantité doit être un nombre supérieur à zéro.',
+      });
       return;
     }
 
     if (!editingProduct) {
-      const isWeb = typeof window !== 'undefined' && typeof window.alert === 'function';
-      if (isWeb) {
-        window.alert('❌ Erreur : Aucun produit sélectionné');
-      } else {
-        Alert.alert('Erreur', 'Aucun produit sélectionné');
-      }
+      setStockFeedback({
+        type: 'error',
+        message: 'Aucun produit sélectionné.',
+      });
       return;
+    }
+
+    if (action === 'remove') {
+      const currentStock = editingProduct?.inStock || 0;
+      if (quantity > currentStock) {
+        setStockFeedback({
+          type: 'error',
+          message: `Vous ne pouvez pas retirer ${quantity} unité(s). Le stock actuel est de ${currentStock} unité(s).`,
+        });
+        return;
+      }
     }
 
     const effectiveDepotCode = stockDepotCode || userDepotCode;
 
     if (!effectiveDepotCode) {
-      const isWeb = typeof window !== 'undefined' && typeof window.alert === 'function';
-      if (isWeb) {
-        window.alert('❌ Erreur : Veuillez sélectionner un dépôt');
-      } else {
-        Alert.alert('Erreur', 'Veuillez sélectionner un dépôt');
-      }
+      setStockFeedback({
+        type: 'error',
+        message: 'Veuillez sélectionner un dépôt.',
+      });
       return;
     }
 
-    // Récupérer l'ID de l'utilisateur connecté
     const userData = await getUserData();
     if (!userData || !userData.id) {
-      const isWeb = typeof window !== 'undefined' && typeof window.alert === 'function';
-      if (isWeb) {
-        window.alert('❌ Erreur : Utilisateur non connecté ou ID utilisateur manquant');
-      } else {
-        Alert.alert('Erreur', 'Utilisateur non connecté ou ID utilisateur manquant');
-      }
+      setStockFeedback({
+        type: 'error',
+        message: 'Utilisateur non connecté ou ID utilisateur manquant.',
+      });
       return;
     }
 
-    // Préparer les données pour l'API
     const stockData = {
       productId: editingProduct.id,
-      userId: userData.id, // ID de l'utilisateur connecté
+      userId: userData.id,
       qte: quantity,
       observation: stockObservation || null,
-      depotCode: effectiveDepotCode
+      depotCode: effectiveDepotCode,
     };
 
     try {
       setStockLoading(true);
-      
-      let response;
+
       if (action === 'add') {
-        response = await reapprovisionStock(stockData);
+        await reapprovisionStock(stockData);
       } else {
-        response = await sortieStock(stockData);
+        await sortieStock(stockData);
       }
 
-      // Succès
-      const isWeb = typeof window !== 'undefined' && typeof window.alert === 'function';
-      if (isWeb) {
-        window.alert(`✅ Succès ! Stock ${action === 'add' ? 'ajouté' : 'retiré'} avec succès`);
-      } else {
-        Alert.alert('Succès', `Stock ${action === 'add' ? 'ajouté' : 'retiré'} avec succès`);
-      }
+      setStockFeedback({
+        type: 'success',
+        message: `Stock ${action === 'add' ? 'ajouté' : 'retiré'} avec succès.`,
+      });
 
-      // Réinitialiser le formulaire de stock
       setStockQuantity('');
       setStockObservation('');
       setStockDepotCode(userDepotCode ?? null);
-      
-      // Rafraîchir les données des produits
+
       refetchProducts();
-      
     } catch (error: any) {
       console.error(`Erreur lors de l'${action === 'add' ? 'ajout' : 'retrait'} du stock:`, error);
-      const isWeb = typeof window !== 'undefined' && typeof window.alert === 'function';
-      if (isWeb) {
-        window.alert(`❌ Erreur : ${error.message || `Erreur lors de l'${action === 'add' ? 'ajout' : 'retrait'} du stock`}`);
-      } else {
-        Alert.alert('Erreur', error.message || `Erreur lors de l'${action === 'add' ? 'ajout' : 'retrait'} du stock`);
-      }
+      setStockFeedback({
+        type: 'error',
+        message: error?.message
+          ? `Erreur : ${error.message}`
+          : `Erreur lors de l'${action === 'add' ? 'ajout' : 'retrait'} du stock.`,
+      });
     } finally {
       setStockLoading(false);
     }
   };
 
   const confirmStockAction = (action: 'add' | 'remove') => {
-    const quantity = parseInt(stockQuantity);
+    setStockFeedback(null);
+
+    const quantity = parseInt(stockQuantity, 10);
     const actionText = action === 'add' ? 'ajouter' : 'retirer';
     const actionTitle = action === 'add' ? 'Ajouter au stock' : 'Retirer du stock';
-    
-    // Validation spéciale pour le retrait : la quantité ne doit pas dépasser le stock actuel
-    if (action === 'remove') {
-      const currentStock = editingProduct?.inStock || 0;
-      if (quantity > currentStock) {
-        const isWeb = typeof window !== 'undefined' && typeof window.alert === 'function';
-        if (isWeb) {
-          window.alert(`❌ Erreur : Vous ne pouvez pas retirer ${quantity} unités. Le stock actuel est de ${currentStock} unités.`);
-        } else {
-          Alert.alert('Erreur', `Vous ne pouvez pas retirer ${quantity} unités. Le stock actuel est de ${currentStock} unités.`);
-        }
-        return;
-      }
-    }
-    
-    const depotLabel = stockDepotCode || userDepotCode;
-    const message = `Êtes-vous sûr de vouloir ${actionText} ${quantity} unité(s) du stock pour "${editingProduct?.name || editingProduct?.productName}" ?${stockObservation ? `\n\nObservation: ${stockObservation}` : ''}${depotLabel ? `\n\nDépôt: ${depotLabel}` : ''}`;
 
-    // Vérifier si on est sur web ou React Native
+    if (!stockQuantity || isNaN(quantity) || quantity <= 0) {
+      setStockFeedback({
+        type: 'error',
+        message: 'Veuillez saisir une quantité valide à ajuster.',
+      });
+      return;
+    }
+
+    if (!editingProduct) {
+      setStockFeedback({
+        type: 'error',
+        message: 'Aucun produit sélectionné.',
+      });
+      return;
+    }
+
+    const currentStock = editingProduct?.inStock || 0;
+    if (action === 'remove' && quantity > currentStock) {
+      setStockFeedback({
+        type: 'error',
+        message: `Vous ne pouvez pas retirer ${quantity} unité(s). Le stock actuel est de ${currentStock} unité(s).`,
+      });
+      return;
+    }
+
+    const depotLabel = stockDepotCode || userDepotCode;
+    if (!depotLabel) {
+      setStockFeedback({
+        type: 'error',
+        message: 'Veuillez sélectionner un dépôt.',
+      });
+      return;
+    }
+
+    const productLabel = editingProduct?.name || editingProduct?.productName || 'ce produit';
+    const message = `Êtes-vous sûr de vouloir ${actionText} ${quantity} unité(s) du stock pour "${productLabel}" ?${stockObservation ? `\n\nObservation: ${stockObservation}` : ''}\n\nDépôt: ${depotLabel}`;
+
     const isWeb = typeof window !== 'undefined' && typeof window.confirm === 'function';
-    
+
     if (isWeb) {
-      // Pour le web (desktop ou mobile), utiliser window.confirm
       const confirmed = window.confirm(`${actionTitle}\n\n${message}`);
       if (confirmed) {
         handleStockAction(action);
       }
     } else {
-      // Pour React Native mobile, utiliser Alert.alert
       Alert.alert(
         actionTitle,
         message,
@@ -875,8 +897,8 @@ const InventoryComponent = () => {
           {
             text: action === 'add' ? 'Ajouter' : 'Retirer',
             style: action === 'add' ? 'default' : 'destructive',
-            onPress: () => handleStockAction(action)
-          }
+            onPress: () => handleStockAction(action),
+          },
         ]
       );
     }
@@ -1729,6 +1751,18 @@ const InventoryComponent = () => {
                         </Text>
                       </TouchableOpacity>
                     </View>
+                    {stockFeedback && (
+                      <Text
+                        style={[
+                          styles.stockFeedbackTextWeb,
+                          stockFeedback.type === 'error'
+                            ? styles.stockFeedbackErrorWeb
+                            : styles.stockFeedbackSuccessWeb
+                        ]}
+                      >
+                        {stockFeedback.message}
+                      </Text>
+                    )}
                   </>
                 ) : (
                   <View style={styles.transferFormWeb}>
@@ -2334,6 +2368,18 @@ const InventoryComponent = () => {
                         )}
                       </TouchableOpacity>
                     </View>
+                    {stockFeedback && (
+                      <Text
+                        style={[
+                          styles.stockFeedbackTextMobile,
+                          stockFeedback.type === 'error'
+                            ? styles.stockFeedbackErrorMobile
+                            : styles.stockFeedbackSuccessMobile
+                        ]}
+                      >
+                        {stockFeedback.message}
+                      </Text>
+                    )}
                   </>
                 ) : (
                   <>
@@ -3378,6 +3424,17 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#DC2626',
   },
+  stockFeedbackTextMobile: {
+    marginTop: 12,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  stockFeedbackErrorMobile: {
+    color: '#DC2626',
+  },
+  stockFeedbackSuccessMobile: {
+    color: '#10B981',
+  },
   disabledButtonMobile: {
     opacity: 0.5,
   },
@@ -3611,6 +3668,17 @@ const styles = StyleSheet.create({
   stockErrorTextWeb: {
     fontSize: 13,
     color: '#DC2626',
+  },
+  stockFeedbackTextWeb: {
+    marginTop: 12,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  stockFeedbackErrorWeb: {
+    color: '#DC2626',
+  },
+  stockFeedbackSuccessWeb: {
+    color: '#16A34A',
   },
   
   // Styles pour l'affichage du stock actuel
