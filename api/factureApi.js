@@ -155,3 +155,20 @@ export const printFacture = async (receiptData) => {
     throw error;
   }
 };
+
+// Ajouter un paiement sur une facture
+export const addFacturePayment = async (paymentData) => {
+  if (!paymentData?.factureId) {
+    throw new Error('factureId manquant pour l\'ajout du paiement.');
+  }
+  const { factureId, ...rest } = paymentData;
+  try {
+    const endpoint = `/api/v1.0/Facture/payments/add`;
+    const payload = { factureId, ...rest };
+    const response = await apiClient.post(endpoint, payload);
+    return response;
+  } catch (error) {
+    console.error('Erreur lors de l\'ajout du paiement:', error);
+    throw error;
+  }
+};

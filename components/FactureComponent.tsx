@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Dimensions, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { getCategories } from '../api/categoryApi';
 import { getExchangeRate } from '../api/configurationApi';
-import { deleteFacture, getAllFactures, getFacturesByDateRange, markFactureAsAborted, markFactureAsPayed, printFacture, updateFacture } from '../api/factureApi';
+import { addFacturePayment, deleteFacture, getAllFactures, getFacturesByDateRange, markFactureAsAborted, markFactureAsPayed, printFacture, updateFacture } from '../api/factureApi';
 import { getProducts } from '../api/productApi';
 import { getTables } from '../api/tableApi';
 import { useFetch } from '../hooks/useFetch';
@@ -50,6 +50,11 @@ const formatInvoiceForReceipt = (invoice: any) => {
 const FactureComponent = ({ onInvoiceCountChange }: FactureComponentProps) => {
   const { width } = Dimensions.get('window');
   const isLargeScreen = width > 768;
+  const paymentMethodOptions = ['Cash', 'EquityBCDC', 'Ecobank', 'Orange-Money', 'M-Pesa', 'Airtel-Money'];
+  const paymentDeviseOptions = [
+    { label: 'CDF', value: 2 },
+    { label: 'USD', value: 1 },
+  ];
 
   // États pour les filtres
   const [selectedStatus, setSelectedStatus] = useState('Toutes');
@@ -112,6 +117,71 @@ const FactureComponent = ({ onInvoiceCountChange }: FactureComponentProps) => {
   const [pendingInvoiceAutoPrint, setPendingInvoiceAutoPrint] = useState(false);
   const [invoiceReportData, setInvoiceReportData] = useState<Invoice[]>([]);
   const invoiceReportIframeRef = useRef<HTMLIFrameElement | null>(null);
+  const [paymentAmount, setPaymentAmount] = useState<string>('');
+  const [paymentDevise, setPaymentDevise] = useState<number>(paymentDeviseOptions[0].value);
+  const [paymentObservation, setPaymentObservation] = useState<string>('');
+  const [isSubmittingPayment, setIsSubmittingPayment] = useState<boolean>(false);
+  const invoiceTotals = useMemo(() => {
+    if (!selectedInvoiceForDetails) {
+      return {
+        basketTotalCdf: 0,
+        basketTotalUsd: 0,
+        reductionCdf: 0,
+        reductionUsd: 0,
+        paidCdf: 0,
+        paidUsd: 0,
+        remainingCdf: 0,
+        remainingUsd: 0,
+      };
+    }
+    const items = Array.isArray(selectedInvoiceForDetails.items)
+      ? selectedInvoiceForDetails.items
+      : [];
+    const basketTotalCdf = items.reduce((sum: number, item: any) => {
+      const subtotal =
+        Number(item.subTotalCdf) ||
+        Number(item.priceCdf || 0) * Number(item.qte || item.quantity || 1);
+      return sum + (Number.isFinite(subtotal) ? subtotal : 0);
+    }, 0);
+    const basketTotalUsd = items.reduce((sum: number, item: any) => {
+      const subtotal =
+        Number(item.subTotalUsd) ||
+        Number(item.priceUsd || 0) * Number(item.qte || item.quantity || 1);
+      return sum + (Number.isFinite(subtotal) ? subtotal : 0);
+    }, 0);
+    const reductionCdf = Number(selectedInvoiceForDetails.reductionCdf) || 0;
+    const reductionUsd = Number(selectedInvoiceForDetails.reductionUsd) || 0;
+    const fallbackPaidCdf = basketTotalCdf - reductionCdf;
+    const fallbackPaidUsd = basketTotalUsd - reductionUsd;
+    const paidCdf = Number(
+      selectedInvoiceForDetails.amountPaidCdf ?? fallbackPaidCdf
+    );
+    const paidUsd = Number(
+      selectedInvoiceForDetails.amountPaidUsd ?? fallbackPaidUsd
+    );
+    const remainingCdfRaw = basketTotalCdf - reductionCdf - paidCdf;
+    const remainingUsdRaw = basketTotalUsd - reductionUsd - paidUsd;
+    return {
+      basketTotalCdf,
+      basketTotalUsd,
+      reductionCdf,
+      reductionUsd,
+      paidCdf,
+      paidUsd,
+      remainingCdf: Math.max(0, Math.floor(remainingCdfRaw)),
+      remainingUsd: Math.max(0, Number(remainingUsdRaw.toFixed(2))),
+    };
+  }, [selectedInvoiceForDetails]);
+  const paymentLimit = Math.max(
+    0,
+    paymentDevise === 1 ? invoiceTotals.remainingUsd : invoiceTotals.remainingCdf
+  );
+  const paymentAmountNumber =
+    paymentDevise === 1
+      ? Number(paymentAmount.replace(',', '.'))
+      : Number(paymentAmount);
+  const isPaymentAmountPositive =
+    Number.isFinite(paymentAmountNumber) && paymentAmountNumber > 0;
   
   // États pour le taux de change
   const [exchangeRate, setExchangeRate] = useState<number>(2800); // Valeur par défaut
@@ -205,8 +275,6 @@ const FactureComponent = ({ onInvoiceCountChange }: FactureComponentProps) => {
     typePaiement?: string | null;
     dette?: boolean;
   }
-
-const PAYMENT_METHOD_OPTIONS = ['Cash', 'EquityBCDC', 'Ecobank', 'Orange-Money', 'M-Pesa', 'Airtel-Money'];
 
   // Récupération des factures depuis l'API avec filtrage par date
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -507,6 +575,22 @@ const PAYMENT_METHOD_OPTIONS = ['Cash', 'EquityBCDC', 'Ecobank', 'Orange-Money',
       }
     }
   }, [invoices, onInvoiceCountChange]);
+
+  useEffect(() => {
+    if (!selectedInvoiceForDetails) {
+      return;
+    }
+    const updatedInvoice = invoices.find(inv => inv.id === selectedInvoiceForDetails.id);
+    if (updatedInvoice && updatedInvoice !== selectedInvoiceForDetails) {
+      setSelectedInvoiceForDetails(updatedInvoice);
+      if (selectedInvoice && selectedInvoice.id === updatedInvoice.id) {
+        setSelectedInvoice(updatedInvoice);
+      }
+      if (selectedInvoiceForMobileEdit && selectedInvoiceForMobileEdit.id === updatedInvoice.id) {
+        setSelectedInvoiceForMobileEdit(updatedInvoice);
+      }
+    }
+  }, [invoices, selectedInvoiceForDetails, selectedInvoice, selectedInvoiceForMobileEdit]);
 
   // Récupération du taux de change
   useEffect(() => {
@@ -1442,6 +1526,134 @@ Voulez-vous confirmer l'impression de cette facture ?`;
       setIsPrinting(false);
     }
   };
+
+  const handlePaymentAmountChange = (value: string) => {
+    if (paymentDevise === 1) {
+      const sanitized = value.replace(',', '.');
+      if (sanitized.trim() === '') {
+        setPaymentAmount('');
+        return;
+      }
+      if (!/^\d*(\.\d{0,2})?$/.test(sanitized)) {
+        return;
+      }
+      const parsed = Number(sanitized);
+      if (!Number.isFinite(parsed)) {
+        setPaymentAmount('');
+        return;
+      }
+      if (paymentLimit <= 0) {
+        setPaymentAmount('');
+        return;
+      }
+      const clamped = Math.min(parsed, paymentLimit);
+      setPaymentAmount(parsed > paymentLimit ? clamped.toFixed(2) : sanitized);
+    } else {
+      const digitsOnly = value.replace(/\D/g, '');
+      if (digitsOnly === '') {
+        setPaymentAmount('');
+        return;
+      }
+      const parsed = Number(digitsOnly);
+      if (!Number.isFinite(parsed)) {
+        setPaymentAmount('');
+        return;
+      }
+      if (paymentLimit <= 0) {
+        setPaymentAmount('');
+        return;
+      }
+      const clamped = Math.min(parsed, Math.floor(paymentLimit));
+      setPaymentAmount(clamped.toString());
+    }
+  };
+
+  const handlePaymentDeviseChange = (value: number) => {
+    setPaymentDevise(value);
+    setPaymentAmount('');
+  };
+
+  const resetPaymentForm = () => {
+    setPaymentAmount('');
+    setPaymentDevise(paymentDeviseOptions[0].value);
+    setPaymentObservation('');
+  };
+
+  const handleAddPayment = async () => {
+    if (!selectedInvoiceForDetails?.id) {
+      Alert.alert('Erreur', 'Aucune facture sélectionnée pour le paiement.');
+      return;
+    }
+
+    if (paymentLimit <= 0) {
+      Alert.alert('Solde épuisé', 'Aucun montant n\'est dû pour cette devise.');
+      return;
+    }
+
+    if (!isPaymentAmountPositive) {
+      Alert.alert('Montant invalide', 'Veuillez saisir un montant supérieur à zéro.');
+      return;
+    }
+
+    const numericAmount = paymentAmountNumber;
+    const tolerance = paymentDevise === 1 ? 0.01 : 0;
+    if (numericAmount - paymentLimit > tolerance) {
+      Alert.alert(
+        'Montant trop élevé',
+        `Le montant saisi dépasse le reste à payer (${paymentDevise === 1 ? paymentLimit.toFixed(2) + ' USD' : `${Math.floor(paymentLimit)} CDF`}).`,
+      );
+      return;
+    }
+
+    const amountToSend =
+      paymentDevise === 1 ? Number(numericAmount.toFixed(2)) : Math.round(numericAmount);
+
+    setIsSubmittingPayment(true);
+    try {
+      const payload = {
+        factureId: selectedInvoiceForDetails.id,
+        amount: amountToSend,
+        devise: paymentDevise,
+        taux: exchangeRate,
+        observation: paymentObservation.trim(),
+      };
+
+      await addFacturePayment(payload);
+
+      Alert.alert('Succès', 'Paiement enregistré avec succès.');
+      resetPaymentForm();
+      await refetchInvoices();
+    } catch (error) {
+      console.error('Erreur lors de l\'ajout du paiement:', error);
+      const message =
+        error instanceof Error ? error.message : 'Impossible d\'enregistrer le paiement.';
+      Alert.alert('Erreur', message);
+    } finally {
+      setIsSubmittingPayment(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!paymentAmount) {
+      return;
+    }
+    if (paymentLimit <= 0) {
+      setPaymentAmount('');
+      return;
+    }
+    const numericAmount = paymentAmountNumber;
+    if (!Number.isFinite(numericAmount)) {
+      setPaymentAmount('');
+      return;
+    }
+    if (numericAmount > paymentLimit) {
+      const formatted =
+        paymentDevise === 1
+          ? paymentLimit.toFixed(2)
+          : Math.floor(paymentLimit).toString();
+      setPaymentAmount(formatted);
+    }
+  }, [paymentLimit, paymentDevise, paymentAmount, paymentAmountNumber]);
 
   // Fonction pour changer le statut de la facture
   const toggleInvoiceStatus = () => {
@@ -2585,7 +2797,7 @@ Voulez-vous confirmer la modification de cette facture ?`;
                   <View style={styles.editPaymentContainerWeb}>
                     <Text style={styles.editSectionSubtitleWeb}>Mode de paiement</Text>
                     <View style={styles.paymentMethodChipsWeb}>
-                      {PAYMENT_METHOD_OPTIONS.map((method) => {
+                      {paymentMethodOptions.map((method) => {
                         const isSelected = (selectedInvoiceForDetails.typePaiement || '').toLowerCase() === method.toLowerCase();
                         return (
                           <TouchableOpacity
@@ -2706,27 +2918,13 @@ Voulez-vous confirmer la modification de cette facture ?`;
                   <View style={styles.editTotalRowWeb}>
                     <Text style={styles.editTotalLabelWeb}>Total CDF:</Text>
                     <Text style={styles.editTotalValueWeb}>
-                      {(() => {
-                        const basketTotalCdf =
-                          selectedInvoiceForDetails.items?.reduce((sum: number, item: any) => {
-                            const subtotal = item.subTotalCdf ?? (item.priceCdf || 0) * (item.qte || item.quantity || 1);
-                            return sum + (subtotal || 0);
-                          }, 0) || 0;
-                        return basketTotalCdf.toFixed(0);
-                      })()} CDF
+                      {invoiceTotals.basketTotalCdf.toFixed(0)} CDF
                     </Text>
                   </View>
                   <View style={styles.editTotalRowWeb}>
                     <Text style={styles.editTotalLabelWeb}>Total USD:</Text>
                     <Text style={styles.editTotalValueWeb}>
-                      {(() => {
-                        const basketTotalUsd =
-                          selectedInvoiceForDetails.items?.reduce((sum: number, item: any) => {
-                            const subtotal = item.subTotalUsd ?? (item.priceUsd || 0) * (item.qte || item.quantity || 1);
-                            return sum + (subtotal || 0);
-                          }, 0) || 0;
-                        return basketTotalUsd.toFixed(2);
-                      })()} USD
+                      {invoiceTotals.basketTotalUsd.toFixed(2)} USD
                     </Text>
                   </View>
                 </View>
@@ -2738,55 +2936,29 @@ Voulez-vous confirmer la modification de cette facture ?`;
                   <View style={styles.editTotalRowWeb}>
                     <Text style={styles.editTotalLabelWeb}>Total CDF:</Text>
                     <Text style={styles.editTotalValueWeb}>
-                    {(() => {
-                      const computedFallbackCdf =
-                        (selectedInvoiceForDetails.items?.reduce((sum: number, item: any) =>
-                          sum + (item.subTotalCdf || item.priceCdf * (item.qte || item.quantity) || 0), 0
-                        ) || 0) - (selectedInvoiceForDetails.reductionCdf || 0);
-                      const paidCdf = Number(selectedInvoiceForDetails.amountPaidCdf ?? computedFallbackCdf);
-                      return paidCdf.toFixed(0);
-                    })()} CDF
+                    {invoiceTotals.paidCdf.toFixed(0)} CDF
                     </Text>
                   </View>
                   <View style={styles.editTotalRowWeb}>
                     <Text style={styles.editTotalLabelWeb}>Total USD:</Text>
                     <Text style={styles.editTotalValueWeb}>
-                      {(() => {
-                        const computedFallbackUsd =
-                          (selectedInvoiceForDetails.items?.reduce((sum: number, item: any) =>
-                            sum + (item.subTotalUsd || item.priceUsd * (item.qte || item.quantity) || 0), 0
-                          ) || 0) - (selectedInvoiceForDetails.reductionUsd || 0);
-                        const paidUsd = Number(selectedInvoiceForDetails.amountPaidUsd ?? computedFallbackUsd);
-                        return paidUsd.toFixed(2);
-                      })()} USD
+                      {invoiceTotals.paidUsd.toFixed(2)} USD
                     </Text>
                   </View>
                   <View style={styles.editTotalAfterReductionRowWeb}>
                     <Text style={styles.editTotalAfterReductionLabelWeb}>Montant payé:</Text>
                     <View style={styles.editTotalAfterReductionValueContainerWeb}>
-                      {(() => {
-                        const fallbackCdf = (selectedInvoiceForDetails.items?.reduce((sum: number, item: any) =>
-                          sum + (item.subTotalCdf || item.priceCdf * (item.qte || item.quantity) || 0), 0
-                        ) || 0) - (selectedInvoiceForDetails.reductionCdf || 0);
-                        const paidCdf = Number(selectedInvoiceForDetails.amountPaidCdf ?? fallbackCdf);
-                        const fallbackUsd = (selectedInvoiceForDetails.items?.reduce((sum: number, item: any) =>
-                          sum + (item.subTotalUsd || item.priceUsd * (item.qte || item.quantity) || 0), 0
-                        ) || 0) - (selectedInvoiceForDetails.reductionUsd || 0);
-                        const paidUsd = Number(selectedInvoiceForDetails.amountPaidUsd ?? fallbackUsd);
-                        return (
-                          <>
-                            {/*<Text style={[styles.editTotalAfterReductionValueWeb, { visibility: 'hidden' }]}>
-                              {paidCdf.toFixed(0)} CDF
-                            </Text>
-                            <Text style={[styles.editReductionDetailWeb, { visibility: 'hidden' }]}>
-                              MONTANT PAYÉ USD: {paidUsd.toFixed(2)}
-                            </Text>*/}
-                            <Text style={[styles.editReductionDetailWeb, { fontSize: 14 }]}>
-                              REDUCTION CDF: {(Number(selectedInvoiceForDetails.reductionCdf) || 0).toFixed(0)},  REDUCTION USD: {(Number(selectedInvoiceForDetails.reductionUsd) || 0).toFixed(2)}
-                            </Text>
-                          </>
-                        );
-                      })()}
+                      <>
+                        <Text style={styles.editTotalAfterReductionValueWeb}>
+                          {invoiceTotals.paidCdf.toFixed(0)} CDF
+                        </Text>
+                        <Text style={styles.editReductionDetailWeb}>
+                          MONTANT PAYÉ USD: {invoiceTotals.paidUsd.toFixed(2)}
+                        </Text>
+                        <Text style={styles.editReductionDetailWeb}>
+                          REDUCTION CDF: {invoiceTotals.reductionCdf.toFixed(0)},  REDUCTION USD: {invoiceTotals.reductionUsd.toFixed(2)}
+                        </Text>
+                      </>
                     </View>
                   </View>
                 </View>
@@ -2796,39 +2968,86 @@ Voulez-vous confirmer la modification de cette facture ?`;
                   <View style={styles.editTotalRowWeb}>
                     <Text style={styles.editTotalLabelWeb}>Reste CDF:</Text>
                     <Text style={styles.editTotalValueWeb}>
-                      {(() => {
-                        const basketTotalCdf =
-                          selectedInvoiceForDetails.items?.reduce((sum: number, item: any) => {
-                            const subtotal = item.subTotalCdf ?? (item.priceCdf || 0) * (item.qte || item.quantity || 1);
-                            return sum + (subtotal || 0);
-                          }, 0) || 0;
-                        const reductionCdf = Number(selectedInvoiceForDetails.reductionCdf) || 0;
-                        const computedFallbackCdf =
-                          basketTotalCdf - reductionCdf;
-                        const paidCdf = Number(selectedInvoiceForDetails.amountPaidCdf ?? computedFallbackCdf);
-                        const remainingCdf = basketTotalCdf - reductionCdf - paidCdf;
-                        return remainingCdf.toFixed(0);
-                      })()} CDF
+                      {invoiceTotals.remainingCdf.toFixed(0)} CDF
                     </Text>
                   </View>
                   <View style={styles.editTotalRowWeb}>
                     <Text style={styles.editTotalLabelWeb}>Reste USD:</Text>
                     <Text style={styles.editTotalValueWeb}>
-                      {(() => {
-                        const basketTotalUsd =
-                          selectedInvoiceForDetails.items?.reduce((sum: number, item: any) => {
-                            const subtotal = item.subTotalUsd ?? (item.priceUsd || 0) * (item.qte || item.quantity || 1);
-                            return sum + (subtotal || 0);
-                          }, 0) || 0;
-                        const reductionUsd = Number(selectedInvoiceForDetails.reductionUsd) || 0;
-                        const computedFallbackUsd =
-                          basketTotalUsd - reductionUsd;
-                        const paidUsd = Number(selectedInvoiceForDetails.amountPaidUsd ?? computedFallbackUsd);
-                        const remainingUsd = basketTotalUsd - reductionUsd - paidUsd;
-                        return remainingUsd.toFixed(2);
-                      })()} USD
+                      {invoiceTotals.remainingUsd.toFixed(2)} USD
                     </Text>
                   </View>
+                </View>
+
+                <View style={[styles.editSectionWeb, styles.paymentSectionWeb]}>
+                  <Text style={styles.editSectionTitleWeb}>Faire un paiement</Text>
+                  <Text style={styles.paymentInfoTextWeb}>
+                    Taux: {exchangeRate} • Reste CDF: {invoiceTotals.remainingCdf.toFixed(0)} • Reste USD: {invoiceTotals.remainingUsd.toFixed(2)}
+                  </Text>
+                  <View style={styles.paymentAmountRowWeb}>
+                    <Text style={styles.paymentLabelWeb}>Montant</Text>
+                    <TextInput
+                      style={styles.editInputWeb}
+                      placeholder="0.00"
+                      placeholderTextColor="#9CA3AF"
+                      keyboardType={paymentDevise === 1 ? 'decimal-pad' : 'numeric'}
+                      value={paymentAmount}
+                      onChangeText={handlePaymentAmountChange}
+                    />
+                  </View>
+                  <View style={styles.paymentDeviseGroupWeb}>
+                    {paymentDeviseOptions.map(option => {
+                      const isSelected = paymentDevise === option.value;
+                      return (
+                        <TouchableOpacity
+                          key={option.value}
+                          style={[
+                            styles.paymentDeviseButtonWeb,
+                            isSelected && styles.paymentDeviseButtonActiveWeb,
+                          ]}
+                          onPress={() => handlePaymentDeviseChange(option.value)}
+                        >
+                          <Text
+                            style={[
+                              styles.paymentDeviseButtonTextWeb,
+                              isSelected && styles.paymentDeviseButtonTextActiveWeb,
+                            ]}
+                          >
+                            {option.label}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                  <TextInput
+                    style={[styles.editInputWeb, styles.paymentObservationInputWeb]}
+                    placeholder="Observation (optionnelle)"
+                    placeholderTextColor="#9CA3AF"
+                    value={paymentObservation}
+                    onChangeText={setPaymentObservation}
+                    multiline
+                    numberOfLines={3}
+                  />
+                  <TouchableOpacity
+                    style={[
+                      styles.paymentSubmitButtonWeb,
+                      (isSubmittingPayment || !isPaymentAmountPositive || paymentLimit <= 0) && styles.paymentSubmitButtonDisabledWeb,
+                    ]}
+                    onPress={handleAddPayment}
+                    disabled={isSubmittingPayment || !isPaymentAmountPositive || paymentLimit <= 0}
+                  >
+                    {isSubmittingPayment ? (
+                      <>
+                        <Ionicons name="hourglass" size={18} color="#FFFFFF" />
+                        <Text style={styles.paymentSubmitButtonTextWeb}>Enregistrement...</Text>
+                      </>
+                    ) : (
+                      <>
+                        <Ionicons name="cash-outline" size={18} color="#FFFFFF" />
+                        <Text style={styles.paymentSubmitButtonTextWeb}>Enregistrer le paiement</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
                 </View>
                       
                 
@@ -3732,7 +3951,7 @@ Voulez-vous confirmer la modification de cette facture ?`;
                 <Text style={styles.sectionTitle}>Paiement</Text>
                 <Text style={styles.mobileSectionLabel}>Mode de paiement</Text>
                 <View style={styles.mobilePaymentChips}>
-                  {PAYMENT_METHOD_OPTIONS.map((method) => {
+                  {paymentMethodOptions.map((method) => {
                     const isSelected = (selectedInvoice?.typePaiement || '').toLowerCase() === method.toLowerCase();
                     return (
                       <TouchableOpacity
@@ -3900,6 +4119,76 @@ Voulez-vous confirmer la modification de cette facture ?`;
                     </>
                   );
                 })()}
+              </View>
+
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Faire un paiement</Text>
+                <Text style={styles.paymentInfoTextMobile}>
+                  Taux: {exchangeRate}{'\n'}
+                  Reste CDF: {invoiceTotals.remainingCdf.toFixed(0)} • Reste USD: {invoiceTotals.remainingUsd.toFixed(2)}
+                </Text>
+                <Text style={styles.paymentLabelMobile}>Montant</Text>
+                <TextInput
+                  style={styles.paymentInputMobile}
+                  placeholder="0.00"
+                  placeholderTextColor="#9CA3AF"
+                  keyboardType={paymentDevise === 1 ? 'decimal-pad' : 'numeric'}
+                  value={paymentAmount}
+                  onChangeText={handlePaymentAmountChange}
+                />
+                <View style={styles.paymentDeviseRowMobile}>
+                  {paymentDeviseOptions.map(option => {
+                    const isSelected = paymentDevise === option.value;
+                    return (
+                      <TouchableOpacity
+                        key={option.value}
+                        style={[
+                          styles.paymentDeviseButtonMobile,
+                          isSelected && styles.paymentDeviseButtonActiveMobile,
+                        ]}
+                        onPress={() => handlePaymentDeviseChange(option.value)}
+                      >
+                        <Text
+                          style={[
+                            styles.paymentDeviseButtonTextMobile,
+                            isSelected && styles.paymentDeviseButtonTextActiveMobile,
+                          ]}
+                        >
+                          {option.label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+                <TextInput
+                  style={styles.paymentObservationInputMobile}
+                  placeholder="Observation (optionnelle)"
+                  placeholderTextColor="#9CA3AF"
+                  value={paymentObservation}
+                  onChangeText={setPaymentObservation}
+                  multiline
+                  numberOfLines={3}
+                />
+                <TouchableOpacity
+                  style={[
+                    styles.paymentSubmitButtonMobile,
+                    (isSubmittingPayment || !isPaymentAmountPositive || paymentLimit <= 0) && styles.paymentSubmitButtonDisabledMobile,
+                  ]}
+                  onPress={handleAddPayment}
+                  disabled={isSubmittingPayment || !isPaymentAmountPositive || paymentLimit <= 0}
+                >
+                  {isSubmittingPayment ? (
+                    <>
+                      <Ionicons name="hourglass" size={18} color="#FFFFFF" />
+                      <Text style={styles.paymentSubmitButtonTextMobile}>Enregistrement...</Text>
+                    </>
+                  ) : (
+                    <>
+                      <Ionicons name="cash-outline" size={18} color="#FFFFFF" />
+                      <Text style={styles.paymentSubmitButtonTextMobile}>Enregistrer le paiement</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
               </View>
             </>
           ) : (
@@ -5014,6 +5303,85 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '600',
   },
+  paymentInfoTextMobile: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginBottom: 8,
+  },
+  paymentLabelMobile: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#374151',
+    marginBottom: 6,
+  },
+  paymentInputMobile: {
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: '#1F2937',
+    backgroundColor: '#FFFFFF',
+    marginBottom: 12,
+  },
+  paymentDeviseRowMobile: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
+  },
+  paymentDeviseButtonMobile: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+  },
+  paymentDeviseButtonActiveMobile: {
+    borderColor: '#7C3AED',
+    backgroundColor: '#EDE9FE',
+  },
+  paymentDeviseButtonTextMobile: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#4B5563',
+  },
+  paymentDeviseButtonTextActiveMobile: {
+    color: '#4C1D95',
+    fontWeight: '600',
+  },
+  paymentObservationInputMobile: {
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: '#1F2937',
+    backgroundColor: '#FFFFFF',
+    marginBottom: 12,
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
+  paymentSubmitButtonMobile: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#0EA5E9',
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  paymentSubmitButtonDisabledMobile: {
+    backgroundColor: '#A5B4FC',
+  },
+  paymentSubmitButtonTextMobile: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
   mobileDebtToggleRow: {
     flexDirection: 'row',
     marginTop: 8,
@@ -5138,6 +5506,77 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     color: '#7C3AED',
+  },
+  paymentSectionWeb: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  paymentInfoTextWeb: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginBottom: 8,
+  },
+  paymentAmountRowWeb: {
+    marginBottom: 16,
+  },
+  paymentLabelWeb: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#374151',
+    marginBottom: 6,
+  },
+  paymentDeviseGroupWeb: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 12,
+  },
+  paymentDeviseButtonWeb: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    backgroundColor: '#FFFFFF',
+  },
+  paymentDeviseButtonActiveWeb: {
+    borderColor: '#7C3AED',
+    backgroundColor: '#EDE9FE',
+  },
+  paymentDeviseButtonTextWeb: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#4B5563',
+  },
+  paymentDeviseButtonTextActiveWeb: {
+    color: '#4C1D95',
+    fontWeight: '600',
+  },
+  paymentObservationInputWeb: {
+    minHeight: 80,
+    textAlignVertical: 'top',
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  paymentSubmitButtonWeb: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#0EA5E9',
+    paddingVertical: 14,
+    borderRadius: 8,
+  },
+  paymentSubmitButtonDisabledWeb: {
+    backgroundColor: '#A5B4FC',
+  },
+  paymentSubmitButtonTextWeb: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
   },
   // Produits
   productsGrid: {
