@@ -172,3 +172,14 @@ export const addFacturePayment = async (paymentData) => {
     throw error;
   }
 };
+
+// Récupérer l'historique des paiements d'une facture
+export const getFacturePayments = async (factureId) => {
+  try {
+    const response = await apiClient.get(`/api/v1.0/Facture/payments/${factureId}`);
+    return response;
+  } catch (error) {
+    console.error('Erreur lors de la récupération des paiements:', error);
+    throw error;
+  }
+};

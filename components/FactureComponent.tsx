@@ -1,9 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Dimensions, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Dimensions, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { getCategories } from '../api/categoryApi';
 import { getExchangeRate } from '../api/configurationApi';
-import { addFacturePayment, deleteFacture, getAllFactures, getFacturesByDateRange, markFactureAsAborted, markFactureAsPayed, printFacture, updateFacture } from '../api/factureApi';
+import { addFacturePayment, deleteFacture, getAllFactures, getFacturePayments, getFacturesByDateRange, markFactureAsAborted, markFactureAsPayed, printFacture, updateFacture } from '../api/factureApi';
 import { getProducts } from '../api/productApi';
 import { getTables } from '../api/tableApi';
 import { useFetch } from '../hooks/useFetch';
@@ -121,6 +121,10 @@ const FactureComponent = ({ onInvoiceCountChange }: FactureComponentProps) => {
   const [paymentDevise, setPaymentDevise] = useState<number>(paymentDeviseOptions[0].value);
   const [paymentObservation, setPaymentObservation] = useState<string>('');
   const [isSubmittingPayment, setIsSubmittingPayment] = useState<boolean>(false);
+  const [payments, setPayments] = useState<any[]>([]);
+  const [paymentsLoading, setPaymentsLoading] = useState<boolean>(false);
+  const [paymentsError, setPaymentsError] = useState<string | null>(null);
+  const [showPaymentsModal, setShowPaymentsModal] = useState<boolean>(false);
   const invoiceTotals = useMemo(() => {
     if (!selectedInvoiceForDetails) {
       return {
@@ -182,6 +186,22 @@ const FactureComponent = ({ onInvoiceCountChange }: FactureComponentProps) => {
       : Number(paymentAmount);
   const isPaymentAmountPositive =
     Number.isFinite(paymentAmountNumber) && paymentAmountNumber > 0;
+  const formatPaymentDate = (value?: string) => {
+    if (!value) {
+      return '—';
+    }
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return value;
+    }
+    return date.toLocaleString('fr-FR', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
   
   // États pour le taux de change
   const [exchangeRate, setExchangeRate] = useState<number>(2800); // Valeur par défaut
@@ -591,6 +611,12 @@ const FactureComponent = ({ onInvoiceCountChange }: FactureComponentProps) => {
       }
     }
   }, [invoices, selectedInvoiceForDetails, selectedInvoice, selectedInvoiceForMobileEdit]);
+
+  useEffect(() => {
+    if (showPaymentsModal && selectedInvoiceForDetails?.id) {
+      fetchPayments(selectedInvoiceForDetails.id);
+    }
+  }, [showPaymentsModal, selectedInvoiceForDetails?.id]);
 
   // Récupération du taux de change
   useEffect(() => {
@@ -1571,6 +1597,42 @@ Voulez-vous confirmer l'impression de cette facture ?`;
   const handlePaymentDeviseChange = (value: number) => {
     setPaymentDevise(value);
     setPaymentAmount('');
+  };
+
+  const fetchPayments = async (factureId: string) => {
+    if (!factureId) {
+      setPayments([]);
+      return;
+    }
+    setPaymentsLoading(true);
+    setPaymentsError(null);
+    try {
+      const response = await getFacturePayments(factureId);
+      const dataCandidate = response?.data ?? response;
+      setPayments(Array.isArray(dataCandidate) ? dataCandidate : []);
+    } catch (error) {
+      console.error('Erreur lors de la récupération des paiements:', error);
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Impossible de récupérer les paiements.';
+      setPaymentsError(message);
+      setPayments([]);
+    } finally {
+      setPaymentsLoading(false);
+    }
+  };
+
+  const handleOpenPaymentsModal = () => {
+    if (!selectedInvoiceForDetails?.id) {
+      Alert.alert('Information', 'Veuillez sélectionner une facture pour consulter les paiements.');
+      return;
+    }
+    setShowPaymentsModal(true);
+  };
+
+  const handleClosePaymentsModal = () => {
+    setShowPaymentsModal(false);
   };
 
   const resetPaymentForm = () => {
@@ -3048,6 +3110,13 @@ Voulez-vous confirmer la modification de cette facture ?`;
                       </>
                     )}
                   </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.paymentHistoryButtonWeb}
+                    onPress={handleOpenPaymentsModal}
+                  >
+                    <Ionicons name="time-outline" size={18} color="#1F2937" />
+                    <Text style={styles.paymentHistoryButtonTextWeb}>Historique des paiements</Text>
+                  </TouchableOpacity>
                 </View>
                       
                 
@@ -3426,6 +3495,69 @@ Voulez-vous confirmer la modification de cette facture ?`;
           </View>
         )}
         
+        {showPaymentsModal && (
+          <View style={styles.modalOverlay}>
+            <TouchableOpacity
+              style={styles.modalBackdrop}
+              activeOpacity={1}
+              onPress={handleClosePaymentsModal}
+            />
+            <View style={styles.paymentsModalContainer}>
+              <View style={styles.paymentsModalHeader}>
+                <Text style={styles.paymentsModalTitle}>Historique des paiements</Text>
+                <TouchableOpacity onPress={handleClosePaymentsModal} style={styles.closeButton}>
+                  <Ionicons name="close" size={24} color="#6B7280" />
+                </TouchableOpacity>
+              </View>
+              <ScrollView style={styles.paymentsModalContent}>
+                {paymentsLoading ? (
+                  <View style={styles.paymentsModalLoading}>
+                    <ActivityIndicator size="large" color="#7C3AED" />
+                    <Text style={styles.paymentsModalLoadingText}>Chargement des paiements...</Text>
+                  </View>
+                ) : paymentsError ? (
+                  <Text style={styles.paymentsModalError}>{paymentsError}</Text>
+                ) : payments.length === 0 ? (
+                  <View style={styles.paymentsModalEmpty}>
+                    <Ionicons name="card-outline" size={24} color="#9CA3AF" />
+                    <Text style={styles.paymentsModalEmptyText}>
+                      Aucun paiement enregistré pour cette facture.
+                    </Text>
+                  </View>
+                ) : (
+                  payments.map((payment: any) => {
+                    const amountCdf = Number(payment.amountCdf) || 0;
+                    const amountUsd = Number(payment.amountUsd) || 0;
+                    const taux = Number(payment.taux) || exchangeRate;
+                    return (
+                      <View key={payment.id} style={styles.paymentHistoryCard}>
+                        <View style={styles.paymentHistoryRow}>
+                          <Text style={styles.paymentHistoryLabel}>Montant CDF</Text>
+                          <Text style={styles.paymentHistoryValue}>{amountCdf.toFixed(0)} CDF</Text>
+                        </View>
+                        <View style={styles.paymentHistoryRow}>
+                          <Text style={styles.paymentHistoryLabel}>Montant USD</Text>
+                          <Text style={styles.paymentHistoryValue}>{amountUsd.toFixed(2)} USD</Text>
+                        </View>
+                        <View style={styles.paymentHistoryRow}>
+                          <Text style={styles.paymentHistoryLabel}>Taux</Text>
+                          <Text style={styles.paymentHistoryValue}>{taux}</Text>
+                        </View>
+                        <Text style={styles.paymentHistoryObservation}>
+                          {payment.observation ? `Observation: ${payment.observation}` : 'Pas de note'}
+                        </Text>
+                        <Text style={styles.paymentHistoryDate}>
+                          Créé le {formatPaymentDate(payment.created)}
+                        </Text>
+                      </View>
+                    );
+                  })
+                )}
+              </ScrollView>
+            </View>
+          </View>
+        )}
+
         {/* Modals de calendrier pour web uniquement */}
         <CalendarModal
           visible={showStartDateModal}
@@ -3447,6 +3579,7 @@ Voulez-vous confirmer la modification de cette facture ?`;
 
   // Version Mobile
   return (
+    <>
     <ScrollView style={styles.containerMobile}>
       <Text style={styles.titleMobile}>Gestion des Factures</Text>
       
@@ -4189,6 +4322,13 @@ Voulez-vous confirmer la modification de cette facture ?`;
                     </>
                   )}
                 </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.paymentHistoryButtonMobile}
+                  onPress={handleOpenPaymentsModal}
+                >
+                  <Ionicons name="time-outline" size={16} color="#1F2937" />
+                  <Text style={styles.paymentHistoryButtonTextMobile}>Historique des paiements</Text>
+                </TouchableOpacity>
               </View>
             </>
           ) : (
@@ -4414,6 +4554,69 @@ Voulez-vous confirmer la modification de cette facture ?`;
       />
 
     </ScrollView>
+    {showPaymentsModal && (
+      <View style={styles.modalOverlay}>
+        <TouchableOpacity
+          style={styles.modalBackdrop}
+          activeOpacity={1}
+          onPress={handleClosePaymentsModal}
+        />
+        <View style={styles.paymentsModalContainer}>
+          <View style={styles.paymentsModalHeader}>
+            <Text style={styles.paymentsModalTitle}>Historique des paiements</Text>
+            <TouchableOpacity onPress={handleClosePaymentsModal} style={styles.closeButton}>
+              <Ionicons name="close" size={24} color="#6B7280" />
+            </TouchableOpacity>
+          </View>
+          <ScrollView style={styles.paymentsModalContent}>
+            {paymentsLoading ? (
+              <View style={styles.paymentsModalLoading}>
+                <ActivityIndicator size="large" color="#7C3AED" />
+                <Text style={styles.paymentsModalLoadingText}>Chargement des paiements...</Text>
+              </View>
+            ) : paymentsError ? (
+              <Text style={styles.paymentsModalError}>{paymentsError}</Text>
+            ) : payments.length === 0 ? (
+              <View style={styles.paymentsModalEmpty}>
+                <Ionicons name="card-outline" size={24} color="#9CA3AF" />
+                <Text style={styles.paymentsModalEmptyText}>
+                  Aucun paiement enregistré pour cette facture.
+                </Text>
+              </View>
+            ) : (
+              payments.map((payment: any) => {
+                const amountCdf = Number(payment.amountCdf) || 0;
+                const amountUsd = Number(payment.amountUsd) || 0;
+                const taux = Number(payment.taux) || exchangeRate;
+                return (
+                  <View key={payment.id} style={styles.paymentHistoryCard}>
+                    <View style={styles.paymentHistoryRow}>
+                      <Text style={styles.paymentHistoryLabel}>Montant CDF</Text>
+                      <Text style={styles.paymentHistoryValue}>{amountCdf.toFixed(0)} CDF</Text>
+                    </View>
+                    <View style={styles.paymentHistoryRow}>
+                      <Text style={styles.paymentHistoryLabel}>Montant USD</Text>
+                      <Text style={styles.paymentHistoryValue}>{amountUsd.toFixed(2)} USD</Text>
+                    </View>
+                    <View style={styles.paymentHistoryRow}>
+                      <Text style={styles.paymentHistoryLabel}>Taux</Text>
+                      <Text style={styles.paymentHistoryValue}>{taux}</Text>
+                    </View>
+                    <Text style={styles.paymentHistoryObservation}>
+                      {payment.observation ? `Observation: ${payment.observation}` : 'Pas de note'}
+                    </Text>
+                    <Text style={styles.paymentHistoryDate}>
+                      Créé le {formatPaymentDate(payment.created)}
+                    </Text>
+                  </View>
+                );
+              })
+            )}
+          </ScrollView>
+        </View>
+      </View>
+    )}
+    </>
   );
 };
 
@@ -5382,6 +5585,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
+  paymentHistoryButtonMobile: {
+    marginTop: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#F3F4F6',
+  },
+  paymentHistoryButtonTextMobile: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#1F2937',
+  },
   mobileDebtToggleRow: {
     flexDirection: 'row',
     marginTop: 8,
@@ -5577,6 +5797,23 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '600',
+  },
+  paymentHistoryButtonWeb: {
+    marginTop: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#F3F4F6',
+  },
+  paymentHistoryButtonTextWeb: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#1F2937',
   },
   // Produits
   productsGrid: {
@@ -6385,6 +6622,92 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  paymentsModalContainer: {
+    width: '90%',
+    maxWidth: 520,
+    maxHeight: '80%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  paymentsModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  paymentsModalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  paymentsModalContent: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  paymentsModalLoading: {
+    paddingVertical: 32,
+    alignItems: 'center',
+    gap: 12,
+  },
+  paymentsModalLoadingText: {
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  paymentsModalError: {
+    padding: 16,
+    color: '#DC2626',
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  paymentsModalEmpty: {
+    paddingVertical: 32,
+    alignItems: 'center',
+    gap: 12,
+  },
+  paymentsModalEmptyText: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+  },
+  paymentHistoryCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    padding: 16,
+    marginBottom: 12,
+  },
+  paymentHistoryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  paymentHistoryLabel: {
+    fontSize: 13,
+    color: '#6B7280',
+    fontWeight: '600',
+  },
+  paymentHistoryValue: {
+    fontSize: 13,
+    color: '#111827',
+    fontWeight: '600',
+  },
+  paymentHistoryObservation: {
+    marginTop: 6,
+    fontSize: 12,
+    color: '#4B5563',
+    fontStyle: 'italic',
+  },
+  paymentHistoryDate: {
+    marginTop: 6,
+    fontSize: 12,
+    color: '#1F2937',
+    fontWeight: '500',
   },
   invoiceReportModalContainer: {
     flex: 1,
