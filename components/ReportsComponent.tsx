@@ -243,8 +243,8 @@ const ReportsComponent = () => {
     icon: keyof typeof Ionicons.glyphMap;
   }> = [
     { key: 'sales', label: 'Ventes & Consommation', icon: 'trending-up' },
-    /*{ key: 'consumption', label: 'Rapport Consommation', icon: 'stats-chart' },
-    { key: 'stock', label: 'Rapport des stocks', icon: 'cube' }*/
+    { key: 'consumption', label: 'Rapport Consommation', icon: 'stats-chart' },
+    /*{ key: 'stock', label: 'Rapport des stocks', icon: 'cube' }*/
   ];
 
   // Données et fonctions simplifiées
@@ -710,7 +710,7 @@ const ReportsComponent = () => {
               <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Table</th>
               <th style="border: 1px solid #ddd; padding: 8px; text-align: center;">Prix Unitaire</th>
               <th style="border: 1px solid #ddd; padding: 8px; text-align: center;">Quantité</th>
-              <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">Prix CDF</th>
+              <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">Prix USD * Quantité</th>
               <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Utilisateur</th>
               <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Date</th>
             </tr>
@@ -721,9 +721,9 @@ const ReportsComponent = () => {
                 <td style="border: 1px solid #ddd; padding: 8px;">${item.productName || ''}</td>
                 <td style="border: 1px solid #ddd; padding: 8px;">${item.factureClient || 'Anonyme'}</td>
                 <td style="border: 1px solid #ddd; padding: 8px;">${item.tableNomination || ''}</td>
-                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">CDF ${item.priceCdf || '0'}</td>
+                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">USD ${(item.priceUsd || 0).toFixed(2)}</td>
                 <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${item.qte || '0'}</td>
-                <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${((item.priceCdf || 0) * (item.qte || 0)).toLocaleString()} CDF</td>
+                <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">$${(item.subTotalUsd || 0).toFixed(2)}</td>
                 <td style="border: 1px solid #ddd; padding: 8px;">${item.userName || ''}</td>
                 <td style="border: 1px solid #ddd; padding: 8px;">${new Date(item.created).toLocaleDateString('fr-FR')} ${new Date(item.created).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</td>
               </tr>
@@ -740,7 +740,9 @@ const ReportsComponent = () => {
               <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Produit</th>
               <th style="border: 1px solid #ddd; padding: 8px; text-align: center;">Quantité</th>
               <th style="border: 1px solid #ddd; padding: 8px; text-align: center;">Prix unitaire CDF</th>
+              <th style="border: 1px solid #ddd; padding: 8px; text-align: center;">Prix unitaire USD</th>
               <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">Prix unitaire CDF * Quantité</th>
+              <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">Prix unitaire USD * Quantité</th>
               <th style="border: 1px solid #ddd; padding: 8px; text-align: center;">Ventes</th>
               <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Période</th>
             </tr>
@@ -751,8 +753,10 @@ const ReportsComponent = () => {
                 <td style="border: 1px solid #ddd; padding: 8px;">${item.categoryName || ''}</td>
                 <td style="border: 1px solid #ddd; padding: 8px;">${item.productName || ''}</td>
                 <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${item.totalQuantitySold || '0'}</td>
-                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">CDF ${(item.totalRevenueCdf / item.totalQuantitySold).toFixed(2)}</td>
-                <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">CDF ${item.totalRevenueCdf.toFixed(2) || '0.00'}</td>
+                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">CDF ${(item.totalQuantitySold ? (item.totalRevenueCdf / item.totalQuantitySold).toFixed(2) : '0.00')}</td>
+                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">USD ${(item.totalQuantitySold ? (item.totalRevenueUsd / item.totalQuantitySold).toFixed(2) : '0.00')}</td>
+                <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">CDF ${(item.totalRevenueCdf || 0).toFixed(2)}</td>
+                <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">USD ${(item.totalRevenueUsd || 0).toFixed(2)}</td>
                 <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${item.numberOfSales || '0'}</td>
                 <td style="border: 1px solid #ddd; padding: 8px;">
                   ${new Date(item.firstSaleDate).toLocaleDateString('fr-FR')} ${new Date(item.firstSaleDate).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
@@ -1229,6 +1233,7 @@ const ReportsComponent = () => {
                           <Text style={styles.tableHeaderTextWeb}>Client</Text>
                           <Text style={styles.tableHeaderTextWeb}>Table</Text>
                           <Text style={styles.tableHeaderTextWeb}>Quantité</Text>
+                          <Text style={styles.tableHeaderTextWeb}>Prix unitaire USD * Quantité</Text>
                           <Text style={styles.tableHeaderTextWeb}>Prix unitaire CDF * Quantité</Text>
                           <Text style={styles.tableHeaderTextWeb}>Utilisateur</Text>
                           <Text style={styles.tableHeaderTextWeb}>Date</Text>
@@ -1245,7 +1250,10 @@ const ReportsComponent = () => {
                             <Text style={styles.tableCellWeb}>{sale.tableNomination}</Text>
                             <Text style={styles.tableCellWeb}>{sale.qte}</Text>
                             <Text style={[styles.tableCellWeb, styles.amountCellWeb, { color: '#059669' }]}>
-                              {sale.subTotalCdf.toLocaleString()} CDF
+                              {`${sale.subTotalUsd.toFixed(2)} USD`}
+                            </Text>
+                            <Text style={[styles.tableCellWeb, styles.amountCellWeb, { color: '#059669' }]}>
+                              {`${sale.subTotalCdf.toFixed(2)} CDF`}
                             </Text>
                             <Text style={styles.tableCellWeb}>{sale.userName}</Text>
                             <Text style={styles.tableCellWeb}>
@@ -1337,22 +1345,30 @@ const ReportsComponent = () => {
                     <Text style={styles.tableHeaderTextWeb}>Catégorie</Text>
                     <Text style={styles.tableHeaderTextWeb}>Produit</Text>
                     <Text style={styles.tableHeaderTextWeb}>Prix unitaire CDF</Text>
+                    <Text style={styles.tableHeaderTextWeb}>Prix unitaire USD</Text>
                     <Text style={styles.tableHeaderTextWeb}>Quantité vendue</Text>
                     <Text style={styles.tableHeaderTextWeb}>Prix unitaire CDF * Quantité</Text>
+                    <Text style={styles.tableHeaderTextWeb}>Prix unitaire USD * Quantité</Text>
                     <Text style={styles.tableHeaderTextWeb}>Nombre de ventes</Text>
                     <Text style={styles.tableHeaderTextWeb}>Période</Text>
                   </View>
 
-                  {consumptionReportData.map((item, index) => (
+                  {consumptionReportData.map((item) => (
                     <View key={item.productId} style={styles.tableRowWeb}>
                       <Text style={styles.tableCellWeb}>{item.categoryName}</Text>
                       <Text style={[styles.tableCellWeb, styles.descriptionCellWeb]}>{item.productName}</Text>
                       <Text style={[styles.tableCellWeb, styles.amountCellWeb, { color: '#059669' }]}>
-                      {(item.totalRevenueCdf / item.totalQuantitySold).toFixed(2)} CDF
+                        {`${item.totalQuantitySold ? (item.totalRevenueCdf / item.totalQuantitySold).toFixed(2) : '0.00'} CDF`}
+                      </Text>
+                      <Text style={[styles.tableCellWeb, styles.amountCellWeb, { color: '#0B8F97' }]}>
+                        {`${item.totalQuantitySold ? (item.totalRevenueUsd / item.totalQuantitySold).toFixed(2) : '0.00'} USD`}
                       </Text>
                       <Text style={styles.tableCellWeb}>{item.totalQuantitySold}</Text>
                       <Text style={[styles.tableCellWeb, styles.amountCellWeb, { color: '#097B58' }]}>
-                        {item.totalRevenueCdf.toFixed(2)} CDF
+                        {`${(item.totalRevenueCdf ?? 0).toFixed(2)} CDF`}
+                      </Text>
+                      <Text style={[styles.tableCellWeb, styles.amountCellWeb, { color: '#0E7490' }]}>
+                        {`${(item.totalRevenueUsd ?? 0).toFixed(2)} USD`}
                       </Text>
                       <Text style={styles.tableCellWeb}>{item.numberOfSales}</Text>
                       <Text style={styles.tableCellWeb}>
@@ -1801,7 +1817,7 @@ const ReportsComponent = () => {
                           </Text>
                         </View>
                         <Text style={[styles.transactionAmountMobile, { color: '#059669' }]}>
-                          {sale.subTotalCdf.toLocaleString()} CDF
+                          {`${sale.subTotalUsd.toFixed(2)} USD`}
                         </Text>
                       </View>
                     </TouchableOpacity>
@@ -1940,14 +1956,22 @@ const ReportsComponent = () => {
                           {item.totalQuantitySold} vendus
                         </Text>
                       </View>
-                      <Text style={[styles.transactionAmountMobile, { color: '#10B981', marginLeft: 15 }]}>
-
-                        {(item.totalRevenueCdf / item.totalQuantitySold).toFixed(2)} CDF
-                      </Text>
-                      <Text style={[styles.transactionAmountMobile, { color: '#10B981' }]}>
-
-                        {item.totalRevenueCdf.toFixed(2)} CDF
-                      </Text>
+                      <View style={{ alignItems: 'flex-end', flex: 1 }}>
+                        <Text style={[styles.transactionAmountMobile, { color: '#10B981' }]}>
+                          {`CDF ${(item.totalQuantitySold ? (item.totalRevenueCdf / item.totalQuantitySold).toFixed(2) : '0.00')}`}
+                        </Text>
+                        <Text style={[styles.transactionAmountMobile, { color: '#0E7490', fontSize: 14 }]}>
+                          {`USD ${(item.totalQuantitySold ? (item.totalRevenueUsd / item.totalQuantitySold).toFixed(2) : '0.00')}`}
+                        </Text>
+                      </View>
+                      <View style={{ alignItems: 'flex-end' }}>
+                        <Text style={[styles.transactionAmountMobile, { color: '#097B58' }]}>
+                          {`${(item.totalRevenueCdf ?? 0).toFixed(2)} CDF`}
+                        </Text>
+                        <Text style={[styles.transactionAmountMobile, { color: '#0C4A6E', fontSize: 14 }]}>
+                          {`${(item.totalRevenueUsd ?? 0).toFixed(2)} USD`}
+                        </Text>
+                      </View>
                       <Text style={styles.transactionStatusTextMobile}>
                         {item.numberOfSales} ventes
                       </Text>
@@ -3326,6 +3350,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 12,
   },
   transactionTypeMobile: {
     paddingHorizontal: 6,
