@@ -3,7 +3,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Dimensions, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { createCategory, deleteCategory, getCategories, updateCategory } from '../api/categoryApi';
 import { createProduct, getProducts, updateProduct } from '../api/productApi';
-import { reapprovisionStock, sortieStock } from '../api/stockApi';
+import { reapprovisionStock, sortieStock, transferStock } from '../api/stockApi';
+import { getDepotCodes } from '../api/userApi';
 import { useApi } from '../hooks/useApi';
 import { useFetch } from '../hooks/useFetch';
 import { getUserData } from '../utils/storage';
@@ -365,12 +366,63 @@ const InventoryComponent = () => {
   const [stockObservation, setStockObservation] = useState('');
   const [stockDepotCode, setStockDepotCode] = useState<string | null>(null);
   const [stockLoading, setStockLoading] = useState(false);
+  const [stockManagementTab, setStockManagementTab] = useState<'adjust' | 'transfer'>('adjust');
+  const [availableDepotCodes, setAvailableDepotCodes] = useState<string[]>([]);
+  const [depotCodesLoading, setDepotCodesLoading] = useState(false);
+  const [depotCodesError, setDepotCodesError] = useState<string | null>(null);
+  const [transferDepotCode, setTransferDepotCode] = useState('');
+  const [transferQuantity, setTransferQuantity] = useState('');
+  const [transferObservation, setTransferObservation] = useState('');
+  const [transferLoading, setTransferLoading] = useState(false);
+  const filteredDepotCodes = useMemo(
+    () => availableDepotCodes.filter((code) => !!code && code !== userDepotCode),
+    [availableDepotCodes, userDepotCode]
+  );
+
+  useEffect(() => {
+    if (transferDepotCode && !filteredDepotCodes.includes(transferDepotCode)) {
+      setTransferDepotCode('');
+    }
+  }, [transferDepotCode, filteredDepotCodes]);
 
   useEffect(() => {
     if (userDepotCode) {
       setStockDepotCode(userDepotCode);
     }
   }, [userDepotCode]);
+
+  useEffect(() => {
+    const fetchDepotCodes = async () => {
+      try {
+        setDepotCodesLoading(true);
+        setDepotCodesError(null);
+        const response = await getDepotCodes();
+        if (response?.success && Array.isArray(response.data)) {
+          setAvailableDepotCodes(response.data);
+        } else if (Array.isArray(response)) {
+          setAvailableDepotCodes(response);
+        } else {
+          setAvailableDepotCodes([]);
+        }
+      } catch (error) {
+        console.error('Erreur lors du chargement des dépôts:', error);
+        setDepotCodesError('Impossible de charger la liste des dépôts.');
+      } finally {
+        setDepotCodesLoading(false);
+      }
+    };
+
+    fetchDepotCodes();
+  }, []);
+
+  useEffect(() => {
+    setStockQuantity('');
+    setStockObservation('');
+    setTransferQuantity('');
+    setTransferObservation('');
+    setTransferDepotCode('');
+    setStockManagementTab('adjust');
+  }, [editingProduct]);
   
   // Liste des produits avec images (du POSComponent)
   const menuItems = [
@@ -825,6 +877,154 @@ const InventoryComponent = () => {
             style: action === 'add' ? 'default' : 'destructive',
             onPress: () => handleStockAction(action)
           }
+        ]
+      );
+    }
+  };
+
+  const handleTransferStock = async () => {
+    if (!editingProduct || !userDepotCode) {
+      const isWeb = typeof window !== 'undefined' && typeof window.alert === 'function';
+      const message = !editingProduct
+        ? 'Produit introuvable pour le transfert.'
+        : 'Code dépôt de l’utilisateur introuvable.';
+      if (isWeb) {
+        window.alert(`❌ Erreur : ${message}`);
+      } else {
+        Alert.alert('Erreur', message);
+      }
+      return;
+    }
+
+    const quantity = parseInt(transferQuantity, 10);
+    try {
+      setTransferLoading(true);
+
+      const userData = await getUserData();
+      if (!userData || !userData.id) {
+        const isWeb = typeof window !== 'undefined' && typeof window.alert === 'function';
+        if (isWeb) {
+          window.alert('❌ Erreur : Utilisateur non connecté ou ID utilisateur manquant');
+        } else {
+          Alert.alert('Erreur', 'Utilisateur non connecté ou ID utilisateur manquant');
+        }
+        return;
+      }
+
+      const payload = {
+        productId: editingProduct.id,
+        userId: userData.id,
+        fromDepotCode: userDepotCode,
+        toDepotCode: transferDepotCode,
+        qte: quantity,
+        observation: transferObservation || null,
+      };
+      console.log(payload);
+
+      await transferStock(payload);
+
+      const isWeb = typeof window !== 'undefined' && typeof window.alert === 'function';
+      const successMessage = 'Transfert de stock effectué avec succès';
+      if (isWeb) {
+        window.alert(`✅ Succès ! ${successMessage}`);
+      } else {
+        Alert.alert('Succès', successMessage);
+      }
+
+      setTransferQuantity('');
+      setTransferObservation('');
+      setTransferDepotCode('');
+
+      refetchProducts();
+    } catch (error: any) {
+      console.error('Erreur lors du transfert de stock:', error);
+      const isWeb = typeof window !== 'undefined' && typeof window.alert === 'function';
+      const errorMessage = error?.message || 'Erreur lors du transfert de stock';
+      if (isWeb) {
+        window.alert(`❌ Erreur : ${errorMessage}`);
+      } else {
+        Alert.alert('Erreur', errorMessage);
+      }
+    } finally {
+      setTransferLoading(false);
+    }
+  };
+
+  const confirmTransferStock = () => {
+    const quantity = parseInt(transferQuantity, 10);
+    const currentStock = editingProduct?.inStock || 0;
+
+    if (!transferQuantity || isNaN(quantity) || quantity <= 0) {
+      const message = 'Veuillez saisir une quantité valide à transférer.';
+      const isWeb = typeof window !== 'undefined' && typeof window.alert === 'function';
+      if (isWeb) {
+        window.alert(`❌ Erreur : ${message}`);
+      } else {
+        Alert.alert('Erreur', message);
+      }
+      return;
+    }
+
+    if (quantity > currentStock) {
+      const message = `Vous ne pouvez pas transférer ${quantity} unité(s). Le stock actuel est de ${currentStock} unité(s).`;
+      const isWeb = typeof window !== 'undefined' && typeof window.alert === 'function';
+      if (isWeb) {
+        window.alert(`❌ Erreur : ${message}`);
+      } else {
+        Alert.alert('Erreur', message);
+      }
+      return;
+    }
+
+    if (!userDepotCode) {
+      const message = 'Code dépôt de l’utilisateur introuvable.';
+      const isWeb = typeof window !== 'undefined' && typeof window.alert === 'function';
+      if (isWeb) {
+        window.alert(`❌ Erreur : ${message}`);
+      } else {
+        Alert.alert('Erreur', message);
+      }
+      return;
+    }
+
+    if (!transferDepotCode) {
+      const message = 'Veuillez sélectionner un dépôt de destination.';
+      const isWeb = typeof window !== 'undefined' && typeof window.alert === 'function';
+      if (isWeb) {
+        window.alert(`❌ Erreur : ${message}`);
+      } else {
+        Alert.alert('Erreur', message);
+      }
+      return;
+    }
+
+    if (transferDepotCode === userDepotCode) {
+      const message = 'Le dépôt de destination doit être différent du dépôt de départ.';
+      const isWeb = typeof window !== 'undefined' && typeof window.alert === 'function';
+      if (isWeb) {
+        window.alert(`❌ Erreur : ${message}`);
+      } else {
+        Alert.alert('Erreur', message);
+      }
+      return;
+    }
+
+    const productName = editingProduct?.name || editingProduct?.productName || 'ce produit';
+    const details = `Êtes-vous sûr de vouloir transférer ${quantity} unité(s) de "${productName}" du dépôt ${userDepotCode} vers ${transferDepotCode} ?${transferObservation ? `\n\nObservation : ${transferObservation}` : ''}`;
+    const isWeb = typeof window !== 'undefined' && typeof window.confirm === 'function';
+
+    if (isWeb) {
+      const confirmed = window.confirm(`Transférer le stock\n\n${details}`);
+      if (confirmed) {
+        handleTransferStock();
+      }
+    } else {
+      Alert.alert(
+        'Transférer le stock',
+        details,
+        [
+          { text: 'Annuler', style: 'cancel' },
+          { text: 'Transférer', onPress: () => handleTransferStock() },
         ]
       );
     }
@@ -1434,64 +1634,187 @@ const InventoryComponent = () => {
                     <Text style={styles.currentStockValueWeb}>{editingProduct.minimalStock || 0}</Text>
                   </View>
                 </View>
-                
-                <View style={styles.stockFormRowWeb}>
-                  <View style={styles.stockFormGroupWeb}>
-                    <Text style={styles.stockFormLabelWeb}>Quantité *</Text>
-                    <TextInput
-                      style={styles.stockFormInputWeb}
-                      value={stockQuantity}
-                      onChangeText={setStockQuantity}
-                      placeholder="Entrez la quantité"
-                      placeholderTextColor="#9CA3AF"
-                      keyboardType="numeric"
-                    />
-                  </View>
-                  
-                  <View style={styles.stockFormGroupWeb}>
-                    <Text style={styles.stockFormLabelWeb}>Observation</Text>
-                    <TextInput
-                      style={styles.stockFormInputWeb}
-                      value={stockObservation}
-                      onChangeText={setStockObservation}
-                      placeholder="Observation (optionnel)"
-                      placeholderTextColor="#9CA3AF"
-                    />
-                  </View>
-                </View>
-                
-                <View style={styles.stockFormActionsWeb}>
-                  <TouchableOpacity 
-                    style={[styles.stockAddButtonWeb, stockLoading && styles.disabledButtonWeb]} 
-                    onPress={() => confirmStockAction('add')}
-                    disabled={stockLoading}
-                  >
-                    {stockLoading ? (
-                      <ActivityIndicator size="small" color="#FFFFFF" />
-                    ) : (
-                      <Ionicons name="add" size={20} color="#FFFFFF" />
-                    )}
-                    <Text style={styles.stockButtonTextWeb}>Ajouter au stock</Text>
-                  </TouchableOpacity>
-                  
-                  <TouchableOpacity 
+
+                <View style={styles.stockTabsWeb}>
+                  <TouchableOpacity
                     style={[
-                      styles.stockRemoveButtonWeb, 
-                      (stockLoading || (editingProduct.inStock || 0) === 0) && styles.disabledButtonWeb
-                    ]} 
-                    onPress={() => confirmStockAction('remove')}
-                    disabled={stockLoading || (editingProduct.inStock || 0) === 0}
+                      styles.stockTabButtonWeb,
+                      stockManagementTab === 'adjust' && styles.stockTabButtonActiveWeb
+                    ]}
+                    onPress={() => setStockManagementTab('adjust')}
                   >
-                    {stockLoading ? (
-                      <ActivityIndicator size="small" color="#FFFFFF" />
-                    ) : (
-                      <Ionicons name="remove" size={20} color="#FFFFFF" />
-                    )}
-                    <Text style={styles.stockButtonTextWeb}>
-                      {(editingProduct.inStock || 0) === 0 ? 'Stock vide' : 'Retirer du stock'}
+                    <Text
+                      style={[
+                        styles.stockTabButtonTextWeb,
+                        stockManagementTab === 'adjust' && styles.stockTabButtonTextActiveWeb
+                      ]}
+                    >
+                      Ajuster le stock
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.stockTabButtonWeb,
+                      stockManagementTab === 'transfer' && styles.stockTabButtonActiveWeb
+                    ]}
+                    onPress={() => setStockManagementTab('transfer')}
+                  >
+                    <Text
+                      style={[
+                        styles.stockTabButtonTextWeb,
+                        stockManagementTab === 'transfer' && styles.stockTabButtonTextActiveWeb
+                      ]}
+                    >
+                      Transférer le stock
                     </Text>
                   </TouchableOpacity>
                 </View>
+
+                {stockManagementTab === 'adjust' ? (
+                  <>
+                    <View style={styles.stockFormRowWeb}>
+                      <View style={styles.stockFormGroupWeb}>
+                        <Text style={styles.stockFormLabelWeb}>Quantité *</Text>
+                        <TextInput
+                          style={styles.stockFormInputWeb}
+                          value={stockQuantity}
+                          onChangeText={setStockQuantity}
+                          placeholder="Entrez la quantité"
+                          placeholderTextColor="#9CA3AF"
+                          keyboardType="numeric"
+                        />
+                      </View>
+
+                      <View style={styles.stockFormGroupWeb}>
+                        <Text style={styles.stockFormLabelWeb}>Observation</Text>
+                        <TextInput
+                          style={styles.stockFormInputWeb}
+                          value={stockObservation}
+                          onChangeText={setStockObservation}
+                          placeholder="Observation (optionnel)"
+                          placeholderTextColor="#9CA3AF"
+                        />
+                      </View>
+                    </View>
+
+                    <View style={styles.stockFormActionsWeb}>
+                      <TouchableOpacity 
+                        style={[styles.stockAddButtonWeb, stockLoading && styles.disabledButtonWeb]} 
+                        onPress={() => confirmStockAction('add')}
+                        disabled={stockLoading}
+                      >
+                        {stockLoading ? (
+                          <ActivityIndicator size="small" color="#FFFFFF" />
+                        ) : (
+                          <Ionicons name="add" size={20} color="#FFFFFF" />
+                        )}
+                        <Text style={styles.stockButtonTextWeb}>Ajouter au stock</Text>
+                      </TouchableOpacity>
+                      
+                      <TouchableOpacity 
+                        style={[
+                          styles.stockRemoveButtonWeb, 
+                          (stockLoading || (editingProduct.inStock || 0) === 0) && styles.disabledButtonWeb
+                        ]} 
+                        onPress={() => confirmStockAction('remove')}
+                        disabled={stockLoading || (editingProduct.inStock || 0) === 0}
+                      >
+                        {stockLoading ? (
+                          <ActivityIndicator size="small" color="#FFFFFF" />
+                        ) : (
+                          <Ionicons name="remove" size={20} color="#FFFFFF" />
+                        )}
+                        <Text style={styles.stockButtonTextWeb}>
+                          {(editingProduct.inStock || 0) === 0 ? 'Stock vide' : 'Retirer du stock'}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </>
+                ) : (
+                  <View style={styles.transferFormWeb}>
+                    <View style={styles.transferDepotSectionWeb}>
+                      <Text style={styles.stockFormLabelWeb}>Dépôt de destination *</Text>
+                      {depotCodesLoading ? (
+                        <View style={styles.depotLoadingContainerWeb}>
+                          <ActivityIndicator size="small" color="#3B82F6" />
+                          <Text style={styles.depotLoadingTextWeb}>Chargement des dépôts...</Text>
+                        </View>
+                      ) : filteredDepotCodes.length > 0 ? (
+                        <View style={styles.depotChipsContainerWeb}>
+                          {filteredDepotCodes.map((code) => (
+                            <TouchableOpacity
+                              key={code}
+                              style={[
+                                styles.depotChipWeb,
+                                transferDepotCode === code && styles.depotChipActiveWeb
+                              ]}
+                              onPress={() => setTransferDepotCode(code)}
+                            >
+                              <Text
+                                style={[
+                                  styles.depotChipTextWeb,
+                                  transferDepotCode === code && styles.depotChipTextActiveWeb
+                                ]}
+                              >
+                                {code}
+                              </Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      ) : (
+                        <Text style={styles.stockHelperTextWeb}>
+                          Aucun dépôt disponible pour le transfert.
+                        </Text>
+                      )}
+                      {depotCodesError && (
+                        <Text style={styles.stockErrorTextWeb}>{depotCodesError}</Text>
+                      )}
+                    </View>
+
+                    <View style={styles.stockFormRowWeb}>
+                      <View style={styles.stockFormGroupWeb}>
+                        <Text style={styles.stockFormLabelWeb}>Quantité *</Text>
+                        <TextInput
+                          style={styles.stockFormInputWeb}
+                          value={transferQuantity}
+                          onChangeText={setTransferQuantity}
+                          placeholder="Entrez la quantité"
+                          placeholderTextColor="#9CA3AF"
+                          keyboardType="numeric"
+                        />
+                      </View>
+
+                      <View style={styles.stockFormGroupWeb}>
+                        <Text style={styles.stockFormLabelWeb}>Observation</Text>
+                        <TextInput
+                          style={styles.stockFormInputWeb}
+                          value={transferObservation}
+                          onChangeText={setTransferObservation}
+                          placeholder="Observation (optionnel)"
+                          placeholderTextColor="#9CA3AF"
+                        />
+                      </View>
+                    </View>
+
+                    <View style={styles.stockFormActionsWeb}>
+                      <TouchableOpacity
+                        style={[
+                          styles.stockTransferButtonWeb,
+                          (transferLoading || filteredDepotCodes.length === 0) && styles.disabledButtonWeb
+                        ]}
+                        onPress={confirmTransferStock}
+                        disabled={transferLoading || filteredDepotCodes.length === 0}
+                      >
+                        {transferLoading ? (
+                          <ActivityIndicator size="small" color="#FFFFFF" />
+                        ) : (
+                          <Ionicons name="repeat-outline" size={20} color="#FFFFFF" />
+                        )}
+                        <Text style={styles.stockButtonTextWeb}>Transférer</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
               </View>
             )}
         </View>
@@ -1917,63 +2240,184 @@ const InventoryComponent = () => {
                   <Text style={styles.currentStockValueMobile}>{editingProduct.inStock || 0} unités</Text>
                 </View>
 
-                <View style={styles.formFieldMobile}>
-                  <Text style={styles.formLabelMobile}>Quantité</Text>
-                  <TextInput
-                    style={styles.formInputMobile}
-                    placeholder="Ex: 10"
-                    placeholderTextColor="#9CA3AF"
-                    keyboardType="numeric"
-                    value={stockQuantity}
-                    onChangeText={setStockQuantity}
-                  />
-                </View>
-
-                <View style={styles.formFieldMobile}>
-                  <Text style={styles.formLabelMobile}>Observation</Text>
-                  <TextInput
-                    style={[styles.formInputMobile, styles.textAreaMobile]}
-                    placeholder="Raison..."
-                    placeholderTextColor="#9CA3AF"
-                    value={stockObservation}
-                    onChangeText={setStockObservation}
-                    multiline
-                    numberOfLines={2}
-                  />
-                </View>
-
-                <View style={styles.stockActionsMobile}>
-                  <TouchableOpacity 
-                    style={styles.stockAddButtonMobile} 
-                    onPress={() => confirmStockAction('add')}
-                    disabled={stockLoading}
+                <View style={styles.stockToggleContainerMobile}>
+                  <TouchableOpacity
+                    style={[
+                      styles.stockToggleButtonMobile,
+                      stockManagementTab === 'adjust' && styles.stockToggleButtonActiveMobile
+                    ]}
+                    onPress={() => setStockManagementTab('adjust')}
                   >
-                    {stockLoading ? (
-                      <ActivityIndicator size="small" color="#FFFFFF" />
-                    ) : (
-                      <>
-                        <Ionicons name="add-circle" size={20} color="#FFFFFF" />
-                        <Text style={styles.buttonTextMobile}>Ajouter</Text>
-                      </>
-                    )}
+                    <Text
+                      style={[
+                        styles.stockToggleTextMobile,
+                        stockManagementTab === 'adjust' && styles.stockToggleTextActiveMobile
+                      ]}
+                    >
+                      Ajuster
+                    </Text>
                   </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={[styles.stockRemoveButtonMobile, (editingProduct.inStock || 0) === 0 && styles.disabledButtonMobile]} 
-                    onPress={() => confirmStockAction('remove')}
-                    disabled={stockLoading || (editingProduct.inStock || 0) === 0}
+                  <TouchableOpacity
+                    style={[
+                      styles.stockToggleButtonMobile,
+                      stockManagementTab === 'transfer' && styles.stockToggleButtonActiveMobile
+                    ]}
+                    onPress={() => setStockManagementTab('transfer')}
                   >
-                    {stockLoading ? (
-                      <ActivityIndicator size="small" color="#FFFFFF" />
-                    ) : (
-                      <>
-                        <Ionicons name="remove-circle" size={20} color="#FFFFFF" />
-                        <Text style={styles.buttonTextMobile}>
-                          {(editingProduct.inStock || 0) === 0 ? 'Stock vide' : 'Retirer'}
-                        </Text>
-                      </>
-                    )}
+                    <Text
+                      style={[
+                        styles.stockToggleTextMobile,
+                        stockManagementTab === 'transfer' && styles.stockToggleTextActiveMobile
+                      ]}
+                    >
+                      Transférer
+                    </Text>
                   </TouchableOpacity>
                 </View>
+
+                {stockManagementTab === 'adjust' ? (
+                  <>
+                    <View style={styles.formFieldMobile}>
+                      <Text style={styles.formLabelMobile}>Quantité *</Text>
+                      <TextInput
+                        style={styles.formInputMobile}
+                        placeholder="Ex: 10"
+                        placeholderTextColor="#9CA3AF"
+                        keyboardType="numeric"
+                        value={stockQuantity}
+                        onChangeText={setStockQuantity}
+                      />
+                    </View>
+
+                    <View style={styles.formFieldMobile}>
+                      <Text style={styles.formLabelMobile}>Observation</Text>
+                      <TextInput
+                        style={[styles.formInputMobile, styles.textAreaMobile]}
+                        placeholder="Raison..."
+                        placeholderTextColor="#9CA3AF"
+                        value={stockObservation}
+                        onChangeText={setStockObservation}
+                        multiline
+                        numberOfLines={2}
+                      />
+                    </View>
+
+                    <View style={styles.stockActionsMobile}>
+                      <TouchableOpacity 
+                        style={styles.stockAddButtonMobile} 
+                        onPress={() => confirmStockAction('add')}
+                        disabled={stockLoading}
+                      >
+                        {stockLoading ? (
+                          <ActivityIndicator size="small" color="#FFFFFF" />
+                        ) : (
+                          <>
+                            <Ionicons name="add-circle" size={20} color="#FFFFFF" />
+                            <Text style={styles.buttonTextMobile}>Ajouter</Text>
+                          </>
+                        )}
+                      </TouchableOpacity>
+                      <TouchableOpacity 
+                        style={[styles.stockRemoveButtonMobile, (editingProduct.inStock || 0) === 0 && styles.disabledButtonMobile]} 
+                        onPress={() => confirmStockAction('remove')}
+                        disabled={stockLoading || (editingProduct.inStock || 0) === 0}
+                      >
+                        {stockLoading ? (
+                          <ActivityIndicator size="small" color="#FFFFFF" />
+                        ) : (
+                          <>
+                            <Ionicons name="remove-circle" size={20} color="#FFFFFF" />
+                            <Text style={styles.buttonTextMobile}>
+                              {(editingProduct.inStock || 0) === 0 ? 'Stock vide' : 'Retirer'}
+                            </Text>
+                          </>
+                        )}
+                      </TouchableOpacity>
+                    </View>
+                  </>
+                ) : (
+                  <>
+                    <View style={styles.formFieldMobile}>
+                      <Text style={styles.formLabelMobile}>Dépôt de destination *</Text>
+                      {depotCodesLoading ? (
+                        <View style={styles.depotLoadingContainerMobile}>
+                          <ActivityIndicator size="small" color="#3B82F6" />
+                          <Text style={styles.depotLoadingTextMobile}>Chargement...</Text>
+                        </View>
+                      ) : filteredDepotCodes.length > 0 ? (
+                        <View style={styles.depotChipsContainerMobile}>
+                          {filteredDepotCodes.map((code) => (
+                            <TouchableOpacity
+                              key={code}
+                              style={[
+                                styles.depotChipMobile,
+                                transferDepotCode === code && styles.depotChipActiveMobile
+                              ]}
+                              onPress={() => setTransferDepotCode(code)}
+                            >
+                              <Text
+                                style={[
+                                  styles.depotChipTextMobile,
+                                  transferDepotCode === code && styles.depotChipTextActiveMobile
+                                ]}
+                              >
+                                {code}
+                              </Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      ) : (
+                        <Text style={styles.stockInfoTextMobile}>Aucun dépôt disponible.</Text>
+                      )}
+                      {depotCodesError && (
+                        <Text style={styles.stockErrorTextMobile}>{depotCodesError}</Text>
+                      )}
+                    </View>
+
+                    <View style={styles.formFieldMobile}>
+                      <Text style={styles.formLabelMobile}>Quantité *</Text>
+                      <TextInput
+                        style={styles.formInputMobile}
+                        placeholder="Ex: 5"
+                        placeholderTextColor="#9CA3AF"
+                        keyboardType="numeric"
+                        value={transferQuantity}
+                        onChangeText={setTransferQuantity}
+                      />
+                    </View>
+
+                    <View style={styles.formFieldMobile}>
+                      <Text style={styles.formLabelMobile}>Observation</Text>
+                      <TextInput
+                        style={[styles.formInputMobile, styles.textAreaMobile]}
+                        placeholder="Note (optionnel)"
+                        placeholderTextColor="#9CA3AF"
+                        value={transferObservation}
+                        onChangeText={setTransferObservation}
+                        multiline
+                        numberOfLines={2}
+                      />
+                    </View>
+
+                    <TouchableOpacity
+                      style={[
+                        styles.stockTransferButtonMobile,
+                        (transferLoading || filteredDepotCodes.length === 0) && styles.disabledButtonMobile
+                      ]}
+                      onPress={confirmTransferStock}
+                      disabled={transferLoading || filteredDepotCodes.length === 0}
+                    >
+                      {transferLoading ? (
+                        <ActivityIndicator size="small" color="#FFFFFF" />
+                      ) : (
+                        <>
+                          <Ionicons name="repeat-outline" size={20} color="#FFFFFF" />
+                          <Text style={styles.buttonTextMobile}>Transférer</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  </>
+                )}
               </View>
             )}
           </View>
@@ -2831,6 +3275,32 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#7C3AED',
   },
+  stockToggleContainerMobile: {
+    flexDirection: 'row',
+    gap: 8,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 999,
+    padding: 4,
+    marginBottom: 16,
+  },
+  stockToggleButtonMobile: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    borderRadius: 999,
+  },
+  stockToggleButtonActiveMobile: {
+    backgroundColor: '#7C3AED',
+  },
+  stockToggleTextMobile: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#4B5563',
+  },
+  stockToggleTextActiveMobile: {
+    color: '#FFFFFF',
+  },
   stockActionsMobile: {
     flexDirection: 'row',
     gap: 8,
@@ -2854,6 +3324,59 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 8,
     gap: 6,
+  },
+  stockTransferButtonMobile: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#2563EB',
+    paddingVertical: 12,
+    borderRadius: 8,
+    gap: 6,
+    marginTop: 12,
+  },
+  depotLoadingContainerMobile: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 8,
+  },
+  depotLoadingTextMobile: {
+    fontSize: 13,
+    color: '#6B7280',
+  },
+  depotChipsContainerMobile: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 8,
+  },
+  depotChipMobile: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: '#E5E7EB',
+  },
+  depotChipActiveMobile: {
+    backgroundColor: '#7C3AED',
+  },
+  depotChipTextMobile: {
+    fontSize: 13,
+    color: '#1F2937',
+    fontWeight: '500',
+  },
+  depotChipTextActiveMobile: {
+    color: '#FFFFFF',
+  },
+  stockInfoTextMobile: {
+    marginTop: 8,
+    fontSize: 13,
+    color: '#6B7280',
+  },
+  stockErrorTextMobile: {
+    marginTop: 8,
+    fontSize: 13,
+    color: '#DC2626',
   },
   disabledButtonMobile: {
     opacity: 0.5,
@@ -2941,6 +3464,37 @@ const styles = StyleSheet.create({
     color: '#1F2937',
     marginBottom: 20,
   },
+  stockTabsWeb: {
+    flexDirection: 'row',
+    gap: 8,
+    padding: 4,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 999,
+    marginBottom: 20,
+  },
+  stockTabButtonWeb: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: 999,
+  },
+  stockTabButtonActiveWeb: {
+    backgroundColor: '#2563EB',
+    shadowColor: '#1D4ED8',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  stockTabButtonTextWeb: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#1F2937',
+  },
+  stockTabButtonTextActiveWeb: {
+    color: '#FFFFFF',
+  },
   stockFormRowWeb: {
     flexDirection: 'row',
     gap: 16,
@@ -2970,6 +3524,12 @@ const styles = StyleSheet.create({
     gap: 12,
     justifyContent: 'flex-end',
   },
+  transferFormWeb: {
+    gap: 20,
+  },
+  transferDepotSectionWeb: {
+    gap: 12,
+  },
   stockAddButtonWeb: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2997,6 +3557,60 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 2,
     elevation: 1,
+  },
+  stockTransferButtonWeb: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 8,
+    backgroundColor: '#2563EB',
+    gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  depotLoadingContainerWeb: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 4,
+  },
+  depotLoadingTextWeb: {
+    fontSize: 13,
+    color: '#4B5563',
+  },
+  depotChipsContainerWeb: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  depotChipWeb: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: '#E5E7EB',
+  },
+  depotChipActiveWeb: {
+    backgroundColor: '#2563EB',
+  },
+  depotChipTextWeb: {
+    fontSize: 13,
+    color: '#1F2937',
+    fontWeight: '500',
+  },
+  depotChipTextActiveWeb: {
+    color: '#FFFFFF',
+  },
+  stockHelperTextWeb: {
+    fontSize: 13,
+    color: '#6B7280',
+  },
+  stockErrorTextWeb: {
+    fontSize: 13,
+    color: '#DC2626',
   },
   
   // Styles pour l'affichage du stock actuel

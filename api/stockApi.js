@@ -56,3 +56,14 @@ export const getStocksEnRupture = async () => {
     throw error;
   }
 };
+
+// Transférer du stock entre dépôts
+export const transferStock = async (data) => {
+  try {
+    const response = await apiClient.post('/api/v1.0/Stock/transfer-stock', data);
+    return response;
+  } catch (error) {
+    console.error('Erreur lors du transfert de stock:', error);
+    throw error;
+  }
+};

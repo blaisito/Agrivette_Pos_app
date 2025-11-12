@@ -2703,96 +2703,96 @@ Voulez-vous confirmer la modification de cette facture ?`;
             </View>
           ) : (
             filteredInvoices.map((invoice: Invoice) => (
-            <TouchableOpacity
-              key={invoice.id}
-              style={[
-                styles.invoiceCardWeb,
-                selectedInvoiceForDetails?.id === invoice.id && styles.invoiceCardSelectedWeb
-              ]}
-              onPress={() => selectInvoiceForDetails(invoice)}
-            >
-              {/* Header de la carte */}
-              <View style={styles.invoiceCardHeaderWeb}>
-                <View style={styles.invoiceCardHeaderLeftWeb}>
-                  <Text style={styles.invoiceCardIdWeb}>{invoice.tableNomination || 'Table'}</Text>
-                  <Text style={styles.invoiceCardDateHeaderWeb}>{invoice.date}</Text>
+              <TouchableOpacity
+                key={invoice.id}
+                style={[
+                  styles.invoiceCardWeb,
+                  selectedInvoiceForDetails?.id === invoice.id && styles.invoiceCardSelectedWeb
+                ]}
+                onPress={() => selectInvoiceForDetails(invoice)}
+              >
+                {/* Header de la carte */}
+                <View style={styles.invoiceCardHeaderWeb}>
+                  <View style={styles.invoiceCardHeaderLeftWeb}>
+                    <Text style={styles.invoiceCardIdWeb}>{invoice.tableNomination || 'Table'}</Text>
+                    <Text style={styles.invoiceCardDateHeaderWeb}>{invoice.date}</Text>
+                  </View>
+                  <View style={[styles.statusBadge, { backgroundColor: getStatusColor(invoice.status) }]}>
+                    <Text style={styles.statusText}>{getStatusLabel(invoice.status)}</Text>
+                  </View>
                 </View>
-                <View style={[styles.statusBadge, { backgroundColor: getStatusColor(invoice.status) }]}>
-                  <Text style={styles.statusText}>{getStatusLabel(invoice.status)}</Text>
-                </View>
-              </View>
 
-              {/* Informations client */}
-              <View style={styles.invoiceCardClientWeb}>
-                <Text style={styles.invoiceCardCustomerNameWeb}>{invoice.customerName}</Text>
-                <Text style={styles.invoiceCardCustomerEmailWeb}>{invoice.description}</Text>
-                <View style={styles.invoicePaymentRowWeb}>
-                  <View style={styles.invoiceBadgeRowWeb}>
-                    <View
-                      style={[
-                        styles.invoiceDebtBadgeWeb,
-                        invoice.dette
-                          ? styles.invoiceDebtBadgeDebtWeb
-                          : styles.invoiceDebtBadgePaidWeb,
-                      ]}
-                    >
-                      <Text
+                {/* Informations client */}
+                <View style={styles.invoiceCardClientWeb}>
+                  <Text style={styles.invoiceCardCustomerNameWeb}>{invoice.customerName}</Text>
+                  <Text style={styles.invoiceCardCustomerEmailWeb}>{invoice.description}</Text>
+                  <View style={styles.invoicePaymentRowWeb}>
+                    <View style={styles.invoiceBadgeRowWeb}>
+                      <View
                         style={[
-                          styles.invoiceDebtBadgeTextWeb,
+                          styles.invoiceDebtBadgeWeb,
                           invoice.dette
-                            ? styles.invoiceDebtBadgeTextDebtWeb
-                            : styles.invoiceDebtBadgeTextPaidWeb,
+                            ? styles.invoiceDebtBadgeDebtWeb
+                            : styles.invoiceDebtBadgePaidWeb,
                         ]}
                       >
-                        {invoice.dette ? 'DETTE' : 'PAYÉ'}
+                        <Text
+                          style={[
+                            styles.invoiceDebtBadgeTextWeb,
+                            invoice.dette
+                              ? styles.invoiceDebtBadgeTextDebtWeb
+                              : styles.invoiceDebtBadgeTextPaidWeb,
+                          ]}
+                        >
+                          {invoice.dette ? 'DETTE' : 'PAYÉ'}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={styles.invoicePaymentTypeContainerWeb}>
+                      <Ionicons name="card-outline" size={14} color="#6B7280" />
+                      <Text style={styles.invoicePaymentTypeTextWeb}>
+                        {invoice.typePaiement || 'Type inconnu'}
                       </Text>
                     </View>
                   </View>
-                  <View style={styles.invoicePaymentTypeContainerWeb}>
-                    <Ionicons name="card-outline" size={14} color="#6B7280" />
-                    <Text style={styles.invoicePaymentTypeTextWeb}>
-                      {invoice.typePaiement || 'Type inconnu'}
-                    </Text>
-                  </View>
                 </View>
-              </View>
 
-              {/* Informations facture */}
-              <View style={styles.invoiceCardInfoWeb}>
-                <View style={styles.invoiceCardInfoRowWeb}>
-                  <Ionicons name="calendar-outline" size={16} color="#6B7280" />
-                  <Text style={styles.invoiceCardDateWeb}>{invoice.date}</Text>
-                </View>
-                <View style={styles.invoiceCardInfoRowWeb}>
-                  <Ionicons name="receipt-outline" size={16} color="#6B7280" />
-                  <Text style={styles.invoiceCardItemsWeb}>{invoice.items.length} article(s)</Text>
-                </View>
-                {invoice.userName && (
+                {/* Informations facture */}
+                <View style={styles.invoiceCardInfoWeb}>
                   <View style={styles.invoiceCardInfoRowWeb}>
-                    <Ionicons name="person-outline" size={16} color="#6B7280" />
-                    <Text style={styles.invoiceCardItemsWeb}>{invoice.userName}</Text>
+                    <Ionicons name="calendar-outline" size={16} color="#6B7280" />
+                    <Text style={styles.invoiceCardDateWeb}>{invoice.date}</Text>
                   </View>
-                )}
-              </View>
-
-              {/* Footer avec total */}
-              <View style={styles.invoiceCardFooterWeb}>
-                <View style={styles.invoiceCardTotalsWeb}>
-                  <Text style={styles.invoiceCardTotalWeb}>{(invoice.amountPaidCdf || 0).toFixed(0)} CDF</Text>
-                  <Text style={[styles.invoiceCardTotalUsdWeb, { fontSize: 18, marginRight: 40 }]}>${(invoice.amountPaidUsd || 0).toFixed(2)}</Text>
+                  <View style={styles.invoiceCardInfoRowWeb}>
+                    <Ionicons name="receipt-outline" size={16} color="#6B7280" />
+                    <Text style={styles.invoiceCardItemsWeb}>{invoice.items.length} article(s)</Text>
+                  </View>
+                  {invoice.userName && (
+                    <View style={styles.invoiceCardInfoRowWeb}>
+                      <Ionicons name="person-outline" size={16} color="#6B7280" />
+                      <Text style={styles.invoiceCardItemsWeb}>{invoice.userName}</Text>
+                    </View>
+                  )}
                 </View>
-                <TouchableOpacity
-                  style={styles.invoiceCardActionWeb}
-                  onPress={() => selectInvoiceForDetails(invoice)}
-                >
-                  <Ionicons name="eye" size={18} color="#7C3AED" />
-                </TouchableOpacity>
-              </View>
-            </TouchableOpacity>
+
+                {/* Footer avec total */}
+                <View style={styles.invoiceCardFooterWeb}>
+                  <View style={styles.invoiceCardTotalsWeb}>
+                    <Text style={styles.invoiceCardTotalWeb}>{(invoice.amountPaidCdf || 0).toFixed(0)} CDF</Text>
+                    <Text style={[styles.invoiceCardTotalUsdWeb, { fontSize: 18, marginRight: 40 }]}>${(invoice.amountPaidUsd || 0).toFixed(2)}</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.invoiceCardActionWeb}
+                    onPress={() => selectInvoiceForDetails(invoice)}
+                  >
+                    <Ionicons name="eye" size={18} color="#7C3AED" />
+                  </TouchableOpacity>
+                </View>
+              </TouchableOpacity>
             ))
           )}
         </View>
-            </ScrollView>
+        </ScrollView>
           </View>
 
           {/* Section droite - Mode édition de la facture */}
@@ -2921,58 +2921,58 @@ Voulez-vous confirmer la modification de cette facture ?`;
                       {/* Articles de la facture */}
                 <View style={styles.editSectionWeb}>
                   <Text style={styles.editSectionTitleWeb}>Articles</Text>
-                  {selectedInvoiceForDetails.items.map((item: any, index: number) => (
-                    <View key={index} style={styles.editItemRowWeb}>
-                      <View style={styles.editItemInfoWeb}>
-                        <Text style={styles.editItemNameWeb}>{item.productName || item.name}</Text>
-                        <Text style={styles.editItemPriceWeb}>
-                          ${item.priceUsd?.toFixed(2) || '0.00'} / {item.priceCdf?.toFixed(0) || '0'} CDF
-                              </Text>
-                            </View>
-                      <View style={styles.editItemActionsWeb}>
-                              <TouchableOpacity
-                          onPress={() => {
-                            const newItems = [...selectedInvoiceForDetails.items];
-                            if (newItems[index].qte > 1) {
-                              newItems[index].qte -= 1;
-                              newItems[index].subTotalUsd = newItems[index].qte * newItems[index].priceUsd;
-                              newItems[index].subTotalCdf = newItems[index].qte * newItems[index].priceCdf;
-                              const updatedInvoice = { ...selectedInvoiceForDetails, items: newItems };
-                              setSelectedInvoiceForDetails(updatedInvoice);
-                            }
-                          }}
-                          style={styles.editQuantityButtonWeb}
-                              >
-                                <Ionicons name="remove" size={16} color="#6B7280" />
-                              </TouchableOpacity>
-                        <Text style={styles.editQuantityTextWeb}>{item.qte || item.quantity}</Text>
-                              <TouchableOpacity
-                          onPress={() => {
-                            const newItems = [...selectedInvoiceForDetails.items];
-                            newItems[index].qte += 1;
-                            newItems[index].subTotalUsd = newItems[index].qte * newItems[index].priceUsd;
-                            newItems[index].subTotalCdf = newItems[index].qte * newItems[index].priceCdf;
-                            const updatedInvoice = { ...selectedInvoiceForDetails, items: newItems };
-                            setSelectedInvoiceForDetails(updatedInvoice);
-                          }}
-                          style={styles.editQuantityButtonWeb}
-                              >
-                                <Ionicons name="add" size={16} color="#6B7280" />
-                              </TouchableOpacity>
-                              <TouchableOpacity
-                          onPress={() => {
-                            const newItems = selectedInvoiceForDetails.items.filter((_: any, i: number) => i !== index);
-                            const updatedInvoice = { ...selectedInvoiceForDetails, items: newItems };
-                            setSelectedInvoiceForDetails(updatedInvoice);
-                          }}
-                          style={styles.editRemoveButtonWeb}
-                              >
-                                <Ionicons name="trash" size={20} color="#EF4444" />
-                              </TouchableOpacity>
-                            </View>
-                          </View>
-                        ))}
+                  {selectedInvoiceForDetails.items.map((item: any, index: number) => {
+                    const handleDecrease = () => {
+                      const newItems = [...selectedInvoiceForDetails.items];
+                      if (newItems[index].qte > 1) {
+                        newItems[index].qte -= 1;
+                        newItems[index].subTotalUsd = newItems[index].qte * newItems[index].priceUsd;
+                        newItems[index].subTotalCdf = newItems[index].qte * newItems[index].priceCdf;
+                        setSelectedInvoiceForDetails({ ...selectedInvoiceForDetails, items: newItems });
+                      }
+                    };
+
+                    const handleIncrease = () => {
+                      const newItems = [...selectedInvoiceForDetails.items];
+                      newItems[index].qte += 1;
+                      newItems[index].subTotalUsd = newItems[index].qte * newItems[index].priceUsd;
+                      newItems[index].subTotalCdf = newItems[index].qte * newItems[index].priceCdf;
+                      setSelectedInvoiceForDetails({ ...selectedInvoiceForDetails, items: newItems });
+                    };
+
+                    const handleRemove = () => {
+                      const newItems = selectedInvoiceForDetails.items.filter((_: any, i: number) => i !== index);
+                      setSelectedInvoiceForDetails({ ...selectedInvoiceForDetails, items: newItems });
+                    };
+
+                    return (
+                      <View key={index} style={styles.editItemRowWeb}>
+                        <View style={styles.editItemInfoWeb}>
+                          <Text style={styles.editItemNameWeb}>{item.productName || item.name}</Text>
+                          <Text style={styles.editItemPriceWeb}>
+                            ${item.priceUsd?.toFixed(2) || '0.00'} / {item.priceCdf?.toFixed(0) || '0'} CDF
+                          </Text>
+                        </View>
+
+                        <View style={styles.editItemActionsWeb}>
+                          <TouchableOpacity onPress={handleDecrease} style={styles.editQuantityButtonWeb}>
+                            <Ionicons name="remove" size={16} color="#6B7280" />
+                          </TouchableOpacity>
+
+                          <Text style={styles.editQuantityTextWeb}>{item.qte || item.quantity}</Text>
+
+                          <TouchableOpacity onPress={handleIncrease} style={styles.editQuantityButtonWeb}>
+                            <Ionicons name="add" size={16} color="#6B7280" />
+                          </TouchableOpacity>
+
+                          <TouchableOpacity onPress={handleRemove} style={styles.editRemoveButtonWeb}>
+                            <Ionicons name="trash" size={20} color="#EF4444" />
+                          </TouchableOpacity>
+                        </View>
                       </View>
+                    );
+                  })}
+                </View>
 
 
                 <View style={styles.editSectionWeb}>
@@ -3260,52 +3260,61 @@ Voulez-vous confirmer la modification de cette facture ?`;
                       
                       {/* Grille de produits */}
                       <View style={styles.productsGridWeb}>
-                            {filteredProducts.length > 0 ? (
-                              filteredProducts.map((product: any) => (
-                          <TouchableOpacity
-                            key={product.id}
-                            style={[
-                              styles.productCardWeb,
-                              selectedProduct?.id === product.id && styles.productCardSelectedWeb,
-                              (product.stock === 0 || product.stock < 1) && styles.productCardOutOfStockWeb
-                            ]}
-                            onPress={() => setSelectedProduct(product)}
-                          >
-                            {selectedProduct?.id === product.id && (
-                              <View style={styles.checkIconContainerWeb}>
-                                <Ionicons name="checkmark-circle" size={20} color="#10B981" />
-                              </View>
-                            )}
-                            <View style={styles.productCardContentWeb}>
-                              <Text numberOfLines={2} style={styles.productNameWeb}>{product.name}</Text>
-                              <Text style={styles.productCategoryWeb}>{product.category}</Text>
-                                    <View style={styles.productPriceContainerWeb}>
-                                      <Text style={styles.productPriceWeb}>${(product.price || 0).toFixed(2)}</Text>
-                                      <Text style={styles.productPriceCdfWeb}>{(product.priceCdf || 0).toFixed(0)} CDF</Text>
-                                    </View>
-                                    <Text style={[
-                                      styles.productStockWeb,
-                                      (product.stock === 0 || product.stock < 1) && styles.productStockOutOfStockWeb
-                                    ]}>
-                                      Stock: {product.stock || 0}
-                                      {(product.stock === 0 || product.stock < 1) && ' (Rupture)'}
-                                    </Text>
-                            </View>
-                          </TouchableOpacity>
-                              ))
-                            ) : (
-                              <View style={styles.emptyProductsWeb}>
-                                <Ionicons name="cube-outline" size={48} color="#D1D5DB" />
-                                <Text style={styles.emptyProductsTextWeb}>Aucun produit trouvé</Text>
-                                <Text style={styles.emptyProductsSubtextWeb}>
-                                  {selectedProductCategory === 'Toutes' 
-                                    ? 'Aucun produit disponible' 
-                                    : `Aucun produit dans la catégorie "${selectedProductCategory}"`
-                                  }
+                        {filteredProducts.length > 0 ? (
+                          filteredProducts.map((product: any) => (
+                            <TouchableOpacity
+                              key={product.id}
+                              style={[
+                                styles.productCardWeb,
+                                selectedProduct?.id === product.id && styles.productCardSelectedWeb,
+                                (product.stock === 0 || product.stock < 1) && styles.productCardOutOfStockWeb,
+                              ]}
+                              onPress={() => setSelectedProduct(product)}
+                            >
+                              {selectedProduct?.id === product.id && (
+                                <View style={styles.checkIconContainerWeb}>
+                                  <Ionicons name="checkmark-circle" size={20} color="#10B981" />
+                                </View>
+                              )}
+
+                              <View style={styles.productCardContentWeb}>
+                                <Text numberOfLines={2} style={styles.productNameWeb}>
+                                  {product.name}
                                 </Text>
-                      </View>
-                            )}
+                                <Text style={styles.productCategoryWeb}>{product.category}</Text>
+
+                                <View style={styles.productPriceContainerWeb}>
+                                  <Text style={styles.productPriceWeb}>${(product.price || 0).toFixed(2)}</Text>
+                                  <Text style={styles.productPriceCdfWeb}>
+                                    {(product.priceCdf || 0).toFixed(0)} CDF
+                                  </Text>
+                                </View>
+
+                                <Text
+                                  style={[
+                                    styles.productStockWeb,
+                                    (product.stock === 0 || product.stock < 1) &&
+                                      styles.productStockOutOfStockWeb,
+                                  ]}
+                                >
+                                  Stock: {product.stock || 0}
+                                  {(product.stock === 0 || product.stock < 1) && ' (Rupture)'}
+                                </Text>
+                              </View>
+                            </TouchableOpacity>
+                          ))
+                        ) : (
+                          <View style={styles.emptyProductsWeb}>
+                            <Ionicons name="cube-outline" size={48} color="#D1D5DB" />
+                            <Text style={styles.emptyProductsTextWeb}>Aucun produit trouvé</Text>
+                            <Text style={styles.emptyProductsSubtextWeb}>
+                              {selectedProductCategory === 'Toutes'
+                                ? 'Aucun produit disponible'
+                                : `Aucun produit dans la catégorie "${selectedProductCategory}"`}
+                            </Text>
                           </View>
+                        )}
+                      </View>
                         </>
                       )}
                     </View>
