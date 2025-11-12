@@ -423,7 +423,6 @@ const InventoryComponent = () => {
     setTransferObservation('');
     setTransferDepotCode('');
     setStockManagementTab('adjust');
-    setStockFeedback(null);
   }, [editingProduct]);
 
   useEffect(() => {
@@ -720,6 +719,7 @@ const InventoryComponent = () => {
       description: product.description || ''
     });
     setActiveTab('product-management');
+    setStockFeedback(null);
   };
 
   const openProductModal = () => {
@@ -817,6 +817,16 @@ const InventoryComponent = () => {
       setStockFeedback({
         type: 'success',
         message: `Stock ${action === 'add' ? 'ajouté' : 'retiré'} avec succès.`,
+      });
+
+      setEditingProduct((prev: any) => {
+        if (!prev) return prev;
+        const current = prev.inStock || 0;
+        const nextValue =
+          action === 'add'
+            ? current + quantity
+            : Math.max(0, current - quantity);
+        return { ...prev, inStock: nextValue };
       });
 
       setStockQuantity('');
@@ -952,6 +962,13 @@ const InventoryComponent = () => {
       } else {
         Alert.alert('Succès', successMessage);
       }
+
+      setEditingProduct((prev: any) => {
+        if (!prev) return prev;
+        const current = prev.inStock || 0;
+        const nextValue = Math.max(0, current - quantity);
+        return { ...prev, inStock: nextValue };
+      });
 
       setTransferQuantity('');
       setTransferObservation('');
