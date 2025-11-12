@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Dimensions, Image, RefreshControl, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { getCategories } from '../api/categoryApi';
 import { getExchangeRate } from '../api/configurationApi';
@@ -131,8 +131,6 @@ const POSComponent = ({ onCartItemCountChange }: POSComponentProps) => {
   const [showTableModal, setShowTableModal] = useState(false);
   const [selectedTable, setSelectedTable] = useState<any>(null);
   
-  // État pour contrôler l'affichage (sélection de table vs POS)
-  const [showTableSelection, setShowTableSelection] = useState(true);
 
   // État pour la recherche de produits
   const [searchTerm, setSearchTerm] = useState('');
@@ -261,13 +259,13 @@ const POSComponent = ({ onCartItemCountChange }: POSComponentProps) => {
 
   // Actualiser le taux de change à chaque fois que la vue POS s'affiche
   React.useEffect(() => {
-    if (!showTableSelection) {
+    if (selectedTable) {
       loadExchangeRate();
     }
-  }, [showTableSelection]);
+  }, [selectedTable]);
 
   // Fonction pour sélectionner une table et récupérer ses détails
-  const handleTableSelection = async (table: any) => {
+  const handleTableSelection = useCallback(async (table: any) => {
     setSelectedTable(table);
     setLoadingTableDetails(true);
     
@@ -280,7 +278,20 @@ const POSComponent = ({ onCartItemCountChange }: POSComponentProps) => {
     } finally {
       setLoadingTableDetails(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (tables.length === 0) {
+      return;
+    }
+
+    const tableStillAvailable =
+      selectedTable && tables.some((table: any) => table.id === selectedTable.id);
+
+    if (!tableStillAvailable) {
+      handleTableSelection(tables[0]);
+    }
+  }, [tables, selectedTable, handleTableSelection]);
 
   // Calcul des totaux par devise
   const totalCdf = orderItems.reduce((sum, item, index) => {
@@ -866,117 +877,12 @@ ${orderDetails}
     ]);
   };
 
-  // Vue de sélection de table
-  if (showTableSelection) {
-    return (
-      <View style={styles.tableSelectionContainer}>
-        {/* Header */}
-        <View style={styles.tableSelectionHeader}>
-          <View style={styles.tableSelectionHeaderLeft}>
-            <Ionicons name="calculator" size={24} color="#1F2937" />
-            {isLargeScreen && (
-              <Text style={styles.tableSelectionTitle}>Sélection de Poste</Text>
-            )}
-            <TouchableOpacity 
-              style={styles.refreshButton}
-              onPress={() => refetchTables()}
-              disabled={tablesLoading}
-            >
-              {tablesLoading ? (
-                <ActivityIndicator size="small" color="#7C3AED" />
-              ) : (
-                isLargeScreen ? (
-                  <Ionicons name="refresh" size={20} color="#7C3AED" />
-                ) : (
-                  <Text style={styles.refreshButtonText}>Actualiser</Text>
-                )
-              )}
-            </TouchableOpacity>
-          </View>
-          <View style={styles.tableSelectionHeaderRight}>
-            <Text style={styles.tableSelectionSubtitle}>
-              Choisissez un Poste pour commencer la commande
-            </Text>
-          </View>
-        </View>
 
-        {/* Grille des tables */}
-        <ScrollView 
-          style={styles.tableSelectionScrollView}
-          contentContainerStyle={styles.tableSelectionGrid}
-        >
-          {tables.sort((a: any, b: any) => {
-            // Trier par nomination si disponible, sinon par id
-            const aValue = a.nomination || a.id;
-            const bValue = b.nomination || b.id;
-            
-            // Extraire les nombres des nominations (ex: "Table 1" -> 1)
-            const aNum = parseInt(aValue.toString().replace(/\D/g, '')) || aValue;
-            const bNum = parseInt(bValue.toString().replace(/\D/g, '')) || bValue;
-            
-            return aNum - bNum;
-          }).map((table: any) => (
-            <TouchableOpacity
-              key={table.id}
-              style={[
-                styles.tableSelectionItem,
-                selectedTable?.id === table.id && styles.tableSelectionItemSelected
-              ]}
-              onPress={() => {
-                handleTableSelection(table);
-                // Délai pour montrer la sélection avant de passer au POS
-                setTimeout(() => {
-                  setShowTableSelection(false);
-                }, 300);
-              }}
-            >
-              {/* Image de la table */}
-              <View style={styles.tableSelectionImageContainer}>
-                <Image
-                  source={require('../assets/images/TABLE.png')}
-                  style={styles.tableSelectionImage}
-                  resizeMode="contain"
-                />
-              </View>
-
-              {/* Informations de la table */}
-              <View style={styles.tableSelectionInfo}>
-                <Text style={styles.tableSelectionNumber}>{table.nomination || `Table ${table.id}`}</Text>
-                <Text style={styles.tableSelectionDetails}>
-                  {table.description || 'Poste disponible'}
-                </Text>
-                <View style={styles.tableSelectionStatus}>
-                  <Text style={styles.tableSelectionStatusText}>
-                    Disponible
-                  </Text>
-                </View>
-              </View>
-
-              {/* Indicateur de sélection */}
-              {selectedTable?.id === table.id && (
-                <View style={styles.tableSelectionCheckmark}>
-                  <Ionicons name="checkmark-circle" size={24} color="#10B981" />
-                </View>
-              )}
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-
-        {/* Footer avec instructions */}
-        <View style={styles.tableSelectionFooter}>
-          <View style={styles.tableSelectionInstructions}>
-            <Ionicons name="information-circle" size={20} color="#6B7280" />
-            <Text style={styles.tableSelectionInstructionsText}>
-              Cliquez sur un Poste pour commencer la commande
-            </Text>
-          </View>
-        </View>
-      </View>
-    );
-  }
+  const isTableSelected = Boolean(selectedTable);
 
   // Version Desktop/Large Screen
   if (isLargeScreen) {
+
     return (
       <View style={styles.containerWeb}>
 
@@ -984,10 +890,10 @@ ${orderDetails}
         <View style={styles.posHeaderWeb}>
           <TouchableOpacity 
             style={styles.backToTableButton}
-            onPress={() => setShowTableSelection(true)}
+            onPress={() => setShowTableModal(true)}
           >
             <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
-            <Text style={styles.backToTableButtonText}>Retour aux poste</Text>
+            <Text style={styles.backToTableButtonText}>Changer de poste</Text>
           </TouchableOpacity>
           <View style={styles.posHeaderInfo}>
             <Text style={styles.posHeaderTitle}>
@@ -1424,10 +1330,10 @@ ${orderDetails}
                 <TouchableOpacity 
                   style={[
                     styles.orderButton,
-                    isCreatingFacture && styles.orderButtonDisabled
+                    (isCreatingFacture || !isTableSelected) && styles.orderButtonDisabled
                   ]} 
                   onPress={handleConfirmPaymentWeb}
-                  disabled={isCreatingFacture}
+                  disabled={isCreatingFacture || !isTableSelected}
                 >
                   {isCreatingFacture ? (
                     <ActivityIndicator size="small" color="white" />
@@ -1441,6 +1347,9 @@ ${orderDetails}
                     }
                   </Text>
                 </TouchableOpacity>
+                {!isTableSelected && (
+                  <Text style={styles.noTableText}>Aucun poste trouvé</Text>
+                )}
               </View>
             </ScrollView>
           </View>
@@ -1530,10 +1439,10 @@ ${orderDetails}
       <View style={styles.headerMobile}>
         <TouchableOpacity 
           style={styles.backToTableButtonMobile}
-          onPress={() => setShowTableSelection(true)}
+          onPress={() => setShowTableModal(true)}
         >
           <Ionicons name="arrow-back" size={18} color="#FFFFFF" />
-          <Text style={styles.backToTableButtonTextMobile}>Postes</Text>
+          <Text style={styles.backToTableButtonTextMobile}>Changer de poste</Text>
         </TouchableOpacity>
         <View style={styles.headerMobileInfo}>
           <Text style={styles.headerTitleMobile}>
@@ -1857,12 +1766,22 @@ ${orderDetails}
 
 
               {/* Bouton Commande */}
-              <TouchableOpacity style={styles.orderButtonMobile}>
+              <TouchableOpacity
+                style={[
+                  styles.orderButtonMobile,
+                  (isCreatingFacture || !isTableSelected) && styles.orderButtonMobileDisabled
+                ]}
+                onPress={handleConfirmPaymentWeb}
+                disabled={isCreatingFacture || !isTableSelected}
+              >
                 <Ionicons name="restaurant" size={20} color="white" />
                 <Text style={styles.orderButtonTextMobile}>
                   Commande - Boissons 1 | Nourriture 3
                 </Text>
               </TouchableOpacity>
+              {!isTableSelected && (
+                <Text style={styles.noTableText}>Aucun poste trouvé</Text>
+              )}
             </View>
           </ScrollView>
         </View>):(<></>)}
@@ -2371,7 +2290,7 @@ ${orderDetails}
                 
                 <TouchableOpacity
                   style={{
-                    backgroundColor: isCreatingFacture ? '#9CA3AF' : '#00436C',
+                    backgroundColor: isCreatingFacture || !isTableSelected ? '#9CA3AF' : '#00436C',
                     borderRadius: 8,
                     paddingVertical: 14,
                     flexDirection: 'row',
@@ -2379,9 +2298,10 @@ ${orderDetails}
                     justifyContent: 'center',
                     marginTop: 8,
                     gap: 8,
+                    opacity: isCreatingFacture || !isTableSelected ? 0.7 : 1,
                   }}
                   onPress={handleConfirmPaymentWeb}
-                  disabled={isCreatingFacture}
+                  disabled={isCreatingFacture || !isTableSelected}
                 >
                   {isCreatingFacture ? (
                     <ActivityIndicator size="small" color="white" />
@@ -2392,6 +2312,9 @@ ${orderDetails}
                     {isCreatingFacture ? 'Enregistrement...' : 'Enregistrer la commande'}
                   </Text>
                 </TouchableOpacity>
+                {!isTableSelected && (
+                  <Text style={styles.noTableText}>Aucun poste trouvé</Text>
+                )}
             </>
 
           </ScrollView>
@@ -3070,6 +2993,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  orderButtonMobileDisabled: {
+    backgroundColor: '#6B7280',
+    opacity: 0.7,
+  },
   orderButtonText: {
     color: '#FFFFFF',
     marginLeft: 8,
@@ -3081,6 +3008,13 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     fontSize: 16,
     fontWeight: '600',
+  },
+  noTableText: {
+    marginTop: 8,
+    color: '#DC2626',
+    fontSize: 14,
+    textAlign: 'center',
+    fontWeight: '500',
   },
 
   // Menu Panel Web

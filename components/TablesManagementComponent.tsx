@@ -67,7 +67,7 @@ const TablesManagementComponent = () => {
   // Fonction pour créer une table (adaptée à l'API)
   const handleCreateTable = async () => {
     if (!tableNomination.trim()) {
-      Alert.alert('Erreur', 'Veuillez remplir le nom de la table');
+      Alert.alert('Erreur', 'Veuillez remplir le nom de poste');
       return;
     }
 
@@ -94,7 +94,7 @@ const TablesManagementComponent = () => {
   // Fonction pour modifier une table (adaptée à l'API)
   const handleUpdateTable = async () => {
     if (!selectedTable || !tableNomination.trim()) {
-      Alert.alert('Erreur', 'Veuillez remplir le nom de la table');
+      Alert.alert('Erreur', 'Veuillez remplir le nom de poste');
       return;
     }
 
@@ -191,7 +191,7 @@ const TablesManagementComponent = () => {
       <View style={styles.modalContent}>
         <View style={styles.modalHeader}>
           <Text style={styles.modalTitle}>
-            {isEdit ? 'Modifier la table' : 'Ajouter une table'}
+            {isEdit ? 'Modifier le poste' : 'Ajouter un poste'}
           </Text>
           <TouchableOpacity
             style={styles.closeButton}
@@ -207,7 +207,7 @@ const TablesManagementComponent = () => {
         
         <ScrollView style={styles.modalBody}>
           <View style={styles.formGroup}>
-            <Text style={styles.formLabel}>Nom de la table *</Text>
+            <Text style={styles.formLabel}>Nom de poste *</Text>
             <TextInput
               style={styles.formInput}
               value={tableNomination}
@@ -273,7 +273,7 @@ const TablesManagementComponent = () => {
       {/* Header */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.headerTitle}>Gestion des tables</Text>
+          <Text style={styles.headerTitle}>Gestion des postes</Text>
           <Text style={styles.headerSubtitle}>
             {tables.length} table{tables.length > 1 ? 's' : ''} configurée{tables.length > 1 ? 's' : ''}
           </Text>
@@ -281,7 +281,7 @@ const TablesManagementComponent = () => {
         
         <TouchableOpacity style={styles.addButton} onPress={openAddModal}>
           <Ionicons name="add" size={20} color="#FFFFFF" />
-          <Text style={styles.addButtonText}>Ajouter une table</Text>
+          <Text style={styles.addButtonText}>Ajouter un poste</Text>
         </TouchableOpacity>
       </View>
       
@@ -289,10 +289,10 @@ const TablesManagementComponent = () => {
       <ScrollView style={styles.tablesList} showsVerticalScrollIndicator={false}>
         {tables.length === 0 ? (
           <View style={styles.emptyState}>
-            <Ionicons name="restaurant" size={48} color="#CBD5E1" />
-            <Text style={styles.emptyStateTitle}>Aucune table configurée</Text>
+            <Ionicons name="calculator" size={48} color="#CBD5E1" />
+            <Text style={styles.emptyStateTitle}>Aucun poste configuré</Text>
             <Text style={styles.emptyStateText}>
-              Commencez par ajouter votre première table
+              Commencez par ajouter votre première poste
             </Text>
           </View>
         ) : (

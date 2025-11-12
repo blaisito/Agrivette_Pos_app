@@ -14,7 +14,7 @@ const SettingsComponent = () => {
 
   // Sections disponibles
   const sections = [
-    { key: 'tables', label: 'Gestion des tables', icon: 'restaurant' },
+    { key: 'tables', label: 'Gestion des postes', icon: 'calculator' },
     { key: 'users', label: 'Gestion des utilisateurs', icon: 'people' },
     { key: 'rates', label: 'Gestion des taux', icon: 'trending-up' }
   ];
