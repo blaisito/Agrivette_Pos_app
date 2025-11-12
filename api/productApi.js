@@ -12,8 +12,20 @@ const PRODUCT_ENDPOINTS = {
 };
 
 // Fonctions API pour les produits
-export const getProducts = async () => {
-  const response = await apiClient.get(PRODUCT_ENDPOINTS.GET_ALL);
+export const getProducts = async (options) => {
+  let depotCode = null;
+
+  if (typeof options === 'string') {
+    depotCode = options;
+  } else if (options && typeof options === 'object') {
+    depotCode = options.depotCode ?? null;
+  }
+
+  const endpoint = depotCode
+    ? `${PRODUCT_ENDPOINTS.GET_ALL}?depotCode=${encodeURIComponent(depotCode)}`
+    : PRODUCT_ENDPOINTS.GET_ALL;
+
+  const response = await apiClient.get(endpoint);
   return response;
 };
 

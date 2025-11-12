@@ -2,6 +2,16 @@ import { apiClient } from './client';
 
 const API_VERSION = 'v1';
 
+export const getDepotCodes = async () => {
+  try {
+    const response = await apiClient.get('/api/v1.0/User/depot-codes');
+    return response;
+  } catch (error) {
+    console.error('Erreur lors de la récupération des dépôts:', error);
+    throw error;
+  }
+};
+
 // Récupérer tous les utilisateurs
 export const getUsers = async () => {
   try {

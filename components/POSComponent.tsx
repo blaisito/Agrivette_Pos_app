@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Dimensions, Image, RefreshControl, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { getCategories } from '../api/categoryApi';
 import { getExchangeRate } from '../api/configurationApi';
@@ -95,9 +95,17 @@ const POSComponent = ({ onCartItemCountChange }: POSComponentProps) => {
     }
   }, [orderItems, onCartItemCountChange]);
 
+  const [userId, setUserId] = useState<string>('');
+  const [userData, setUserData] = useState<any>(null);
+  const depotCode = userData?.depotCode ?? null;
+  const productFetchParams = useMemo(
+    () => (depotCode ? { depotCode } : null),
+    [depotCode]
+  );
+
   // Hooks pour les données API
   const { data: categoriesData, loading: categoriesLoading, error: categoriesError, refetch: refetchCategories } = useFetch(getCategories);
-  const { data: productsData, loading: productsLoading, error: productsError, refetch: refetchProducts } = useFetch(getProducts);
+  const { data: productsData, loading: productsLoading, error: productsError, refetch: refetchProducts } = useFetch(getProducts, productFetchParams as any);
   const { data: tablesData, loading: tablesLoading, error: tablesError, refetch: refetchTables } = useFetch(getTables);
   
   // Types pour éviter les erreurs TypeScript
@@ -109,6 +117,9 @@ const POSComponent = ({ onCartItemCountChange }: POSComponentProps) => {
   // États pour la modal du panier
   const [showCartModal, setShowCartModal] = useState(false);
   const [discount, setDiscount] = useState('');
+  const [amountCdf, setAmountCdf] = useState('');
+  const [amountUsd, setAmountUsd] = useState('');
+  const [useUsdAmounts, setUseUsdAmounts] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('Cash');
   const [isDebt, setIsDebt] = useState<boolean>(false);
   const [customerName, setCustomerName] = useState('');
@@ -148,16 +159,69 @@ const POSComponent = ({ onCartItemCountChange }: POSComponentProps) => {
   // État pour le taux de change
   const [exchangeRate, setExchangeRate] = useState<number>(2850); // Valeur par défaut
   
-  // État pour l'ID de l'utilisateur (récupéré depuis l'authentification)
-  const [userId, setUserId] = useState<string>('');
-  const [userData, setUserData] = useState<any>(null);
-  
   // État pour le chargement de la création de facture
   const [isCreatingFacture, setIsCreatingFacture] = useState<boolean>(false);
   
   // État pour afficher un overlay de chargement global
   const [showLoadingOverlay, setShowLoadingOverlay] = useState<boolean>(false);
 
+  useEffect(() => {
+    if (useUsdAmounts) {
+      setAmountCdf('');
+    } else {
+      setAmountUsd('');
+    }
+  }, [useUsdAmounts]);
+
+  const clampNumericInput = (rawValue: string, maxValue: number, decimals = 2) => {
+    if (rawValue.trim() === '') {
+      return '';
+    }
+    const sanitized = rawValue.replace(',', '.');
+    const parsed = Number(sanitized);
+    if (Number.isNaN(parsed)) {
+      return null;
+    }
+    const clamped = Math.max(0, Math.min(parsed, maxValue));
+    return decimals === 0 ? Math.round(clamped).toString() : clamped.toFixed(decimals);
+  };
+
+  const handleAmountCdfChange = (value: string) => {
+    if (useUsdAmounts) {
+      setAmountCdf('');
+      return;
+    }
+    const maxValue = Math.max(0, total);
+    const result = clampNumericInput(value, maxValue, 0);
+    if (result !== null) {
+      setAmountCdf(result);
+    }
+  };
+
+  const handleAmountUsdChange = (value: string) => {
+    if (!useUsdAmounts) {
+      setAmountUsd('');
+      return;
+    }
+    const maxValue = Math.max(0, totalFinalUsd);
+    // Laisser la saisie libre tant que <= max et numérique
+    if (value.trim() === '') {
+      setAmountUsd('');
+      return;
+    }
+    const sanitized = value.replace(',', '.');
+    const parsed = Number(sanitized);
+    if (Number.isNaN(parsed)) {
+      // Ne rien faire si ce n'est pas un nombre valide
+      return;
+    }
+    const clamped = Math.min(Math.max(parsed, 0), maxValue);
+    if (parseFloat(parsed.toFixed(2)) !== parseFloat(clamped.toFixed(2))) {
+      setAmountUsd(clamped.toFixed(2));
+    } else {
+      setAmountUsd(value);
+    }
+  };
   // Charger les données utilisateur au démarrage
   useEffect(() => {
     const loadUserData = async () => {
@@ -228,13 +292,27 @@ const POSComponent = ({ onCartItemCountChange }: POSComponentProps) => {
   }, 0);
   
   const totalUsdInCdf = totalUsd * exchangeRate;
-  const finalTotal = totalCdf + totalUsdInCdf;
-  
-  const subtotal = finalTotal;
-  const discountAmount = parseFloat(discount) || 0;
+  const grossTotalCdf = totalCdf + totalUsdInCdf;
+
+  const discountValue = parseFloat(discount) || 0;
+  const appliedReductionUsd = useUsdAmounts ? Math.min(discountValue, totalUsd) : 0;
+  const appliedReductionCdf = useUsdAmounts ? 0 : Math.min(discountValue, grossTotalCdf);
+
+  const adjustedTotalUsd = Math.max(0, totalUsd - appliedReductionUsd);
+  const adjustedTotalUsdInCdf = adjustedTotalUsd * exchangeRate;
+
+  const subtotal = grossTotalCdf;
+  const totalCdfAfterDiscount = useUsdAmounts
+    ? totalCdf + adjustedTotalUsdInCdf
+    : Math.max(0, grossTotalCdf - appliedReductionCdf);
+
   const tax = subtotal * 0.13; // 13% de taxe (pour affichage seulement)
-  const total = subtotal - discountAmount; // Total final = sous-total - réduction seulement
-  const totalFinalUsd = total / exchangeRate; // Total final en USD = total CDF / taux de change
+  const total = totalCdfAfterDiscount; // Total final en CDF après réduction
+  const totalFinalUsd = total / exchangeRate; // Total final en USD
+  const displayReductionCdf = appliedReductionCdf;
+  const displayReductionUsd = appliedReductionUsd;
+  const totalUsdDisplay = adjustedTotalUsd;
+  const totalUsdInCdfDisplay = useUsdAmounts ? adjustedTotalUsdInCdf : totalUsdInCdf;
 
   // Ajout d'images pour chaque item du menu
   const menuItems = [
@@ -529,13 +607,18 @@ const POSComponent = ({ onCartItemCountChange }: POSComponentProps) => {
       return `• ${item.name} (${item.quantity}x) - ${item.total.toFixed(2)} ${currency}`;
     }).join('\n');
     
-    const discountAmount = parseFloat(discount) || 0;
     const finalTotal = total;
     const totalCdfAmount = totalCdf;
-    const totalUsdAmount = totalUsd;
-    const totalUsdInCdfAmount = totalUsdInCdf;
+    const totalUsdAmount = totalUsdDisplay;
+    const totalUsdInCdfAmount = totalUsdInCdfDisplay;
+    const discountText =
+      displayReductionCdf > 0 || displayReductionUsd > 0
+        ? useUsdAmounts
+          ? `\nRéduction: -${displayReductionUsd.toFixed(2)} USD`
+          : `\nRéduction: -${displayReductionCdf.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')} CDF`
+        : '';
     
-    const confirmationMessage = `DÉTAILS DE LA FACTURE:\n\nTable: ${selectedTable ? (selectedTable.nomination || `Table ${selectedTable.id}`) : 'Non sélectionnée'}\nTaux: ${exchangeRate}\n\nARTICLES:\n${orderDetails}\n\nTOTAL CDF: ${totalCdfAmount.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')} CDF\nTOTAL USD: ${totalUsdAmount.toFixed(2)} USD\nTOTAL USD en CDF: ${totalUsdInCdfAmount.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')} CDF${discountAmount > 0 ? `\nRéduction: -${discountAmount.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')} CDF` : ''}\n\nTOTAL FINAL: ${finalTotal.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')} CDF\n\nClient: ${customerName || 'Non spécifié'}\nContact: ${customerContact || 'Non spécifié'}\nPaiement: ${paymentMethod}\n\nVoulez-vous créer cette facture ?`;
+    const confirmationMessage = `DÉTAILS DE LA FACTURE:\n\nTable: ${selectedTable ? (selectedTable.nomination || `Table ${selectedTable.id}`) : 'Non sélectionnée'}\nTaux: ${exchangeRate}\n\nARTICLES:\n${orderDetails}\n\nTOTAL CDF: ${totalCdfAmount.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')} CDF\nTOTAL USD: ${totalUsdAmount.toFixed(2)} USD\nTOTAL USD en CDF: ${totalUsdInCdfAmount.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')} CDF${discountText}\n\nTOTAL FINAL: ${finalTotal.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')} CDF\nTOTAL FINAL USD: ${totalFinalUsd.toFixed(2)} USD\n\nClient: ${customerName || 'Non spécifié'}\nContact: ${customerContact || 'Non spécifié'}\nPaiement: ${paymentMethod}\n\nVoulez-vous créer cette facture ?`;
     
     Alert.alert(
       'Confirmation de facture',
@@ -581,9 +664,9 @@ const POSComponent = ({ onCartItemCountChange }: POSComponentProps) => {
 
       // Transformer les orderItems en format ventes pour l'API
       const ventes = orderItems.map((item, index) => {
-        // S'assurer que les prix ne sont pas 0 ou undefined
-        const priceUsd = item.priceUsd || 1.0; // Valeur par défaut si 0
-        const priceCdf = item.priceCdf || exchangeRate; // Valeur par défaut si 0
+        // Utiliser directement les prix du produit sélectionné
+        const priceUsd = typeof item.priceUsd === 'number' ? item.priceUsd : 0;
+        const priceCdf = typeof item.priceCdf === 'number' ? item.priceCdf : 0;
         
         // Utiliser item.productId ou item.id selon ce qui existe
         const productId = item.productId || item.id;
@@ -595,6 +678,7 @@ const POSComponent = ({ onCartItemCountChange }: POSComponentProps) => {
         
         return {
           productId: productId,
+          depotCode: depotCode,
           qte: item.quantity,
           taux: exchangeRate, // Taux affiché à côté de la table
           priceUsd: priceUsd, // Prix USD directement de l'objet item (minimum 1.0)
@@ -603,19 +687,26 @@ const POSComponent = ({ onCartItemCountChange }: POSComponentProps) => {
       });
 
       // Préparer les données de la facture (ordre exact comme dans le cURL)
+      const inputAmountCdf = Number((amountCdf || '0').replace(',', '.'));
+      const inputAmountUsd = Number((amountUsd || '0').replace(',', '.'));
+
       const factureData = {
         tableId: selectedTable.id,
         userId: userId,
-        reductionCdf: parseFloat(discount) || 0,
-        reductionUsd: 0, // Toujours 0 comme spécifié
+        reductionCdf: displayReductionCdf,
+        reductionUsd: displayReductionUsd,
+        amountCdf: useUsdAmounts ? 0 : inputAmountCdf,
+        amountUsd: useUsdAmounts ? inputAmountUsd : 0,
         client: customerName || "", // Envoyer chaîne vide si vide
         contact: customerContact || "", // Envoyer chaîne vide si vide
         description: commandNotice || "", // Envoyer chaîne vide si vide
         status: 0, // Par défaut
-        dette: isDebt,
+        //dette: !!isDebt,
         typePaiement: paymentMethod || 'Cash',
         ventes: ventes // Ventes en dernier comme dans le cURL
       };
+
+      console.log('factureData', factureData);
 
       // Appeler l'API pour créer la facture
       const response = await createFacture(factureData);
@@ -623,7 +714,7 @@ const POSComponent = ({ onCartItemCountChange }: POSComponentProps) => {
       if (response.success) {
         
         // Préparer les données pour l'impression AVANT de réinitialiser le panier
-        const discountAmount = parseFloat(discount) || 0;
+        const receiptDiscount = useUsdAmounts ? 0 : displayReductionCdf;
         const receiptData = formatInvoiceForReceiptPOS(
           orderItems,
           selectedTable,
@@ -631,9 +722,9 @@ const POSComponent = ({ onCartItemCountChange }: POSComponentProps) => {
           customerContact,
           paymentMethod,
           totalCdf,
-          totalUsd,
-          totalUsdInCdf,
-          discountAmount,
+          totalUsdDisplay,
+          totalUsdInCdfDisplay,
+          receiptDiscount,
           exchangeRate
         );
         
@@ -642,6 +733,9 @@ const POSComponent = ({ onCartItemCountChange }: POSComponentProps) => {
         setCurrencyPerItem([]);
         setShowCartModal(false);
         setDiscount('');
+        setAmountCdf('');
+        setAmountUsd('');
+        setUseUsdAmounts(false);
         setCustomerName('');
         setCustomerContact('');
         setPaymentMethod('Cash');
@@ -665,6 +759,9 @@ La facture a été enregistrée dans le système.`;
 
         showAlert('✅ Facture créée avec succès !', successMessage);
         
+        // Rafraîchir la liste des produits pour mettre à jour le stock
+        refetchProducts();
+
         // Lancer l'impression automatique de la facture
         try {
           await handlePrintFacturePOS(receiptData);
@@ -702,11 +799,16 @@ Vérifiez votre connexion internet et réessayez.`;
 
   // Fonction pour créer un message d'alerte formaté avec les détails de facturation
   const createFormattedInvoiceMessage = () => {
-    const discountAmount = parseFloat(discount) || 0;
     const finalTotal = total;
     const totalCdfAmount = totalCdf;
-    const totalUsdAmount = totalUsd;
-    const totalUsdInCdfAmount = totalUsdInCdf;
+    const totalUsdAmount = totalUsdDisplay;
+    const totalUsdInCdfAmount = totalUsdInCdfDisplay;
+    const discountLine =
+      displayReductionCdf > 0 || displayReductionUsd > 0
+        ? useUsdAmounts
+          ? `\n💰 Réduction: -${displayReductionUsd.toFixed(2)} USD`
+          : `\n💰 Réduction: -${displayReductionCdf.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')} CDF`
+        : '';
     
     // Créer le détail des articles formatté
     const orderDetails = orderItems.map((item, index) => {
@@ -729,9 +831,10 @@ ${orderDetails}
 
 💰 TOTAL CDF: ${totalCdfAmount.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')} CDF
 💰 TOTAL USD: ${totalUsdAmount.toFixed(2)} USD
-💰 TOTAL USD en CDF: ${totalUsdInCdfAmount.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')} CDF${discountAmount > 0 ? `\n💰 Réduction: -${discountAmount.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')} CDF` : ''}
+💰 TOTAL USD en CDF: ${totalUsdInCdfAmount.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')} CDF${discountLine}
 
 🎯 TOTAL FINAL: ${finalTotal.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')} CDF
+🎯 TOTAL FINAL USD: ${totalFinalUsd.toFixed(2)} USD
 
 👤 Client: ${customerName || 'Non spécifié'}
 📞 Contact: ${customerContact || 'Non spécifié'}
@@ -984,29 +1087,41 @@ ${orderDetails}
                 </View>
               ) : (
                 <View style={styles.menuGrid}>
-                  {filteredMenuItems.map((product: any, index: number) => (
-                    <TouchableOpacity
-                      key={product.id || index}
-                      style={[
-                        styles.menuItemWeb,
-                        selectedProducts.has(product.productName) && styles.menuItemSelected
-                      ]}
-                      onPress={() => addProductToCart(product)}
-                    >
-                      {selectedProducts.has(product.productName) && (
-                        <View style={styles.checkIconContainer}>
-                          <Ionicons name="checkmark-circle" size={20} color="#10B981" />
+                  {filteredMenuItems.map((product: any, index: number) => {
+                    const isOutOfStock = (product.inStock || 0) === 0;
+                    return (
+                      <TouchableOpacity
+                        key={product.id || index}
+                        style={[
+                          styles.menuItemWeb,
+                          selectedProducts.has(product.productName) && styles.menuItemSelected,
+                          isOutOfStock && styles.menuItemDisabled
+                        ]}
+                        onPress={() => {
+                          if (!isOutOfStock) {
+                            addProductToCart(product);
+                          }
+                        }}
+                        disabled={isOutOfStock}
+                        activeOpacity={isOutOfStock ? 1 : 0.7}
+                      >
+                        {selectedProducts.has(product.productName) && !isOutOfStock && (
+                          <View style={styles.checkIconContainer}>
+                            <Ionicons name="checkmark-circle" size={20} color="#10B981" />
+                          </View>
+                        )}
+                        <View style={styles.menuItemContentWeb}>
+                          <Text numberOfLines={2} style={styles.menuItemNameWeb}>{product.productName}</Text>
+                          <Text style={styles.menuItemCategoryWeb}>{product.category?.categoryName || 'N/A'}</Text>
+                          <Text style={styles.menuItemPriceWeb}>USD ${(product.priceCdf / exchangeRate).toFixed(2)}</Text>
+                          <Text style={styles.menuItemPriceCdfWeb}>CDF {product.priceCdf.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}</Text>
+                          <Text style={[styles.menuItemStockWeb, isOutOfStock && styles.menuItemStockEmpty]}>
+                            Stock: {product.inStock || 0}
+                          </Text>
                         </View>
-                      )}
-                      <View style={styles.menuItemContentWeb}>
-                        <Text numberOfLines={2} style={styles.menuItemNameWeb}>{product.productName}</Text>
-                        <Text style={styles.menuItemCategoryWeb}>{product.category?.categoryName || 'N/A'}</Text>
-                        <Text style={styles.menuItemPriceWeb}>USD ${(product.priceCdf / exchangeRate).toFixed(2)}</Text>
-                        <Text style={styles.menuItemPriceCdfWeb}>CDF {product.priceCdf.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}</Text>
-                        <Text style={styles.menuItemStockWeb}>Stock: {product.inStock || 0}</Text>
-                      </View>
-                    </TouchableOpacity>
-                  ))}
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
               )}
             </ScrollView>
@@ -1102,29 +1217,126 @@ ${orderDetails}
               <View style={styles.summaryContainer}>
                 <View style={styles.summaryRow}>
                   <Text style={styles.summaryLabel}>Total CDF:</Text>
-                  <Text style={styles.summaryValue}>CDF {totalCdf.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}</Text>
+                  <Text style={styles.summaryValue}>
+                    CDF {totalCdf.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}
+                  </Text>
                 </View>
                 <View style={styles.summaryRow}>
                   <Text style={styles.summaryLabel}>Total USD:</Text>
-                  <Text style={styles.summaryValue}>USD {totalUsd.toFixed(2)}</Text>
+                  <Text style={styles.summaryValue}>
+                    USD {totalUsdDisplay.toFixed(2)}
+                  </Text>
                 </View>
                 <View style={styles.summaryRow}>
                   <Text style={styles.summaryLabel}>Sous-total:</Text>
-                  <Text style={styles.summaryValue}>CDF {finalTotal.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}</Text>
+                  <Text style={styles.summaryValue}>
+                    CDF {subtotal.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}
+                  </Text>
                 </View>
+                {(displayReductionCdf > 0 || displayReductionUsd > 0) && (
+                  <View style={styles.summaryRow}>
+                    <Text style={styles.summaryLabel}>Réduction:</Text>
+                    <Text style={styles.summaryValue}>
+                      {useUsdAmounts
+                        ? `USD ${displayReductionUsd.toFixed(2)}`
+                        : `CDF ${displayReductionCdf.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}`}
+                    </Text>
+                  </View>
+                )}
                 <View style={[styles.summaryRow, styles.finalTotalRow]}>
                   <Text style={styles.finalTotalLabel}>TOTAL FINAL:</Text>
-                  <Text style={styles.finalTotalValue}>CDF {total.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}</Text>
+                  <Text style={styles.finalTotalValue}>
+                    CDF {total.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}
+                  </Text>
                 </View>
                 <View style={styles.summaryRow}>
                   <Text style={styles.summaryLabel}>TOTAL FINAL USD:</Text>
-                  <Text style={styles.summaryValue}>USD {totalFinalUsd.toFixed(2)}</Text>
+                  <Text style={styles.summaryValue}>
+                    USD {totalFinalUsd.toFixed(2)}
+                  </Text>
                 </View>
               </View>
 
               {/* Formulaire de commande */}
               <View style={styles.actionsContainer}>
                 <View style={styles.formContainer}>
+                  <View style={styles.amountToggleRow}>
+                    <Text style={styles.formLabel}>Montant en</Text>
+                    <View style={styles.amountToggleSwitch}>
+                      <Text
+                        style={[
+                          styles.amountToggleOption,
+                          !useUsdAmounts && styles.amountToggleOptionActive
+                        ]}
+                      >
+                        CDF
+                      </Text>
+                      <Switch
+                        value={useUsdAmounts}
+                        onValueChange={setUseUsdAmounts}
+                        trackColor={{ false: '#E5E7EB', true: '#34D399' }}
+                        thumbColor={useUsdAmounts ? '#059669' : '#FFFFFF'}
+                      />
+                      <Text
+                        style={[
+                          styles.amountToggleOption,
+                          useUsdAmounts && styles.amountToggleOptionActive
+                        ]}
+                      >
+                        USD
+                      </Text>
+                    </View>
+                  </View>
+
+                        {/* Réduction */}
+                  <View style={styles.formField}>
+                    <Text style={styles.formLabel}>Réduction</Text>
+                    <TextInput
+                      style={styles.formInput}
+                      placeholder="0.00"
+                      placeholderTextColor="#9CA3AF"
+                      keyboardType="numeric"
+                      value={discount}
+                      onChangeText={setDiscount}
+                    />
+                  </View>
+
+                  {/* Montant CDF et USD */}
+                  <View style={styles.amountRowWeb}>
+                    <View style={styles.amountFieldWeb}>
+                      <Text style={styles.formLabel}>Montant CDF</Text>
+                      <TextInput
+                        style={[
+                          styles.formInput,
+                          useUsdAmounts && styles.disabledInput
+                        ]}
+                        placeholder="0"
+                        placeholderTextColor="#9CA3AF"
+                        keyboardType="numeric"
+                        value={amountCdf}
+                        onChangeText={handleAmountCdfChange}
+                        editable={!useUsdAmounts}
+                        selectTextOnFocus={!useUsdAmounts}
+                      />
+                    </View>
+                    <View style={styles.amountFieldWeb}>
+                      <Text style={styles.formLabel}>Montant USD</Text>
+                      <TextInput
+                        style={[
+                          styles.formInput,
+                          !useUsdAmounts && styles.disabledInput
+                        ]}
+                        placeholder="0.00"
+                        placeholderTextColor="#9CA3AF"
+                        keyboardType="numeric"
+                        value={amountUsd}
+                        onChangeText={handleAmountUsdChange}
+                        editable={useUsdAmounts}
+                        selectTextOnFocus={useUsdAmounts}
+                      />
+                    </View>
+                  </View>
+
                   {/* Nom du client */}
                   <View style={styles.formField}>
                     <Text style={styles.formLabel}>Nom du client</Text>
@@ -1164,19 +1376,6 @@ ${orderDetails}
                     />
                   </View>
 
-              {/* Dette */}
-              <View style={styles.formField}>
-                <Text style={styles.formLabel}>Dette ?</Text>
-                <View style={styles.debtSwitchRow}>
-                  <Text style={styles.debtSwitchLabel}>{isDebt ? 'Oui' : 'Non'}</Text>
-                  <Switch
-                    value={isDebt}
-                    onValueChange={setIsDebt}
-                    trackColor={{ false: '#E5E7EB', true: '#34D399' }}
-                    thumbColor={isDebt ? '#059669' : '#FFFFFF'}
-                  />
-                </View>
-              </View>
 
                   {/* Mode de paiement */}
                 <View style={styles.formField}>
@@ -1453,15 +1652,15 @@ ${orderDetails}
               </View>
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabelMobile}>Total USD:</Text>
-                <Text style={styles.summaryValueMobile}>USD {totalUsd.toFixed(2)}</Text>
+                <Text style={styles.summaryValueMobile}>USD {totalUsdDisplay.toFixed(2)}</Text>
               </View>
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabelMobile}>Total USD en CDF:</Text>
-                <Text style={styles.summaryValueMobile}>CDF {totalUsdInCdf.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}</Text>
+                <Text style={styles.summaryValueMobile}>CDF {totalUsdInCdfDisplay.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}</Text>
               </View>
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabelMobile}>Sous-total:</Text>
-                <Text style={styles.summaryValueMobile}>CDF {finalTotal.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}</Text>
+                <Text style={styles.summaryValueMobile}>CDF {subtotal.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}</Text>
               </View>
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabelMobile}>Taxes (13%):</Text>
@@ -1469,7 +1668,11 @@ ${orderDetails}
               </View>
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabelMobile}>Réduction:</Text>
-                <Text style={styles.summaryValueMobile}>CDF {discountAmount.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}</Text>
+                <Text style={styles.summaryValueMobile}>
+                  {useUsdAmounts
+                    ? `USD ${displayReductionUsd.toFixed(2)}`
+                    : `CDF ${displayReductionCdf.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}`}
+                </Text>
               </View>
               <View style={[styles.summaryRow, styles.finalTotalRow]}>
                 <Text style={styles.finalTotalLabelMobile}>TOTAL FINAL:</Text>
@@ -1484,6 +1687,69 @@ ${orderDetails}
             {/* Formulaire de commande */}
             <View style={styles.actionsContainer}>
               <View style={styles.formContainer}>
+                  <View style={styles.amountToggleRow}>
+                    <Text style={styles.formLabel}>Montant en</Text>
+                    <View style={styles.amountToggleSwitch}>
+                      <Text
+                        style={[
+                          styles.amountToggleOption,
+                          !useUsdAmounts && styles.amountToggleOptionActive
+                        ]}
+                      >
+                        CDF
+                      </Text>
+                      <Switch
+                        value={useUsdAmounts}
+                        onValueChange={setUseUsdAmounts}
+                        trackColor={{ false: '#E5E7EB', true: '#34D399' }}
+                        thumbColor={useUsdAmounts ? '#059669' : '#FFFFFF'}
+                      />
+                      <Text
+                        style={[
+                          styles.amountToggleOption,
+                          useUsdAmounts && styles.amountToggleOptionActive
+                        ]}
+                      >
+                        USD
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.amountRowMobile}>
+                    <View style={styles.amountFieldMobile}>
+                      <Text style={styles.formLabel}>Montant CDF</Text>
+                      <TextInput
+                        style={[
+                          styles.formInput,
+                          useUsdAmounts && styles.disabledInput
+                        ]}
+                        placeholder="0"
+                        placeholderTextColor="#9CA3AF"
+                        keyboardType="numeric"
+                        value={amountCdf}
+                        onChangeText={handleAmountCdfChange}
+                        editable={!useUsdAmounts}
+                        selectTextOnFocus={!useUsdAmounts}
+                      />
+                    </View>
+                    <View style={styles.amountFieldMobile}>
+                      <Text style={styles.formLabel}>Montant USD</Text>
+                      <TextInput
+                        style={[
+                          styles.formInput,
+                          !useUsdAmounts && styles.disabledInput
+                        ]}
+                        placeholder="0.00"
+                        placeholderTextColor="#9CA3AF"
+                        keyboardType="numeric"
+                        value={amountUsd}
+                        onChangeText={handleAmountUsdChange}
+                        editable={useUsdAmounts}
+                        selectTextOnFocus={useUsdAmounts}
+                      />
+                    </View>
+                  </View>
+
                 {/* Nom du client */}
                 <View style={styles.formField}>
                   <Text style={styles.formLabel}>Nom du client</Text>
@@ -1536,19 +1802,7 @@ ${orderDetails}
                   />
                 </View>
 
-                {/* Dette */}
-                <View style={styles.formField}>
-                  <Text style={styles.formLabel}>Dette ?</Text>
-                  <View style={styles.debtSwitchRow}>
-                    <Text style={styles.debtSwitchLabel}>{isDebt ? 'Oui' : 'Non'}</Text>
-                    <Switch
-                      value={isDebt}
-                      onValueChange={setIsDebt}
-                      trackColor={{ false: '#E5E7EB', true: '#34D399' }}
-                      thumbColor={isDebt ? '#059669' : '#FFFFFF'}
-                    />
-                  </View>
-                </View>
+
 
                 {/* Mode de paiement */}
                 <View style={styles.formField}>
@@ -1659,29 +1913,44 @@ ${orderDetails}
                       </View>
                     ) : (
                       <View style={styles.menuGrid}>
-                        {filteredMenuItems.map((product: any, index: number) => (
-                      <TouchableOpacity
+                        {filteredMenuItems.map((product: any, index: number) => {
+                          const isOutOfStock = (product.inStock || 0) === 0;
+                          return (
+                            <TouchableOpacity
                               key={product.id || index}
                               style={[
                                 styles.menuItemMobile,
-                                selectedProducts.has(product.productName) && styles.menuItemSelected
+                                selectedProducts.has(product.productName) && styles.menuItemSelected,
+                                isOutOfStock && styles.menuItemDisabled
                               ]}
-                              onPress={() => addProductToCart(product)}
+                              onPress={() => {
+                                if (!isOutOfStock) {
+                                  addProductToCart(product);
+                                }
+                              }}
+                              disabled={isOutOfStock}
+                              activeOpacity={isOutOfStock ? 1 : 0.7}
                             >
-                              {selectedProducts.has(product.productName) && (
+                              {selectedProducts.has(product.productName) && !isOutOfStock && (
                                 <View style={styles.checkIconContainer}>
                                   <Ionicons name="checkmark-circle" size={20} color="#10B981" />
-                              </View>
+                                </View>
                               )}
                               <View style={styles.menuItemContentMobile}>
                                 <Text numberOfLines={2} style={styles.menuItemNameMobile}>{product.productName}</Text>
                                 <Text style={styles.menuItemCategoryMobile}>{product.category?.categoryName || 'N/A'}</Text>
                                 <Text style={styles.menuItemPriceMobile}>USD ${(product.priceCdf / exchangeRate).toFixed(2)}</Text>
                                 <Text style={styles.menuItemPriceCdfMobile}>CDF {product.priceCdf.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}</Text>
-                                <Text style={styles.menuItemStockMobile}>Stock: {product.inStock || 0}</Text>
-                                </View>
-                                    </TouchableOpacity>
-                        ))}
+                                <Text style={[
+                                  styles.menuItemStockMobile,
+                                  isOutOfStock && styles.menuItemStockEmptyMobile
+                                ]}>
+                                  Stock: {product.inStock || 0}
+                                </Text>
+                              </View>
+                            </TouchableOpacity>
+                          );
+                        })}
                             </View>
                     )}
                   </ScrollView>
@@ -1902,14 +2171,24 @@ ${orderDetails}
                   </View>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
                     <Text style={{ color: '#6B7280', fontSize: 14 }}>Total USD:</Text>
-                    <Text style={{ color: '#374151', fontWeight: '600', fontSize: 14 }}>USD {totalUsd.toFixed(2)}</Text>
+                    <Text style={{ color: '#374151', fontWeight: '600', fontSize: 14 }}>USD {totalUsdDisplay.toFixed(2)}</Text>
                   </View>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
                     <Text style={{ color: '#6B7280', fontSize: 14 }}>Sous-total:</Text>
                     <Text style={{ color: '#374151', fontWeight: '600', fontSize: 14 }}>
-                      CDF {finalTotal.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}
+                      CDF {subtotal.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}
                     </Text>
                   </View>
+                  {(displayReductionCdf > 0 || displayReductionUsd > 0) && (
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
+                      <Text style={{ color: '#6B7280', fontSize: 14 }}>Réduction:</Text>
+                      <Text style={{ color: '#374151', fontWeight: '600', fontSize: 14 }}>
+                        {useUsdAmounts
+                          ? `USD ${displayReductionUsd.toFixed(2)}`
+                          : `CDF ${displayReductionCdf.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}`}
+                      </Text>
+                    </View>
+                  )}
                   <View style={{ height: 1, backgroundColor: '#E5E7EB', marginVertical: 8 }} />
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
                     <Text style={{ fontWeight: 'bold', color: '#111827', fontSize: 16 }}>TOTAL FINAL:</Text>
@@ -1922,6 +2201,63 @@ ${orderDetails}
                     <Text style={{ color: '#374151', fontWeight: '600', fontSize: 14 }}>USD {totalFinalUsd.toFixed(2)}</Text>
                   </View>
                 </View>
+                {/* Montants */}
+                <View style={{ marginBottom: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Text style={{ color: '#374151', fontWeight: '500' }}>Montant en</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <Text style={{ color: useUsdAmounts ? '#6B7280' : '#1F2937', fontWeight: !useUsdAmounts ? '600' : '500' }}>CDF</Text>
+                    <Switch
+                      value={useUsdAmounts}
+                      onValueChange={setUseUsdAmounts}
+                      trackColor={{ false: '#E5E7EB', true: '#34D399' }}
+                      thumbColor={useUsdAmounts ? '#059669' : '#FFFFFF'}
+                    />
+                    <Text style={{ color: useUsdAmounts ? '#1F2937' : '#6B7280', fontWeight: useUsdAmounts ? '600' : '500' }}>USD</Text>
+                  </View>
+                </View>
+                <View style={{ marginBottom: 10 }}>
+                  <Text style={{ color: '#374151', marginBottom: 4, fontWeight: '500' }}>Montant CDF</Text>
+                  <TextInput
+                    value={amountCdf}
+                    onChangeText={setAmountCdf}
+                    placeholder="0"
+                    placeholderTextColor="#9CA3AF"
+                    keyboardType="numeric"
+                    editable={!useUsdAmounts}
+                    selectTextOnFocus={!useUsdAmounts}
+                    style={{
+                      borderWidth: 1,
+                      borderColor: '#E5E7EB',
+                      borderRadius: 6,
+                      padding: 10,
+                      fontSize: 15,
+                      color: useUsdAmounts ? '#9CA3AF' : '#222',
+                      backgroundColor: useUsdAmounts ? '#F3F4F6' : '#FFFFFF',
+                    }}
+                  />
+                </View>
+                <View style={{ marginBottom: 10 }}>
+                  <Text style={{ color: '#374151', marginBottom: 4, fontWeight: '500' }}>Montant USD</Text>
+                  <TextInput
+                    value={amountUsd}
+                    onChangeText={setAmountUsd}
+                    placeholder="0.00"
+                    placeholderTextColor="#9CA3AF"
+                    keyboardType="numeric"
+                    editable={useUsdAmounts}
+                    selectTextOnFocus={useUsdAmounts}
+                    style={{
+                      borderWidth: 1,
+                      borderColor: '#E5E7EB',
+                      borderRadius: 6,
+                      padding: 10,
+                      fontSize: 15,
+                      color: useUsdAmounts ? '#222' : '#9CA3AF',
+                      backgroundColor: useUsdAmounts ? '#FFFFFF' : '#F3F4F6',
+                    }}
+                  />
+                </View>
+
                 {/* Champ nom du client */}
                 <View style={{ marginBottom: 10 }}>
                   <Text style={{ color: '#374151', marginBottom: 4, fontWeight: '500' }}>Nom du client</Text>
@@ -2470,6 +2806,38 @@ const styles = StyleSheet.create({
   formContainer: {
     marginBottom: 16,
   },
+  amountToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  amountToggleSwitch: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  amountToggleOption: {
+    fontSize: 14,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  amountToggleOptionActive: {
+    color: '#1F2937',
+    fontWeight: '700',
+  },
+  amountRowWeb: {
+    flexDirection: 'row',
+    gap: 16,
+    marginBottom: 16,
+  },
+  amountFieldWeb: {
+    flex: 1,
+  },
+  disabledInput: {
+    backgroundColor: '#F3F4F6',
+    color: '#9CA3AF',
+  },
   formField: {
     marginBottom: 16,
   },
@@ -2569,6 +2937,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
     color: '#374151',
+  },
+  amountRowMobile: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
+  },
+  amountFieldMobile: {
+    flex: 1,
   },
 
   // Payment
@@ -2733,6 +3109,11 @@ const styles = StyleSheet.create({
     borderLeftColor: '#7C3AED',
     padding: 16,
   },
+  menuItemDisabled: {
+    borderColor: '#EF4444',
+    borderLeftColor: '#EF4444',
+    opacity: 0.6,
+  },
   menuItemImageWeb: {
     width: '100%',
     height: 96,
@@ -2783,6 +3164,10 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     textAlign: 'left',
     marginTop: 2,
+  },
+  menuItemStockEmpty: {
+    color: '#EF4444',
+    fontWeight: '600',
   },
 
   // Menu Panel Mobile
@@ -2857,6 +3242,10 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     textAlign: 'left',
     marginTop: 2,
+  },
+  menuItemStockEmptyMobile: {
+    color: '#EF4444',
+    fontWeight: '600',
   },
 
   // Menu Item Info Icon

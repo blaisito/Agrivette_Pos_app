@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Dimensions, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { getCategories } from '../api/categoryApi';
 import { getExchangeRate } from '../api/configurationApi';
@@ -7,6 +7,7 @@ import { deleteFacture, getAllFactures, getFacturesByDateRange, markFactureAsAbo
 import { getProducts } from '../api/productApi';
 import { getTables } from '../api/tableApi';
 import { useFetch } from '../hooks/useFetch';
+import { getUserData } from '../utils/storage';
 import BottomSheetCalendarModal from './ui/BottomSheetCalendarModal';
 import CalendarModal from './ui/CalendarModal';
 
@@ -39,8 +40,8 @@ const formatInvoiceForReceipt = (invoice: any) => {
       qte: item.qte || item.quantity || 1,
       total: (item.priceCdf || 0) * (item.qte || item.quantity || 1)
     })) || [],
-    total: invoice.totalAfterReductionCdf || 0,
-    netTotal: invoice.totalAfterReductionUsd || 0,
+    total: invoice.amountPaidCdf || 0,
+    netTotal: invoice.amountPaidUsd || 0,
     thanksMessage: "Thank you for your business! Come again soon!"
   };
 };
@@ -115,9 +116,30 @@ const FactureComponent = ({ onInvoiceCountChange }: FactureComponentProps) => {
   // États pour le taux de change
   const [exchangeRate, setExchangeRate] = useState<number>(2800); // Valeur par défaut
   
+  const [userDepotCode, setUserDepotCode] = useState<string | null>(null);
+  const productFetchParams = useMemo(
+    () => (userDepotCode ? { depotCode: userDepotCode } : null),
+    [userDepotCode]
+  );
+
+  useEffect(() => {
+    const loadDepot = async () => {
+      try {
+        const user = await getUserData();
+        if (user?.depotCode) {
+          setUserDepotCode(user.depotCode);
+        }
+      } catch (error) {
+        console.error('Erreur lors du chargement du dépôt utilisateur:', error);
+      }
+    };
+
+    loadDepot();
+  }, []);
+
   // États pour les catégories et produits depuis l'API
   const { data: apiCategories, loading: categoriesLoading, error: categoriesError } = useFetch(getCategories);
-  const { data: apiProducts, loading: productsLoading, error: productsError } = useFetch(getProducts);
+  const { data: apiProducts, loading: productsLoading, error: productsError } = useFetch(getProducts, productFetchParams as any);
   const { data: apiTables, loading: tablesLoading, error: tablesError } = useFetch(getTables);
   const [categories, setCategories] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
@@ -169,8 +191,8 @@ const FactureComponent = ({ onInvoiceCountChange }: FactureComponentProps) => {
     status: number;
     totalCdf: number;
     totalUsd: number;
-    totalAfterReductionCdf: number;
-    totalAfterReductionUsd: number;
+    amountPaidCdf: number;
+    amountPaidUsd: number;
     reductionCdf: number;
     reductionUsd: number;
     items: any[];
@@ -239,8 +261,8 @@ const PAYMENT_METHOD_OPTIONS = ['Cash', 'EquityBCDC', 'Ecobank', 'Orange-Money',
           status: invoice.status,
           totalCdf: invoice.totalCdf || 0,
           totalUsd: invoice.totalUsd || 0,
-          totalAfterReductionCdf: invoice.totalAfterReductionCdf || invoice.totalCdf || 0,
-          totalAfterReductionUsd: invoice.totalAfterReductionUsd || invoice.totalUsd || 0,
+          amountPaidCdf: invoice.amountPaidCdf ?? invoice.totalAfterReductionCdf ?? invoice.totalCdf ?? 0,
+          amountPaidUsd: invoice.amountPaidUsd ?? invoice.totalAfterReductionUsd ?? invoice.totalUsd ?? ((invoice.amountPaidCdf ?? invoice.totalAfterReductionCdf ?? invoice.totalCdf ?? 0) / (exchangeRate || 1)),
           reductionCdf: invoice.reductionCdf || 0,
           reductionUsd: invoice.reductionUsd || 0,
           items: invoice.ventes || [],
@@ -633,8 +655,8 @@ const PAYMENT_METHOD_OPTIONS = ['Cash', 'EquityBCDC', 'Ecobank', 'Orange-Money',
   const buildInvoiceReportStats = (invoicesToAnalyse: Invoice[]) => {
     return invoicesToAnalyse.reduce(
       (acc, invoice) => {
-        const totalCdf = Number(invoice.totalAfterReductionCdf ?? invoice.totalCdf ?? 0);
-        const totalUsd = Number(invoice.totalAfterReductionUsd ?? invoice.totalUsd ?? totalCdf / (exchangeRate || 1));
+        const totalCdf = Number(invoice.amountPaidCdf ?? invoice.totalCdf ?? 0);
+        const totalUsd = Number(invoice.amountPaidUsd ?? invoice.totalUsd ?? (totalCdf / (exchangeRate || 1)));
 
         acc.totalCdf += totalCdf;
         acc.totalUsd += totalUsd;
@@ -679,8 +701,8 @@ const PAYMENT_METHOD_OPTIONS = ['Cash', 'EquityBCDC', 'Ecobank', 'Orange-Money',
           hour: '2-digit',
           minute: '2-digit',
         })}`;
-        const totalCdf = Number(invoice.totalAfterReductionCdf ?? invoice.totalCdf ?? 0);
-        const totalUsd = Number(invoice.totalAfterReductionUsd ?? invoice.totalUsd ?? totalCdf / (exchangeRate || 1));
+        const totalCdf = Number(invoice.amountPaidCdf ?? invoice.totalCdf ?? 0);
+        const totalUsd = Number(invoice.amountPaidUsd ?? invoice.totalUsd ?? (totalCdf / (exchangeRate || 1)));
         const tableLabel = invoice.tableNomination || (invoice.tableId ? `Table ${invoice.tableId}` : 'N/A');
         const statusLabel = getStatusLabel(invoice.status);
         const paymentType = invoice.typePaiement || 'Non défini';
@@ -1113,10 +1135,10 @@ const PAYMENT_METHOD_OPTIONS = ['Cash', 'EquityBCDC', 'Ecobank', 'Orange-Money',
                     <View style={styles.invoiceReportListMobile}>
                       {invoiceReportData.map((invoice, index) => {
                         const totalCdf = Number(
-                          invoice.totalAfterReductionCdf ?? invoice.totalCdf ?? 0,
+                          invoice.amountPaidCdf ?? invoice.totalCdf ?? 0,
                         );
                         const totalUsd = Number(
-                          invoice.totalAfterReductionUsd ??
+                          invoice.amountPaidUsd ??
                             invoice.totalUsd ??
                             (exchangeRate ? totalCdf / exchangeRate : 0),
                         );
@@ -1403,9 +1425,9 @@ Voulez-vous confirmer l'impression de cette facture ?`;
           sum + (item.subTotalCdf || item.priceCdf * (item.qte || item.quantity) || 0), 0),
         totalUsd: editableItems.reduce((sum: number, item: any) => 
           sum + (item.subTotalUsd || item.priceUsd * (item.qte || item.quantity) || 0), 0),
-        totalAfterReductionCdf: editableItems.reduce((sum: number, item: any) => 
+        amountPaidCdf: editableItems.reduce((sum: number, item: any) => 
           sum + (item.subTotalCdf || item.priceCdf * (item.qte || item.quantity) || 0), 0) - (selectedInvoiceForDetails.reductionCdf || 0),
-        totalAfterReductionUsd: editableItems.reduce((sum: number, item: any) => 
+        amountPaidUsd: editableItems.reduce((sum: number, item: any) => 
           sum + (item.subTotalUsd || item.priceUsd * (item.qte || item.quantity) || 0), 0) - (selectedInvoiceForDetails.reductionUsd || 0)
       };
       
@@ -1528,8 +1550,35 @@ Voulez-vous confirmer l'impression de cette facture ?`;
     proceedWithAddProduct(product, quantity, targetInvoice);
   };
 
-  const proceedWithAddProduct = (product: any, quantity: number, targetInvoice: any) => {
+  const computePaidTotals = (items: any[], reductionCdf = 0, reductionUsd = 0) => {
+    const totals = items.reduce(
+      (acc, item: any) => {
+        const qty = Number(item.qte ?? item.quantity ?? 1);
+        const unitUsd = Number(item.priceUsd ?? item.price ?? 0);
+        const unitCdf = Number(
+          item.priceCdf ??
+            (unitUsd > 0 ? unitUsd * exchangeRate : 0),
+        );
+        const subtotalUsd = Number(
+          item.subTotalUsd ?? unitUsd * qty,
+        );
+        const subtotalCdf = Number(
+          item.subTotalCdf ?? unitCdf * qty,
+        );
+        acc.totalUsd += subtotalUsd;
+        acc.totalCdf += subtotalCdf;
+        return acc;
+      },
+      { totalUsd: 0, totalCdf: 0 },
+    );
 
+    return {
+      amountPaidUsd: Math.max(0, totals.totalUsd - (reductionUsd || 0)),
+      amountPaidCdf: Math.max(0, totals.totalCdf - (reductionCdf || 0)),
+    };
+  };
+
+  const proceedWithAddProduct = (product: any, quantity: number, targetInvoice: any) => {
     const updatedInvoices: Invoice[] = invoices.map((invoice: Invoice) => {
       if (invoice.id === targetInvoice.id) {
         const existingItem = invoice.items.find((item: any) => item.id === product.id);
@@ -1537,22 +1586,43 @@ Voulez-vous confirmer l'impression de cette facture ?`;
           // Augmenter la quantité
           const updatedItems = invoice.items.map((item: any) =>
             item.id === product.id
-              ? { ...item, quantity: item.quantity + quantity, total: (item.quantity + quantity) * item.price }
+              ? {
+                  ...item,
+                  quantity: item.quantity + quantity,
+                  qte: (item.qte ?? item.quantity ?? 0) + quantity,
+                  total: (item.quantity + quantity) * item.price,
+                  subTotalUsd: (item.subTotalUsd ?? item.price ?? 0) + (product.price * quantity),
+                  subTotalCdf: (item.subTotalCdf ?? item.priceCdf ?? (item.price ?? 0) * exchangeRate) + ((item.priceCdf ?? product.price * exchangeRate) * quantity),
+                }
               : item
           );
-          const newTotal = updatedItems.reduce((sum: number, item: any) => sum + (item.subTotalUsd || item.total || 0), 0);
-          return { ...invoice, items: updatedItems, total: newTotal };
+          const { amountPaidCdf, amountPaidUsd } = computePaidTotals(
+            updatedItems,
+            invoice.reductionCdf || 0,
+            invoice.reductionUsd || 0,
+          );
+          return { ...invoice, items: updatedItems, total: amountPaidUsd, amountPaidCdf, amountPaidUsd };
         } else {
           // Ajouter nouveau produit
           const newItem = {
             id: product.id,
             name: product.name,
             quantity: quantity,
+            qte: quantity,
             price: product.price,
-            total: product.price * quantity
+            total: product.price * quantity,
+            priceUsd: product.priceUsd ?? product.price ?? 0,
+            priceCdf: product.priceCdf ?? (product.priceUsd ?? product.price ?? 0) * exchangeRate,
+            subTotalUsd: (product.priceUsd ?? product.price ?? 0) * quantity,
+            subTotalCdf: (product.priceCdf ?? (product.priceUsd ?? product.price ?? 0) * exchangeRate) * quantity,
           };
-          const newTotal = invoice.totalAfterReductionUsd + (product.price * quantity);
-          return { ...invoice, items: [...invoice.items, newItem], total: newTotal };
+          const updatedItems = [...invoice.items, newItem];
+          const { amountPaidCdf, amountPaidUsd } = computePaidTotals(
+            updatedItems,
+            invoice.reductionCdf || 0,
+            invoice.reductionUsd || 0,
+          );
+          return { ...invoice, items: updatedItems, total: amountPaidUsd, amountPaidCdf, amountPaidUsd };
         }
       }
       return invoice;
@@ -1582,8 +1652,12 @@ Voulez-vous confirmer l'impression de cette facture ?`;
         const itemToRemove = invoice.items.find((item: any) => item.id === itemId);
         if (!itemToRemove) return invoice;
         const updatedItems = invoice.items.filter((item: any) => item.id !== itemId);
-        const newTotal = invoice.totalAfterReductionUsd - itemToRemove.subTotalUsd;
-        return { ...invoice, items: updatedItems, total: newTotal };
+        const { amountPaidCdf, amountPaidUsd } = computePaidTotals(
+          updatedItems,
+          invoice.reductionCdf || 0,
+          invoice.reductionUsd || 0,
+        );
+        return { ...invoice, items: updatedItems, total: amountPaidUsd, amountPaidCdf, amountPaidUsd };
       }
       return invoice;
     });
@@ -1604,11 +1678,22 @@ Voulez-vous confirmer l'impression de cette facture ?`;
       if (invoice.id === targetInvoice.id) {
         const updatedItems = invoice.items.map((item: any) =>
           item.id === itemId
-            ? { ...item, quantity: newQuantity, total: newQuantity * item.price }
+            ? {
+                ...item,
+                quantity: newQuantity,
+                qte: newQuantity,
+                total: newQuantity * item.price,
+                subTotalUsd: (item.priceUsd ?? item.price ?? 0) * newQuantity,
+                subTotalCdf: (item.priceCdf ?? (item.priceUsd ?? item.price ?? 0) * exchangeRate) * newQuantity,
+              }
             : item
         );
-        const newTotal = updatedItems.reduce((sum: number, item: any) => sum + (item.subTotalUsd || item.total || 0), 0);
-        return { ...invoice, items: updatedItems, total: newTotal };
+        const { amountPaidCdf, amountPaidUsd } = computePaidTotals(
+          updatedItems,
+          invoice.reductionCdf || 0,
+          invoice.reductionUsd || 0,
+        );
+        return { ...invoice, items: updatedItems, total: amountPaidUsd, amountPaidCdf, amountPaidUsd };
       }
       return invoice;
     });
@@ -1661,14 +1746,16 @@ Voulez-vous confirmer l'impression de cette facture ?`;
     // Recalculer les totaux
     const newTotalUsd = updatedItems.reduce((sum: number, item: any) => sum + (item.subTotalUsd || 0), 0);
     const newTotalCdf = updatedItems.reduce((sum: number, item: any) => sum + (item.subTotalCdf || 0), 0);
+    const amountPaidUsd = Math.max(0, newTotalUsd - (selectedInvoiceForDetails.reductionUsd || 0));
+    const amountPaidCdf = Math.max(0, newTotalCdf - (selectedInvoiceForDetails.reductionCdf || 0));
 
     const updatedInvoice = {
       ...selectedInvoiceForDetails,
       items: updatedItems,
       totalUsd: newTotalUsd,
       totalCdf: newTotalCdf,
-      totalAfterReductionUsd: newTotalUsd - (selectedInvoiceForDetails.reductionUsd || 0),
-      totalAfterReductionCdf: newTotalCdf - (selectedInvoiceForDetails.reductionCdf || 0)
+      amountPaidUsd,
+      amountPaidCdf,
     };
 
     setSelectedInvoiceForDetails(updatedInvoice);
@@ -2323,7 +2410,7 @@ Voulez-vous confirmer la modification de cette facture ?`;
             <Text style={styles.statLabelWeb}>Terminées</Text>
           </View>
           <View style={styles.statCardWeb}>
-            <Text style={styles.statValueWeb}>{filteredInvoices.reduce((sum: number, inv: Invoice) => sum + inv.totalAfterReductionCdf, 0).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}</Text>
+            <Text style={styles.statValueWeb}>{filteredInvoices.reduce((sum: number, inv: Invoice) => sum + (inv.amountPaidCdf || 0), 0).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}</Text>
             <Text style={styles.statLabelWeb}>Total CDF</Text>
           </View>
         </View>
@@ -2416,7 +2503,10 @@ Voulez-vous confirmer la modification de cette facture ?`;
 
               {/* Footer avec total */}
               <View style={styles.invoiceCardFooterWeb}>
-                <Text style={styles.invoiceCardTotalWeb}>{invoice.totalAfterReductionCdf.toFixed(0)} CDF</Text>
+                <View style={styles.invoiceCardTotalsWeb}>
+                  <Text style={styles.invoiceCardTotalWeb}>{(invoice.amountPaidCdf || 0).toFixed(0)} CDF</Text>
+                  <Text style={[styles.invoiceCardTotalUsdWeb, { fontSize: 18, marginRight: 40 }]}>${(invoice.amountPaidUsd || 0).toFixed(2)}</Text>
+                </View>
                 <TouchableOpacity
                   style={styles.invoiceCardActionWeb}
                   onPress={() => selectInvoiceForDetails(invoice)}
@@ -2611,107 +2701,137 @@ Voulez-vous confirmer la modification de cette facture ?`;
                       </View>
 
 
-                {/* Totaux de la facture */}
                 <View style={styles.editSectionWeb}>
-                  <Text style={styles.editSectionTitleWeb}>Totaux de la facture</Text>
+                  <Text style={styles.editSectionTitleWeb}>Total panier</Text>
                   <View style={styles.editTotalRowWeb}>
                     <Text style={styles.editTotalLabelWeb}>Total CDF:</Text>
                     <Text style={styles.editTotalValueWeb}>
-                      {(selectedInvoiceForDetails.items?.reduce((sum: number, item: any) => 
-                        sum + (item.subTotalCdf || item.priceCdf * (item.qte || item.quantity) || 0), 0
-                      ) || 0).toFixed(0)} CDF
+                      {(() => {
+                        const basketTotalCdf =
+                          selectedInvoiceForDetails.items?.reduce((sum: number, item: any) => {
+                            const subtotal = item.subTotalCdf ?? (item.priceCdf || 0) * (item.qte || item.quantity || 1);
+                            return sum + (subtotal || 0);
+                          }, 0) || 0;
+                        return basketTotalCdf.toFixed(0);
+                      })()} CDF
                     </Text>
                   </View>
                   <View style={styles.editTotalRowWeb}>
                     <Text style={styles.editTotalLabelWeb}>Total USD:</Text>
                     <Text style={styles.editTotalValueWeb}>
-                      ${((selectedInvoiceForDetails.items?.reduce((sum: number, item: any) => 
-                        sum + (item.subTotalCdf || item.priceCdf * (item.qte || item.quantity) || 0), 0
-                      ) || 0) / exchangeRate).toFixed(2)} USD
-                    </Text>
-                  </View>
-                  <View style={styles.editTotalAfterReductionRowWeb}>
-                    <Text style={styles.editTotalAfterReductionLabelWeb}>Total après réduction:</Text>
-                    <Text style={styles.editTotalAfterReductionValueWeb}>
-                      {(selectedInvoiceForDetails.items?.reduce((sum: number, item: any) => 
-                        sum + (item.subTotalCdf || item.priceCdf * (item.qte || item.quantity) || 0), 0
-                      ) - (selectedInvoiceForDetails.reductionCdf || 0)).toFixed(0)} CDF
+                      {(() => {
+                        const basketTotalUsd =
+                          selectedInvoiceForDetails.items?.reduce((sum: number, item: any) => {
+                            const subtotal = item.subTotalUsd ?? (item.priceUsd || 0) * (item.qte || item.quantity || 1);
+                            return sum + (subtotal || 0);
+                          }, 0) || 0;
+                        return basketTotalUsd.toFixed(2);
+                      })()} USD
                     </Text>
                   </View>
                 </View>
 
-                {/* Statut */}
+                {/* Totaux de la facture */}
                 <View style={styles.editSectionWeb}>
-                  <Text style={styles.editSectionTitleWeb}>Statut</Text>
-                  <View style={styles.editStatusButtonsWeb}>
-                    {[
-                      { value: 0, label: 'Proformat status facture (0)', color: '#F59E0B' },
-                      { value: 1, label: 'Payé status facture (1)', color: '#10B981' },
-                      { value: 2, label: 'Annulé status facture (2)', color: '#6B7280' }
-                    ].map((status) => {
-                      const isSelected = selectedInvoiceForDetails.status === status.value;
-                      return (
-                        <View
-                          key={status.value}
-                          style={[
-                            styles.editStatusButtonWeb,
-                            styles.editStatusButtonDisabledWeb,
-                            isSelected && {
-                              backgroundColor: status.color,
-                              borderColor: status.color,
-                              shadowColor: status.color,
-                              shadowOffset: { width: 0, height: 2 },
-                              shadowOpacity: 0.3,
-                              shadowRadius: 4,
-                              elevation: 4,
-                            }
-                          ]}
-                        >
-                          <Text style={[
-                            styles.editStatusButtonTextWeb,
-                            isSelected && {
-                              color: '#FFFFFF',
-                              fontWeight: '700',
-                            }
-                          ]}>
-                            {status.label}
-                          </Text>
-                        </View>
-                      );
-                    })}
-                  </View>
                   
-                  {/* Boutons d'action pour changer le statut */}
-                  <View style={styles.statusActionButtonsWeb}>
-                    {selectedInvoiceForDetails.status === 0 && (
-                      <>
-                        <TouchableOpacity
-                          style={styles.statusActionButtonWeb}
-                          onPress={() => handleMarkAsPayed(selectedInvoiceForDetails.id)}
-                        >
-                          <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
-                          <Text style={styles.statusActionButtonTextWeb}>Terminer</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={[styles.statusActionButtonWeb, styles.statusActionButtonSecondaryWeb]}
-                          onPress={() => handleMarkAsAborted(selectedInvoiceForDetails.id)}
-                        >
-                          <Ionicons name="pause-circle" size={20} color="#FFFFFF" />
-                          <Text style={styles.statusActionButtonTextWeb}>Annuler</Text>
-                        </TouchableOpacity>
-                      </>
-                    )}
-                    {selectedInvoiceForDetails.status === 2 && (
-                      <TouchableOpacity
-                        style={[styles.statusActionButtonWeb, styles.statusActionButtonDangerWeb]}
-                        onPress={() => handleMarkAsAborted(selectedInvoiceForDetails.id)}
-                      >
-                        <Ionicons name="close-circle" size={20} color="#FFFFFF" />
-                        <Text style={styles.statusActionButtonTextWeb}>Annuler</Text>
-                      </TouchableOpacity>
-                    )}
+                  <Text style={styles.editSectionTitleWeb}>Totaux de la facture</Text>
+                  <View style={styles.editTotalRowWeb}>
+                    <Text style={styles.editTotalLabelWeb}>Total CDF:</Text>
+                    <Text style={styles.editTotalValueWeb}>
+                    {(() => {
+                      const computedFallbackCdf =
+                        (selectedInvoiceForDetails.items?.reduce((sum: number, item: any) =>
+                          sum + (item.subTotalCdf || item.priceCdf * (item.qte || item.quantity) || 0), 0
+                        ) || 0) - (selectedInvoiceForDetails.reductionCdf || 0);
+                      const paidCdf = Number(selectedInvoiceForDetails.amountPaidCdf ?? computedFallbackCdf);
+                      return paidCdf.toFixed(0);
+                    })()} CDF
+                    </Text>
                   </View>
-                      </View>
+                  <View style={styles.editTotalRowWeb}>
+                    <Text style={styles.editTotalLabelWeb}>Total USD:</Text>
+                    <Text style={styles.editTotalValueWeb}>
+                      {(() => {
+                        const computedFallbackUsd =
+                          (selectedInvoiceForDetails.items?.reduce((sum: number, item: any) =>
+                            sum + (item.subTotalUsd || item.priceUsd * (item.qte || item.quantity) || 0), 0
+                          ) || 0) - (selectedInvoiceForDetails.reductionUsd || 0);
+                        const paidUsd = Number(selectedInvoiceForDetails.amountPaidUsd ?? computedFallbackUsd);
+                        return paidUsd.toFixed(2);
+                      })()} USD
+                    </Text>
+                  </View>
+                  <View style={styles.editTotalAfterReductionRowWeb}>
+                    <Text style={styles.editTotalAfterReductionLabelWeb}>Montant payé:</Text>
+                    <View style={styles.editTotalAfterReductionValueContainerWeb}>
+                      {(() => {
+                        const fallbackCdf = (selectedInvoiceForDetails.items?.reduce((sum: number, item: any) =>
+                          sum + (item.subTotalCdf || item.priceCdf * (item.qte || item.quantity) || 0), 0
+                        ) || 0) - (selectedInvoiceForDetails.reductionCdf || 0);
+                        const paidCdf = Number(selectedInvoiceForDetails.amountPaidCdf ?? fallbackCdf);
+                        const fallbackUsd = (selectedInvoiceForDetails.items?.reduce((sum: number, item: any) =>
+                          sum + (item.subTotalUsd || item.priceUsd * (item.qte || item.quantity) || 0), 0
+                        ) || 0) - (selectedInvoiceForDetails.reductionUsd || 0);
+                        const paidUsd = Number(selectedInvoiceForDetails.amountPaidUsd ?? fallbackUsd);
+                        return (
+                          <>
+                            {/*<Text style={[styles.editTotalAfterReductionValueWeb, { visibility: 'hidden' }]}>
+                              {paidCdf.toFixed(0)} CDF
+                            </Text>
+                            <Text style={[styles.editReductionDetailWeb, { visibility: 'hidden' }]}>
+                              MONTANT PAYÉ USD: {paidUsd.toFixed(2)}
+                            </Text>*/}
+                            <Text style={[styles.editReductionDetailWeb, { fontSize: 14 }]}>
+                              REDUCTION CDF: {(Number(selectedInvoiceForDetails.reductionCdf) || 0).toFixed(0)},  REDUCTION USD: {(Number(selectedInvoiceForDetails.reductionUsd) || 0).toFixed(2)}
+                            </Text>
+                          </>
+                        );
+                      })()}
+                    </View>
+                  </View>
+                </View>
+
+                <View style={styles.editSectionWeb}>
+                  <Text style={styles.editSectionTitleWeb}>Reste</Text>
+                  <View style={styles.editTotalRowWeb}>
+                    <Text style={styles.editTotalLabelWeb}>Reste CDF:</Text>
+                    <Text style={styles.editTotalValueWeb}>
+                      {(() => {
+                        const basketTotalCdf =
+                          selectedInvoiceForDetails.items?.reduce((sum: number, item: any) => {
+                            const subtotal = item.subTotalCdf ?? (item.priceCdf || 0) * (item.qte || item.quantity || 1);
+                            return sum + (subtotal || 0);
+                          }, 0) || 0;
+                        const reductionCdf = Number(selectedInvoiceForDetails.reductionCdf) || 0;
+                        const computedFallbackCdf =
+                          basketTotalCdf - reductionCdf;
+                        const paidCdf = Number(selectedInvoiceForDetails.amountPaidCdf ?? computedFallbackCdf);
+                        const remainingCdf = basketTotalCdf - reductionCdf - paidCdf;
+                        return remainingCdf.toFixed(0);
+                      })()} CDF
+                    </Text>
+                  </View>
+                  <View style={styles.editTotalRowWeb}>
+                    <Text style={styles.editTotalLabelWeb}>Reste USD:</Text>
+                    <Text style={styles.editTotalValueWeb}>
+                      {(() => {
+                        const basketTotalUsd =
+                          selectedInvoiceForDetails.items?.reduce((sum: number, item: any) => {
+                            const subtotal = item.subTotalUsd ?? (item.priceUsd || 0) * (item.qte || item.quantity || 1);
+                            return sum + (subtotal || 0);
+                          }, 0) || 0;
+                        const reductionUsd = Number(selectedInvoiceForDetails.reductionUsd) || 0;
+                        const computedFallbackUsd =
+                          basketTotalUsd - reductionUsd;
+                        const paidUsd = Number(selectedInvoiceForDetails.amountPaidUsd ?? computedFallbackUsd);
+                        const remainingUsd = basketTotalUsd - reductionUsd - paidUsd;
+                        return remainingUsd.toFixed(2);
+                      })()} USD
+                    </Text>
+                  </View>
+                </View>
+                      
+                
                       
                 {/* Boutons d'action */}
                 <View style={[styles.editButtonContainerWeb, { marginBottom: -10 }]}>
@@ -3034,12 +3154,32 @@ Voulez-vous confirmer la modification de cette facture ?`;
                     </>
                   )}
                   <View style={styles.printTotalAfterReductionRow}>
-                    <Text style={styles.printTotalAfterReductionLabel}>Total après réduction:</Text>
-                    <Text style={styles.printTotalAfterReductionValue}>
-                      {(selectedInvoiceForDetails.items?.reduce((sum: number, item: any) => 
-                        sum + (item.subTotalCdf || item.priceCdf * (item.qte || item.quantity) || 0), 0
-                      ) - (selectedInvoiceForDetails.reductionCdf || 0)).toFixed(0)} CDF
-                    </Text>
+                    <Text style={styles.printTotalAfterReductionLabel}>Montant payé:</Text>
+                    <View style={styles.printTotalAfterReductionValueContainer}>
+                      {(() => {
+                        const fallbackCdf = (selectedInvoiceForDetails.items?.reduce((sum: number, item: any) =>
+                          sum + (item.subTotalCdf || item.priceCdf * (item.qte || item.quantity) || 0), 0
+                        ) || 0) - (selectedInvoiceForDetails.reductionCdf || 0);
+                        const paidCdf = Number(selectedInvoiceForDetails.amountPaidCdf ?? fallbackCdf);
+                        const fallbackUsd = (selectedInvoiceForDetails.items?.reduce((sum: number, item: any) =>
+                          sum + (item.subTotalUsd || item.priceUsd * (item.qte || item.quantity) || 0), 0
+                        ) || 0) - (selectedInvoiceForDetails.reductionUsd || 0);
+                        const paidUsd = Number(selectedInvoiceForDetails.amountPaidUsd ?? fallbackUsd);
+                        return (
+                          <>
+                            <Text style={styles.printTotalAfterReductionValue}>
+                              {paidCdf.toFixed(0)} CDF
+                            </Text>
+                            <Text style={styles.printReductionDetail}>
+                              MONTANT PAYÉ USD: {paidUsd.toFixed(2)}
+                            </Text>
+                            <Text style={styles.printReductionDetail}>
+                              REDUCTION CDF: {(Number(selectedInvoiceForDetails.reductionCdf) || 0).toFixed(0)}, REDUCTION USD: {(Number(selectedInvoiceForDetails.reductionUsd) || 0).toFixed(2)}
+                            </Text>
+                          </>
+                        );
+                      })()}
+                    </View>
                   </View>
                 </View>
               </ScrollView>
@@ -3360,7 +3500,7 @@ Voulez-vous confirmer la modification de cette facture ?`;
           <Text style={styles.statLabelMobile}>En cours</Text>
         </View>
         <View style={styles.statCardMobile}>
-          <Text style={styles.statValueMobile}>{filteredInvoices.reduce((sum: number, inv: Invoice) => sum + inv.totalAfterReductionCdf, 0).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}</Text>
+          <Text style={styles.statValueMobile}>{filteredInvoices.reduce((sum: number, inv: Invoice) => sum + (inv.amountPaidCdf || 0), 0).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}</Text>
           <Text style={styles.statLabelMobile}>Total CDF</Text>
         </View>
       </View>
@@ -3471,10 +3611,10 @@ Voulez-vous confirmer la modification de cette facture ?`;
                 <Text style={styles.totalLabelMobile}>Total:</Text>
                 <View style={styles.totalContainerMobile}>
                   <Text style={styles.invoiceTotalMobile}>
-                    {invoice.totalAfterReductionCdf.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')} CDF
+                    {(invoice.amountPaidCdf || 0).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')} CDF
                   </Text>
                   <Text style={styles.invoiceTotalUsdMobile}>
-                    ${invoice.totalAfterReductionUsd.toFixed(2)}
+                    ${(invoice.amountPaidUsd || 0).toFixed(2)}
                   </Text>
                 </View>
               </View>
@@ -3714,6 +3854,8 @@ Voulez-vous confirmer la modification de cette facture ?`;
                   const reductionUsd = selectedInvoice?.reductionUsd || 0;
                   const totalAfterReductionCdf = totalCdf - reductionCdf;
                   const totalAfterReductionUsd = totalUsd - reductionUsd;
+                  const amountPaidCdf = Number(selectedInvoice?.amountPaidCdf ?? totalAfterReductionCdf);
+                  const amountPaidUsd = Number(selectedInvoice?.amountPaidUsd ?? totalAfterReductionUsd);
                   
                   return (
                     <>
@@ -3743,12 +3885,15 @@ Voulez-vous confirmer la modification de cette facture ?`;
                       )}
                       <View style={[styles.totalRow, { borderTopWidth: 1, borderTopColor: '#E5E7EB', paddingTop: 8, marginTop: 8 }]}>
                         <Text style={[styles.totalLabel, { fontWeight: 'bold', fontSize: 16 }]}>Total à payer:</Text>
-                        <View>
+                        <View style={{ alignItems: 'flex-end' }}>
                           <Text style={[styles.totalValue, { fontWeight: 'bold', fontSize: 18, color: '#7C3AED' }]}>
-                            {totalAfterReductionCdf.toFixed(0)} CDF
+                            {amountPaidCdf.toFixed(0)} CDF
                           </Text>
                           <Text style={[styles.totalValue, { fontSize: 14, color: '#6B7280' }]}>
-                            ${totalAfterReductionUsd.toFixed(2)}
+                            ${amountPaidUsd.toFixed(2)}
+                          </Text>
+                          <Text style={{ marginTop: 4, fontSize: 12, color: '#DC2626', fontWeight: '700', textAlign: 'right' }}>
+                            REDUCTION CDF: {(Number(selectedInvoice?.reductionCdf) || 0).toFixed(0)}, REDUCTION USD: {(Number(selectedInvoice?.reductionUsd) || 0).toFixed(2)}
                           </Text>
                         </View>
                       </View>
@@ -4222,10 +4367,19 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#F3F4F6',
   },
+  invoiceCardTotalsWeb: {
+    alignItems: 'flex-end',
+  },
   invoiceCardTotalWeb: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#7C3AED',
+  },
+  invoiceCardTotalUsdWeb: {
+    fontSize: 12,
+    color: '#4B5563',
+    fontWeight: '600',
+    marginTop: 2,
   },
   invoiceCardActionWeb: {
     padding: 8,
@@ -4985,7 +5139,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#7C3AED',
   },
-  
   // Produits
   productsGrid: {
     flexDirection: 'row',
@@ -5491,6 +5644,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E5E7EB',
   },
+  editTotalAfterReductionValueContainerWeb: {
+    alignItems: 'flex-end',
+  },
   editTotalAfterReductionLabelWeb: {
     fontSize: 16,
     fontWeight: '600',
@@ -5500,6 +5656,13 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: '#1F2937',
+  },
+  editReductionDetailWeb: {
+    marginTop: 4,
+    fontSize: 12,
+    color: '#DC2626',
+    fontWeight: '700',
+    textAlign: 'right',
   },
   editStatusButtonsWeb: {
     flexDirection: 'row',
@@ -5726,10 +5889,20 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#374151',
   },
+  printTotalAfterReductionValueContainer: {
+    alignItems: 'flex-end',
+  },
   printTotalAfterReductionValue: {
     fontSize: 18,
     fontWeight: '700',
     color: '#1F2937',
+  },
+  printReductionDetail: {
+    marginTop: 4,
+    fontSize: 12,
+    color: '#DC2626',
+    fontWeight: '700',
+    textAlign: 'right',
   },
   printModalButtons: {
     flexDirection: 'row',

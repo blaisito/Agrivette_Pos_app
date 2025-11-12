@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Dimensions, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { createCategory, deleteCategory, getCategories, updateCategory } from '../api/categoryApi';
 import { createProduct, getProducts, updateProduct } from '../api/productApi';
@@ -17,10 +17,29 @@ const InventoryComponent = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Toutes');
   const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [userDepotCode, setUserDepotCode] = useState<string | null>(null);
+  const productFetchParams = useMemo(
+    () => (userDepotCode ? { depotCode: userDepotCode } : null),
+    [userDepotCode]
+  );
   
   // Hooks pour les données API
   const { data: categoriesData, loading: categoriesLoading, error: categoriesError, refetch: refetchCategories } = useFetch(getCategories);
-  const { data: productsData, loading: productsLoading, error: productsError, refetch: refetchProducts } = useFetch(getProducts);
+  const { data: productsData, loading: productsLoading, error: productsError, refetch: refetchProducts } = useFetch(getProducts, productFetchParams as any);
+  useEffect(() => {
+    const loadUserDepot = async () => {
+      try {
+        const user = await getUserData();
+        if (user?.depotCode) {
+          setUserDepotCode(user.depotCode);
+        }
+      } catch (error) {
+        console.error('Erreur lors du chargement du dépôt utilisateur:', error);
+      }
+    };
+
+    loadUserDepot();
+  }, []);
   const { execute: executeApi, loading: apiLoading, error: apiError } = useApi();
   
   // Types pour éviter les erreurs TypeScript
@@ -151,6 +170,19 @@ const InventoryComponent = () => {
     }
 
     // Préparer les données pour l'API
+    const userData = await getUserData();
+    const depotCode = userData?.depotCode;
+
+    if (!depotCode) {
+      const isWeb = typeof window !== 'undefined' && typeof window.alert === 'function';
+      if (isWeb) {
+        window.alert('❌ Erreur : Code dépôt introuvable pour l’utilisateur connecté');
+      } else {
+        Alert.alert('Erreur', 'Code dépôt introuvable pour l’utilisateur connecté');
+      }
+      return;
+    }
+
     const productData = {
       categoryId: newProduct.categoryId,
       productName: newProduct.productName,
@@ -158,7 +190,8 @@ const InventoryComponent = () => {
       priceUsd: parseFloat(newProduct.priceUsd),
       priceCdf: parseFloat(newProduct.priceCdf),
       minimalStock: parseInt(newProduct.minimalStock) || 0,
-      imageBase64: newProduct.imageBase64
+      imageBase64: newProduct.imageBase64,
+      depotCode
     };
 
     const success = await executeApi(updateProduct, editingProduct.id, productData);
@@ -236,6 +269,19 @@ const InventoryComponent = () => {
     }
 
     // Préparer les données pour l'API
+    const userData = await getUserData();
+    const depotCode = userData?.depotCode;
+
+    if (!depotCode) {
+      const isWeb = typeof window !== 'undefined' && typeof window.alert === 'function';
+      if (isWeb) {
+        window.alert('❌ Erreur : Code dépôt introuvable pour l’utilisateur connecté');
+      } else {
+        Alert.alert('Erreur', 'Code dépôt introuvable pour l’utilisateur connecté');
+      }
+      return;
+    }
+
     const productData = {
       categoryId: newProduct.categoryId,
       productName: newProduct.productName,
@@ -243,7 +289,8 @@ const InventoryComponent = () => {
       priceUsd: parseFloat(newProduct.priceUsd),
       priceCdf: parseFloat(newProduct.priceCdf),
       minimalStock: parseInt(newProduct.minimalStock) || 0,
-      imageBase64: newProduct.imageBase64
+      imageBase64: newProduct.imageBase64,
+      depotCode
     };
 
     const success = await executeApi(createProduct, productData);
@@ -316,7 +363,14 @@ const InventoryComponent = () => {
   // États pour le formulaire de stock
   const [stockQuantity, setStockQuantity] = useState('');
   const [stockObservation, setStockObservation] = useState('');
+  const [stockDepotCode, setStockDepotCode] = useState<string | null>(null);
   const [stockLoading, setStockLoading] = useState(false);
+
+  useEffect(() => {
+    if (userDepotCode) {
+      setStockDepotCode(userDepotCode);
+    }
+  }, [userDepotCode]);
   
   // Liste des produits avec images (du POSComponent)
   const menuItems = [
@@ -629,6 +683,7 @@ const InventoryComponent = () => {
     // Réinitialiser le formulaire de stock
     setStockQuantity('');
     setStockObservation('');
+    setStockDepotCode(userDepotCode ?? null);
   };
 
   // Fonctions pour la gestion du stock
@@ -655,6 +710,18 @@ const InventoryComponent = () => {
       return;
     }
 
+    const effectiveDepotCode = stockDepotCode || userDepotCode;
+
+    if (!effectiveDepotCode) {
+      const isWeb = typeof window !== 'undefined' && typeof window.alert === 'function';
+      if (isWeb) {
+        window.alert('❌ Erreur : Veuillez sélectionner un dépôt');
+      } else {
+        Alert.alert('Erreur', 'Veuillez sélectionner un dépôt');
+      }
+      return;
+    }
+
     // Récupérer l'ID de l'utilisateur connecté
     const userData = await getUserData();
     if (!userData || !userData.id) {
@@ -672,7 +739,8 @@ const InventoryComponent = () => {
       productId: editingProduct.id,
       userId: userData.id, // ID de l'utilisateur connecté
       qte: quantity,
-      observation: stockObservation || null
+      observation: stockObservation || null,
+      depotCode: effectiveDepotCode
     };
 
     try {
@@ -696,6 +764,7 @@ const InventoryComponent = () => {
       // Réinitialiser le formulaire de stock
       setStockQuantity('');
       setStockObservation('');
+      setStockDepotCode(userDepotCode ?? null);
       
       // Rafraîchir les données des produits
       refetchProducts();
@@ -732,7 +801,8 @@ const InventoryComponent = () => {
       }
     }
     
-    const message = `Êtes-vous sûr de vouloir ${actionText} ${quantity} unité(s) du stock pour "${editingProduct?.name || editingProduct?.productName}" ?${stockObservation ? `\n\nObservation: ${stockObservation}` : ''}`;
+    const depotLabel = stockDepotCode || userDepotCode;
+    const message = `Êtes-vous sûr de vouloir ${actionText} ${quantity} unité(s) du stock pour "${editingProduct?.name || editingProduct?.productName}" ?${stockObservation ? `\n\nObservation: ${stockObservation}` : ''}${depotLabel ? `\n\nDépôt: ${depotLabel}` : ''}`;
 
     // Vérifier si on est sur web ou React Native
     const isWeb = typeof window !== 'undefined' && typeof window.confirm === 'function';
@@ -1071,6 +1141,8 @@ const InventoryComponent = () => {
                       ))
                   )}
                 </View>
+
+                
               </>
             )}
           </View>
@@ -1350,7 +1422,7 @@ const InventoryComponent = () => {
             {editingProduct && (
               <View style={styles.stockFormContainerWeb}>
                 <Text style={styles.stockFormTitleWeb}>Gestion du stock</Text>
-                
+
                 {/* Affichage du stock actuel */}
                 <View style={styles.currentStockInfoWeb}>
                   <View style={styles.currentStockItemWeb}>
