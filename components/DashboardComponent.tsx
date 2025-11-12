@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { Dimensions, Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { getMetrics } from '../api/reportApi';
 import { getUserData } from '../utils/storage';
+const bannerImage = require('../assets/images/agricultural-solutions-banner.jpg');
 
 // Types pour les métriques
 interface MetricsData {
@@ -87,22 +88,25 @@ const DashboardComponent = () => {
         {/* Banner avec image de restaurant de luxe */}
         <View style={styles.bannerWeb}>
           <Image
-            source={{ uri: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1200&q=80' }}
+            source={bannerImage}
             style={styles.bannerImageWeb}
             resizeMode="cover"
           />
           <View style={styles.bannerOverlayWeb}>
             <View style={styles.bannerContentWeb}>
-              <Text style={styles.bannerTitleWeb}>Restaurant Manager Pro</Text>
+              <Text style={styles.bannerTitleWeb}>POST-MARKET Pro</Text>
               <Text style={styles.bannerSubtitleWeb}>
-                Optimisez votre restaurant avec notre solution complète de gestion
+                Optimisez votre gestion avec notre solution complète de gestion.
               </Text>
               <View style={styles.bannerFeaturesWeb}>
                 <View style={styles.bannerFeatureWeb}>
                   <Text style={styles.bannerFeatureTextWeb}>📊 Tableau de bord en temps réel</Text>
                 </View>
                 <View style={styles.bannerFeatureWeb}>
-                  <Text style={styles.bannerFeatureTextWeb}>🍽️ Gestion des commandes simplifiée</Text>
+                  <View style={styles.bannerFeatureContentWeb}>
+                    <Ionicons name="calculator-outline" size={16} color="#FFFFFF" style={styles.bannerFeatureIconWeb} />
+                    <Text style={styles.bannerFeatureTextWeb}>Gestion des commandes simplifiée</Text>
+                  </View>
                 </View>
                 <View style={styles.bannerFeatureWeb}>
                   <Text style={styles.bannerFeatureTextWeb}>📈 Rapports détaillés et analytics</Text>
@@ -167,10 +171,10 @@ const DashboardComponent = () => {
             </View>
             <View style={[styles.statCard, styles.occupiedCard]}>
               <View style={styles.statIconContainer}>
-                <Ionicons name="restaurant" size={24} color="#F59E0B" />
+                <Ionicons name="person" size={24} color="#F59E0B" />
               </View>
               <Text style={styles.statValue}>{metrics?.totalTables || 0}</Text>
-              <Text style={styles.statLabel}>Tables</Text>
+              <Text style={styles.statLabel}>Postes</Text>
               <View style={styles.statTrend}>
                 <Ionicons name="arrow-up" size={12} color="#10B981" />
                 <Text style={styles.trendText}>Total</Text>
@@ -201,7 +205,7 @@ const DashboardComponent = () => {
       {/* Banner avec image de restaurant de luxe */}
       <View style={styles.bannerMobile}>
         <Image
-          source={{ uri: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=800&q=80' }}
+          source={bannerImage}
           style={styles.bannerImageMobile}
           resizeMode="cover"
         />
@@ -268,10 +272,10 @@ const DashboardComponent = () => {
           </View>
           <View style={[styles.statCard, styles.occupiedCard]}>
             <View style={styles.statIconContainer}>
-              <Ionicons name="restaurant" size={24} color="#F59E0B" />
+              <Ionicons name="person" size={24} color="#F59E0B" />
             </View>
             <Text style={styles.statValue}>{metrics?.totalTables || 0}</Text>
-            <Text style={styles.statLabel}>Tables</Text>
+            <Text style={styles.statLabel}>Postes</Text>
             <View style={styles.statTrend}>
               <Ionicons name="arrow-up" size={12} color="#10B981" />
               <Text style={styles.trendText}>Total</Text>
@@ -508,6 +512,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     backdropFilter: 'blur(10px)',
+  },
+  bannerFeatureContentWeb: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  bannerFeatureIconWeb: {
+    marginRight: 8,
   },
   bannerFeatureTextWeb: {
     fontSize: 14,

@@ -200,7 +200,7 @@ export default function HomeScreen() {
   const getAvailableTabs = () => {
     const allTabs = [
       { key: 'dashboard', label: 'Accueil', icon: 'home', requiredPermission: null },
-      { key: 'pos', label: 'POS', icon: 'restaurant', requiredPermission: 'pos' },
+      { key: 'pos', label: 'POS', icon: 'calculator', requiredPermission: 'pos' },
       { key: 'facture', label: 'Factures', icon: 'receipt', requiredPermission: 'billing' },
       { key: 'depense', label: 'Dépenses', icon: 'card', requiredPermission: 'reports' },
       { key: 'reports', label: 'Rapports', icon: 'bar-chart', requiredPermission: 'reports' },
@@ -256,7 +256,7 @@ export default function HomeScreen() {
           <Ionicons name="hand-left" size={80} color="#EF4444" />
           <Text style={styles.goodbyeTitle}>Goodbye!</Text>
           <Text style={styles.goodbyeSubtitle}>
-            Merci d'avoir utilisé Restaurant Manager
+            Merci d'avoir utilisé POST-MARKET Pro
           </Text>
           <Text style={styles.goodbyeMessage}>
             Vous avez été déconnecté avec succès
@@ -288,21 +288,21 @@ export default function HomeScreen() {
         <View style={styles.headerWeb}>
           <View style={styles.headerContent}>
             {/* Logo/Titre */}
-            <View style={styles.headerTitleContainerWeb}>
+            <View style={[styles.headerTitleContainerWeb, { marginTop: 6,marginBottom: 6 }]}>
               <Text style={styles.headerTitleWeb}>
                 POST-MARKET Pro
               </Text>
               {userData && (
-                <>
-                  <Text style={styles.headerSubtitleWeb}>
+                <View style={[styles.userInfoRowWeb, { marginTop: -4 }]}>
+                  <Text style={styles.userInfoTextWeb}>
                     Connecté en tant que: {userData?.username || 'Utilisateur'}
                   </Text>
                   {userData?.depotCode && (
-                    <Text style={styles.headerSubtitleWeb}>
+                    <Text style={styles.userInfoTextWeb}>
                       Dépôt: {userData.depotCode}
                     </Text>
                   )}
-                </>
+                </View>
               )}
             </View>
             
@@ -510,6 +510,17 @@ const styles = StyleSheet.create({
     color: '#E5E7EB',
     marginTop: 2,
     marginBottom: 10,
+  },
+  userInfoRowWeb: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+  },
+  userInfoTextWeb: {
+    fontSize: 16,
+    color: '#F3F4F6',
+    fontWeight: '400',
+    marginRight: 16,
   },
   searchContainerWeb: {
     flex: 1,

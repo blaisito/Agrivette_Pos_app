@@ -25,6 +25,14 @@ const CalendarModal: React.FC<CalendarModalProps> = ({
   const [selectedMinute, setSelectedMinute] = useState(selectedDate.getMinutes());
   const [selectedDay, setSelectedDay] = useState(selectedDate.getDate());
 
+  React.useEffect(() => {
+    setCurrentMonth(selectedDate.getMonth());
+    setCurrentYear(selectedDate.getFullYear());
+    setSelectedHour(selectedDate.getHours());
+    setSelectedMinute(selectedDate.getMinutes());
+    setSelectedDay(selectedDate.getDate());
+  }, [selectedDate, visible]);
+
   // Fonction pour obtenir les jours du mois
   const getDaysInMonth = (year: number, month: number) => {
     return new Date(year, month + 1, 0).getDate();

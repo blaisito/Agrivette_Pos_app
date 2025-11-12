@@ -873,9 +873,9 @@ ${orderDetails}
         {/* Header */}
         <View style={styles.tableSelectionHeader}>
           <View style={styles.tableSelectionHeaderLeft}>
-            <Ionicons name="restaurant" size={24} color="#1F2937" />
+            <Ionicons name="calculator" size={24} color="#1F2937" />
             {isLargeScreen && (
-              <Text style={styles.tableSelectionTitle}>Sélection de Table</Text>
+              <Text style={styles.tableSelectionTitle}>Sélection de Poste</Text>
             )}
             <TouchableOpacity 
               style={styles.refreshButton}
@@ -895,7 +895,7 @@ ${orderDetails}
           </View>
           <View style={styles.tableSelectionHeaderRight}>
             <Text style={styles.tableSelectionSubtitle}>
-              Choisissez une table pour commencer la commande
+              Choisissez un Poste pour commencer la commande
             </Text>
           </View>
         </View>
@@ -943,7 +943,7 @@ ${orderDetails}
               <View style={styles.tableSelectionInfo}>
                 <Text style={styles.tableSelectionNumber}>{table.nomination || `Table ${table.id}`}</Text>
                 <Text style={styles.tableSelectionDetails}>
-                  {table.description || 'Table disponible'}
+                  {table.description || 'Poste disponible'}
                 </Text>
                 <View style={styles.tableSelectionStatus}>
                   <Text style={styles.tableSelectionStatusText}>
@@ -967,7 +967,7 @@ ${orderDetails}
           <View style={styles.tableSelectionInstructions}>
             <Ionicons name="information-circle" size={20} color="#6B7280" />
             <Text style={styles.tableSelectionInstructionsText}>
-              Cliquez sur une table pour commencer la commande
+              Cliquez sur un Poste pour commencer la commande
             </Text>
           </View>
         </View>
@@ -987,14 +987,14 @@ ${orderDetails}
             onPress={() => setShowTableSelection(true)}
           >
             <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
-            <Text style={styles.backToTableButtonText}>Retour aux tables</Text>
+            <Text style={styles.backToTableButtonText}>Retour aux poste</Text>
           </TouchableOpacity>
           <View style={styles.posHeaderInfo}>
             <Text style={styles.posHeaderTitle}>
               POS - {selectedTable ? (selectedTable.nomination || `Table ${selectedTable.id}`) : 'Table non sélectionnée'} | Taux: {exchangeRate}
             </Text>
             <Text style={styles.posHeaderSubtitle}>
-              {selectedTable ? (selectedTable.description || 'Table disponible') : ''}
+              {selectedTable ? (selectedTable.description || 'Poste disponible') : ''}
             </Text>
           </View>
         </View>

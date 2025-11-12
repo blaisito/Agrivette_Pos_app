@@ -5,6 +5,7 @@ import {
     createUser,
     deleteUser,
     getClaimsFromRole,
+    getDepotCodes,
     getRoleColor,
     getRoleLabel,
     getUserRoleFromClaims,
@@ -37,6 +38,10 @@ const UsersManagementComponent = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [selectedRole, setSelectedRole] = useState<'admin' | 'caissier' | 'user'>('user');
+  const [selectedDepotCode, setSelectedDepotCode] = useState<string | null>(null);
+  const [availableDepotCodes, setAvailableDepotCodes] = useState<string[]>([]);
+  const [depotCodesLoading, setDepotCodesLoading] = useState(false);
+  const [depotCodesError, setDepotCodesError] = useState<string | null>(null);
   
   // Récupération des utilisateurs depuis l'API
   const { data: usersData, loading: usersLoading, error: usersError, refetch: refetchUsers } = useFetch(getUsers);
@@ -58,12 +63,43 @@ const UsersManagementComponent = () => {
     }
   }, [usersData]);
 
+  useEffect(() => {
+    const fetchDepotCodes = async () => {
+      try {
+        setDepotCodesLoading(true);
+        setDepotCodesError(null);
+        const response = await getDepotCodes();
+        if (response?.success && Array.isArray(response.data)) {
+          setAvailableDepotCodes(response.data.filter((code: string) => !!code));
+        } else if (Array.isArray(response)) {
+          setAvailableDepotCodes(response.filter((code: string) => !!code));
+        } else {
+          setAvailableDepotCodes([]);
+        }
+      } catch (error) {
+        console.error('Erreur lors du chargement des dépôts:', error);
+        setDepotCodesError('Impossible de charger la liste des dépôts.');
+      } finally {
+        setDepotCodesLoading(false);
+      }
+    };
+
+    fetchDepotCodes();
+  }, []);
+
+  useEffect(() => {
+    if (!selectedDepotCode && availableDepotCodes.length > 0) {
+      setSelectedDepotCode(availableDepotCodes[0]);
+    }
+  }, [availableDepotCodes, selectedDepotCode]);
+
   // Fonction pour réinitialiser le formulaire
   const resetForm = () => {
     setUsername('');
     setPassword('');
     setSelectedRole('user');
     setSelectedUser(null);
+    setSelectedDepotCode(null);
   };
 
   // Fonction pour ouvrir le modal d'ajout
@@ -94,7 +130,8 @@ const UsersManagementComponent = () => {
       const userData = {
         username: username.trim(),
         password: password.trim(),
-        claims
+        claims,
+        depotCode: selectedDepotCode || null
       };
 
       await createUser(userData);
@@ -297,6 +334,56 @@ const UsersManagementComponent = () => {
                   </TouchableOpacity>
                 ))}
               </View>
+            </View>
+          )}
+
+          {!isEdit && (
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Dépôt associé</Text>
+              {depotCodesLoading ? (
+                <View style={styles.depotLoadingContainer}>
+                  <ActivityIndicator size="small" color="#3B82F6" />
+                  <Text style={styles.depotLoadingText}>Chargement des dépôts...</Text>
+                </View>
+              ) : depotCodesError ? (
+                <Text style={styles.depotErrorText}>{depotCodesError}</Text>
+              ) : availableDepotCodes.length === 0 ? (
+                <Text style={styles.depotEmptyText}>Aucun dépôt disponible.</Text>
+              ) : (
+                <View style={styles.depotList}>
+                  {availableDepotCodes.map((code) => {
+                    const isActive = selectedDepotCode === code;
+                    return (
+                      <TouchableOpacity
+                        key={code}
+                        style={[
+                          styles.depotBadge,
+                          isActive && styles.depotBadgeActive
+                        ]}
+                        onPress={() => setSelectedDepotCode(code)}
+                      >
+                        <Ionicons
+                          name={isActive ? 'checkmark-circle' : 'business'}
+                          size={16}
+                          color={isActive ? '#FFFFFF' : '#3B82F6'}
+                          style={styles.depotBadgeIcon}
+                        />
+                        <Text
+                          style={[
+                            styles.depotBadgeText,
+                            isActive && styles.depotBadgeTextActive
+                          ]}
+                        >
+                          {code}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )}
+              <Text style={styles.formNote}>
+                Sélectionnez le dépôt auquel l’utilisateur sera rattaché.
+              </Text>
             </View>
           )}
           
@@ -858,6 +945,57 @@ const styles = StyleSheet.create({
   radioLabel: {
     fontSize: 14,
     color: '#374151',
+  },
+  depotLoadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  depotLoadingText: {
+    marginLeft: 8,
+    fontSize: 13,
+    color: '#6B7280',
+  },
+  depotErrorText: {
+    fontSize: 13,
+    color: '#EF4444',
+  },
+  depotEmptyText: {
+    fontSize: 13,
+    color: '#6B7280',
+  },
+  depotList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  depotBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#3B82F6',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginRight: 8,
+    marginBottom: 8,
+    backgroundColor: '#FFFFFF',
+  },
+  depotBadgeActive: {
+    backgroundColor: '#3B82F6',
+    borderColor: '#3B82F6',
+  },
+  depotBadgeText: {
+    fontSize: 13,
+    color: '#3B82F6',
+    fontWeight: '600',
+  },
+  depotBadgeTextActive: {
+    color: '#FFFFFF',
+  },
+  depotBadgeIcon: {
+    marginRight: 6,
   },
   modalFooter: {
     flexDirection: 'row',

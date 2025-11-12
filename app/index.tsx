@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Dimensions, Image, Linking, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { loginUser } from '../api/userApi';
 import { isUserLoggedIn, storeUserData } from '../utils/storage';
+const loginBackground = require('../assets/images/agricultural-solutions-banner.jpg');
 
 // Page de Login
 const LoginScreen = () => {
@@ -145,7 +146,7 @@ const LoginScreen = () => {
       <View style={styles.containerWeb}>
         {/* Background Image */}
         <Image
-          source={{ uri: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1200&q=80' }}
+          source={loginBackground}
           style={styles.backgroundImageWeb}
           resizeMode="cover"
         />
@@ -157,9 +158,9 @@ const LoginScreen = () => {
         <View style={styles.loginCardWeb}>
           <View style={styles.loginHeaderWeb}>
             <View style={styles.logoContainerWeb}>
-              <Ionicons name="restaurant" size={40} color="#7C3AED" />
+              <Ionicons name="calculator" size={40} color="#282828" />
             </View>
-            <Text style={styles.loginTitleWeb}>Restaurant Manager</Text>
+            <Text style={styles.loginTitleWeb}>POST-MARKET Pro</Text>
             <Text style={styles.loginSubtitleWeb}>Connectez-vous à votre compte</Text>
           </View>
           
@@ -232,7 +233,7 @@ const LoginScreen = () => {
     <View style={styles.containerMobile}>
       {/* Background Image */}
       <Image
-        source={{ uri: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1200&q=80' }}
+        source={loginBackground}
         style={styles.backgroundImageMobile}
         resizeMode="cover"
       />
@@ -341,7 +342,7 @@ const styles = StyleSheet.create({
   },
   loginCardWeb: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 4,
     padding: 40,
     width: 420,
     shadowColor: '#000',

@@ -108,6 +108,16 @@ export const convertToISOFormat = (dateString, isEndDate = false) => {
   if (dateString.includes('T')) {
     return dateString;
   }
+
+  // Gestion du format YYYY/MM/DD HH:mm
+  const slashFormatMatch = dateString.match(/^(\d{4})\/(\d{2})\/(\d{2})(?:\s+(\d{1,2}):(\d{2}))?$/);
+  if (slashFormatMatch) {
+    const [, year, month, day, hour, minute] = slashFormatMatch;
+    let hours = hour !== undefined ? hour.padStart(2, '0') : (isEndDate ? '23' : '00');
+    let minutes = minute !== undefined ? minute.padStart(2, '0') : (isEndDate ? '59' : '00');
+    const seconds = isEndDate ? '59' : '00';
+    return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+  }
   
   // Si c'est déjà au format ISO simple, ajouter l'heure si nécessaire
   if (dateString.includes('-') && !dateString.includes('T')) {

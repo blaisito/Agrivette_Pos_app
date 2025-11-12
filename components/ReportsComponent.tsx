@@ -75,81 +75,61 @@ const ReportsComponent = () => {
 
   const [selectedReportType, setSelectedReportType] = useState<'sales' | 'consumption' | 'stock'>('sales');
 
+
+  function formatDateForAPI(date: Date) {
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const day = date.getDate().toString().padStart(2, '0');
+    const year = date.getFullYear();
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    return `${year}/${month}/${day} ${hours}:${minutes}`;
+  }
+
   // Initialize with today's date range
+  const safeParseDate = (value: string): Date | null => {
+    const parsed = new Date(value);
+    if (!isNaN(parsed.getTime())) {
+      return parsed;
+    }
+
+    // Essayer de remplacer les tirets par des slashs
+    const normalized = value.replace(/-/g, '/');
+    const normalizedParsed = new Date(normalized);
+    if (!isNaN(normalizedParsed.getTime())) {
+      return normalizedParsed;
+    }
+
+    return null;
+  };
+
   const getTodayDateRangeSafe = (): DateRange => {
     try {
       const range = getTodayDateRange() as any;
 
-
-      // Fonction pour convertir n'importe quel format de date en MM/DD/YYYY
-      const convertToMMDDYYYY = (dateStr: string): string => {
-        // Si c'est déjà au format MM/DD/YYYY, le retourner tel quel
-        if (dateStr.includes('/') && dateStr.length === 10) {
-          return dateStr;
-        }
-
-        // Si c'est au format YYYY-MM-DD, le convertir
-        if (dateStr.includes('-') && dateStr.length === 10) {
-          const parts = dateStr.split('-');
-          if (parts.length === 3) {
-            const [year, month, day] = parts;
-            return `${month}/${day}/${year}`;
-          }
-        }
-
-        // Si c'est une autre date, essayer de la parser
-        const date = new Date(dateStr);
-        if (!isNaN(date.getTime())) {
-          const month = (date.getMonth() + 1).toString().padStart(2, '0');
-          const day = date.getDate().toString().padStart(2, '0');
-          const year = date.getFullYear();
-          return `${month}/${day}/${year}`;
-        }
-
-        // Fallback: utiliser la date d'aujourd'hui
-        const today = new Date();
-        const month = (today.getMonth() + 1).toString().padStart(2, '0');
-        const day = today.getDate().toString().padStart(2, '0');
-        const year = today.getFullYear();
-        return `${month}/${day}/${year}`;
-      };
-
-      // Vérifier si la plage de dates est valide et convertir le format
       if (range && range.startDate && range.endDate) {
-        const convertedRange = {
-          startDate: convertToMMDDYYYY(range.startDate),
-          endDate: convertToMMDDYYYY(range.endDate)
-        };
+        const start = safeParseDate(range.startDate);
+        const end = safeParseDate(range.endDate);
 
-        return convertedRange;
+        if (start && end) {
+          return {
+            startDate: formatDateForAPI(start),
+            endDate: formatDateForAPI(end),
+          };
+        }
       }
-
-      // Fallback: créer manuellement la plage de dates d'aujourd'hui
-      const today = new Date();
-      const month = (today.getMonth() + 1).toString().padStart(2, '0');
-      const day = today.getDate().toString().padStart(2, '0');
-      const year = today.getFullYear();
-      const todayFormatted = `${month}/${day}/${year}`;
-
-
-      return {
-        startDate: todayFormatted,
-        endDate: todayFormatted
-      };
     } catch (error) {
       console.error('❌ Error getting date range:', error);
-      // Fallback en cas d'erreur
-      const today = new Date();
-      const month = (today.getMonth() + 1).toString().padStart(2, '0');
-      const day = today.getDate().toString().padStart(2, '0');
-      const year = today.getFullYear();
-      const todayFormatted = `${month}/${day}/${year}`;
-
-      return {
-        startDate: todayFormatted,
-        endDate: todayFormatted
-      };
     }
+
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 0, 0);
+
+    return {
+      startDate: formatDateForAPI(todayStart),
+      endDate: formatDateForAPI(todayEnd),
+    };
   };
 
   const [dateRange, setDateRange] = useState<DateRange>(getTodayDateRangeSafe());
@@ -263,8 +243,8 @@ const ReportsComponent = () => {
     icon: keyof typeof Ionicons.glyphMap;
   }> = [
     { key: 'sales', label: 'Ventes & Consommation', icon: 'trending-up' },
-    { key: 'consumption', label: 'Rapport Consommation', icon: 'stats-chart' },
-    { key: 'stock', label: 'Rapport des stocks', icon: 'cube' }
+    /*{ key: 'consumption', label: 'Rapport Consommation', icon: 'stats-chart' },
+    { key: 'stock', label: 'Rapport des stocks', icon: 'cube' }*/
   ];
 
   // Données et fonctions simplifiées
@@ -348,12 +328,11 @@ const ReportsComponent = () => {
     setStockError(null);
 
     try {
-      const startDate = formatDateForAPI(new Date(dateRange.startDate));
-      const endDate = formatDateForAPI(new Date(dateRange.endDate));
-
+      const startDateFormatted = formatDateForAPI(startDate);
+      const endDateFormatted = formatDateForAPI(endDate);
       const [reaprovisionResponse, sortieResponse] = await Promise.all([
-        getStockReaprovision(startDate, endDate),
-        getStockSortie(startDate, endDate)
+        getStockReaprovision(startDateFormatted, endDateFormatted),
+        getStockSortie(startDateFormatted, endDateFormatted)
       ]);
 
       setStockReaprovisionData(reaprovisionResponse?.data || []);
@@ -506,40 +485,40 @@ const ReportsComponent = () => {
     });
   };
 
-  // Fonction pour convertir Date en format MM/DD/YYYY pour l'API
-  const formatDateForAPI = (date: Date) => {
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    const day = date.getDate().toString().padStart(2, '0');
-    const year = date.getFullYear();
-    return `${month}/${day}/${year}`;
-  };
-
   // Fonctions pour le CalendarModal
   const handleStartDateSelect = (selectedDate: Date) => {
-    setStartDate(selectedDate);
-    const formattedDate = formatDateForAPI(selectedDate);
+    const normalizedDate = new Date(selectedDate);
+    normalizedDate.setSeconds(0, 0);
+    setStartDate(normalizedDate);
+    const formattedDate = formatDateForAPI(normalizedDate);
     setDateRange({ ...dateRange, startDate: formattedDate });
     setShowStartDateModal(false);
   };
 
   const handleEndDateSelect = (selectedDate: Date) => {
-    setEndDate(selectedDate);
-    const formattedDate = formatDateForAPI(selectedDate);
+    const normalizedDate = new Date(selectedDate);
+    normalizedDate.setSeconds(0, 0);
+    setEndDate(normalizedDate);
+    const formattedDate = formatDateForAPI(normalizedDate);
     setDateRange({ ...dateRange, endDate: formattedDate });
     setShowEndDateModal(false);
   };
 
   // Fonctions pour le BottomSheetCalendarModal mobile
   const handleMobileStartDateSelect = (selectedDate: Date) => {
-    setStartDate(selectedDate);
-    const formattedDate = formatDateForAPI(selectedDate);
+    const normalizedDate = new Date(selectedDate);
+    normalizedDate.setSeconds(0, 0);
+    setStartDate(normalizedDate);
+    const formattedDate = formatDateForAPI(normalizedDate);
     setDateRange({ ...dateRange, startDate: formattedDate });
     setShowMobileStartDateModal(false);
   };
 
   const handleMobileEndDateSelect = (selectedDate: Date) => {
-    setEndDate(selectedDate);
-    const formattedDate = formatDateForAPI(selectedDate);
+    const normalizedDate = new Date(selectedDate);
+    normalizedDate.setSeconds(0, 0);
+    setEndDate(normalizedDate);
+    const formattedDate = formatDateForAPI(normalizedDate);
     setDateRange({ ...dateRange, endDate: formattedDate });
     setShowMobileEndDateModal(false);
   };
@@ -555,13 +534,15 @@ const ReportsComponent = () => {
   };
 
   const selectDate = (day: number, month: number, year: number) => {
-    // Convertir au format MM/DD/YYYY pour l'API
-    const selectedDate = `${month.toString().padStart(2, '0')}/${day.toString().padStart(2, '0')}/${year}`;
-
+    const baseDate = new Date(year, month - 1, day);
     if (currentDateType === 'start') {
-      setDateRange({ ...dateRange, startDate: selectedDate });
+      baseDate.setHours(0, 0, 0, 0);
+      setStartDate(baseDate);
+      setDateRange({ ...dateRange, startDate: formatDateForAPI(baseDate) });
     } else {
-      setDateRange({ ...dateRange, endDate: selectedDate });
+      baseDate.setHours(23, 59, 0, 0);
+      setEndDate(baseDate);
+      setDateRange({ ...dateRange, endDate: formatDateForAPI(baseDate) });
     }
 
     closeDatePicker();
