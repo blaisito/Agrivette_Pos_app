@@ -35,6 +35,16 @@ const formatDateForDisplay = (date: Date) => {
   }
 };
 
+const formatDateForApi = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+
+  return `${year}/${month}/${day} ${hours}:${minutes}`;
+};
+
 const parseNumberValue = (value: unknown): number | null => {
   if (typeof value === 'number' && Number.isFinite(value)) {
     return value;
@@ -658,7 +668,10 @@ const DepenseComponent = () => {
     try {
       setReportLoading(true);
       setReportError(null);
-      const response = await getDepensesByDateRange(startDate, endDate);
+      const response = await getDepensesByDateRange(
+        formatDateForApi(startDate),
+        formatDateForApi(endDate)
+      );
       const items = response?.data;
       if (!Array.isArray(items)) {
         setReportData([]);
