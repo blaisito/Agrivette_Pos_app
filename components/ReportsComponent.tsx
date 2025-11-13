@@ -774,7 +774,7 @@ const ReportsComponent = () => {
       <html>
       <head>
         <meta charset="utf-8">
-        <title>${reportTitle} - CHEZ JESSICA</title>
+        <title>${reportTitle} - AGRIVET-CONGO</title>
         <style>
           @media print {
             body { margin: 0; }
@@ -851,7 +851,7 @@ const ReportsComponent = () => {
       </head>
       <body>
         <div class="header">
-          <div class="restaurant-name">CHEZ JESSICA</div>
+          <div class="restaurant-name">AGRIVET-CONGO</div>
           <div class="report-title">${reportTitle}</div>
         </div>
         
@@ -877,7 +877,7 @@ const ReportsComponent = () => {
         </div>
         
         <div class="footer">
-          <p>CHEZ JESSICA - Restaurant Manager</p>
+          <p>AGRIVET-CONGO - POST-MARKET Manager</p>
           <p>Généré le ${currentDate}</p>
         </div>
       </body>
