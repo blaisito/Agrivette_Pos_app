@@ -19,6 +19,7 @@ const InventoryComponent = () => {
   const [selectedCategory, setSelectedCategory] = useState('Toutes');
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [userDepotCode, setUserDepotCode] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const productFetchParams = useMemo(
     () => (userDepotCode ? { depotCode: userDepotCode } : null),
     [userDepotCode]
@@ -34,6 +35,8 @@ const InventoryComponent = () => {
         if (user?.depotCode) {
           setUserDepotCode(user.depotCode);
         }
+        const claims = Array.isArray(user?.claims) ? user.claims : [];
+        setIsAdmin(claims.includes('Admin'));
       } catch (error) {
         console.error('Erreur lors du chargement du dépôt utilisateur:', error);
       }
@@ -372,25 +375,42 @@ const InventoryComponent = () => {
   const [depotCodesLoading, setDepotCodesLoading] = useState(false);
   const [depotCodesError, setDepotCodesError] = useState<string | null>(null);
   const [transferDepotCode, setTransferDepotCode] = useState('');
+  const [transferSourceDepotCode, setTransferSourceDepotCode] = useState('');
   const [transferQuantity, setTransferQuantity] = useState('');
   const [transferObservation, setTransferObservation] = useState('');
   const [transferLoading, setTransferLoading] = useState(false);
-  const filteredDepotCodes = useMemo(
-    () => availableDepotCodes.filter((code) => !!code && code !== userDepotCode),
-    [availableDepotCodes, userDepotCode]
+  const depotOptions = useMemo(
+    () => availableDepotCodes.filter((code) => !!code),
+    [availableDepotCodes]
   );
 
+  const filteredDepotCodes = useMemo(
+    () =>
+      depotOptions.filter((code) => (isAdmin ? true : code !== userDepotCode)),
+    [depotOptions, userDepotCode, isAdmin]
+  );
+
+  const destinationDepotCodes = isAdmin ? depotOptions : filteredDepotCodes;
+
   useEffect(() => {
-    if (transferDepotCode && !filteredDepotCodes.includes(transferDepotCode)) {
+    if (!isAdmin && transferDepotCode && !filteredDepotCodes.includes(transferDepotCode)) {
       setTransferDepotCode('');
     }
-  }, [transferDepotCode, filteredDepotCodes]);
+  }, [transferDepotCode, filteredDepotCodes, isAdmin]);
 
   useEffect(() => {
     if (userDepotCode) {
       setStockDepotCode(userDepotCode);
     }
   }, [userDepotCode]);
+
+  useEffect(() => {
+    if (isAdmin) {
+      setTransferSourceDepotCode('');
+    } else {
+      setTransferSourceDepotCode(userDepotCode || '');
+    }
+  }, [isAdmin, userDepotCode]);
 
   useEffect(() => {
     const fetchDepotCodes = async () => {
@@ -422,8 +442,9 @@ const InventoryComponent = () => {
     setTransferQuantity('');
     setTransferObservation('');
     setTransferDepotCode('');
+    setTransferSourceDepotCode(isAdmin ? '' : (userDepotCode || ''));
     setStockManagementTab('adjust');
-  }, [editingProduct]);
+  }, [editingProduct, isAdmin, userDepotCode]);
 
   useEffect(() => {
     setStockFeedback(null);
@@ -742,6 +763,10 @@ const InventoryComponent = () => {
     setStockQuantity('');
     setStockObservation('');
     setStockDepotCode(userDepotCode ?? null);
+    setTransferQuantity('');
+    setTransferObservation('');
+    setTransferDepotCode('');
+    setTransferSourceDepotCode(isAdmin ? '' : (userDepotCode || ''));
     setStockFeedback(null);
   };
 
@@ -915,12 +940,11 @@ const InventoryComponent = () => {
   };
 
   const handleTransferStock = async () => {
-    if (!editingProduct || !userDepotCode) {
-      const isWeb = typeof window !== 'undefined' && typeof window.alert === 'function';
-      const message = !editingProduct
-        ? 'Produit introuvable pour le transfert.'
-        : 'Code dépôt de l’utilisateur introuvable.';
-      if (isWeb) {
+    const isWebAlert = typeof window !== 'undefined' && typeof window.alert === 'function';
+
+    if (!editingProduct) {
+      const message = 'Produit introuvable pour le transfert.';
+      if (isWebAlert) {
         window.alert(`❌ Erreur : ${message}`);
       } else {
         Alert.alert('Erreur', message);
@@ -934,8 +958,7 @@ const InventoryComponent = () => {
 
       const userData = await getUserData();
       if (!userData || !userData.id) {
-        const isWeb = typeof window !== 'undefined' && typeof window.alert === 'function';
-        if (isWeb) {
+        if (isWebAlert) {
           window.alert('❌ Erreur : Utilisateur non connecté ou ID utilisateur manquant');
         } else {
           Alert.alert('Erreur', 'Utilisateur non connecté ou ID utilisateur manquant');
@@ -943,10 +966,31 @@ const InventoryComponent = () => {
         return;
       }
 
+      const sourceDepotCode = isAdmin ? transferSourceDepotCode : userDepotCode;
+      if (!sourceDepotCode) {
+        const message = 'Code dépôt source introuvable.';
+        if (isWebAlert) {
+          window.alert(`❌ Erreur : ${message}`);
+        } else {
+          Alert.alert('Erreur', message);
+        }
+        return;
+      }
+
+      if (!transferDepotCode) {
+        const message = 'Veuillez sélectionner un dépôt de destination.';
+        if (isWebAlert) {
+          window.alert(`❌ Erreur : ${message}`);
+        } else {
+          Alert.alert('Erreur', message);
+        }
+        return;
+      }
+
       const payload = {
         productId: editingProduct.id,
         userId: userData.id,
-        fromDepotCode: userDepotCode,
+        fromDepotCode: sourceDepotCode,
         toDepotCode: transferDepotCode,
         qte: quantity,
         observation: transferObservation || null,
@@ -955,9 +999,8 @@ const InventoryComponent = () => {
 
       await transferStock(payload);
 
-      const isWeb = typeof window !== 'undefined' && typeof window.alert === 'function';
       const successMessage = 'Transfert de stock effectué avec succès';
-      if (isWeb) {
+      if (isWebAlert) {
         window.alert(`✅ Succès ! ${successMessage}`);
       } else {
         Alert.alert('Succès', successMessage);
@@ -973,13 +1016,13 @@ const InventoryComponent = () => {
       setTransferQuantity('');
       setTransferObservation('');
       setTransferDepotCode('');
+      setTransferSourceDepotCode(isAdmin ? '' : (userDepotCode || ''));
 
       refetchProducts();
     } catch (error: any) {
       console.error('Erreur lors du transfert de stock:', error);
-      const isWeb = typeof window !== 'undefined' && typeof window.alert === 'function';
       const errorMessage = error?.message || 'Erreur lors du transfert de stock';
-      if (isWeb) {
+      if (isWebAlert) {
         window.alert(`❌ Erreur : ${errorMessage}`);
       } else {
         Alert.alert('Erreur', errorMessage);
@@ -992,11 +1035,11 @@ const InventoryComponent = () => {
   const confirmTransferStock = () => {
     const quantity = parseInt(transferQuantity, 10);
     const currentStock = editingProduct?.inStock || 0;
+    const isWebAlert = typeof window !== 'undefined' && typeof window.alert === 'function';
 
     if (!transferQuantity || isNaN(quantity) || quantity <= 0) {
       const message = 'Veuillez saisir une quantité valide à transférer.';
-      const isWeb = typeof window !== 'undefined' && typeof window.alert === 'function';
-      if (isWeb) {
+      if (isWebAlert) {
         window.alert(`❌ Erreur : ${message}`);
       } else {
         Alert.alert('Erreur', message);
@@ -1006,8 +1049,7 @@ const InventoryComponent = () => {
 
     if (quantity > currentStock) {
       const message = `Vous ne pouvez pas transférer ${quantity} unité(s). Le stock actuel est de ${currentStock} unité(s).`;
-      const isWeb = typeof window !== 'undefined' && typeof window.alert === 'function';
-      if (isWeb) {
+      if (isWebAlert) {
         window.alert(`❌ Erreur : ${message}`);
       } else {
         Alert.alert('Erreur', message);
@@ -1015,10 +1057,12 @@ const InventoryComponent = () => {
       return;
     }
 
-    if (!userDepotCode) {
-      const message = 'Code dépôt de l’utilisateur introuvable.';
-      const isWeb = typeof window !== 'undefined' && typeof window.alert === 'function';
-      if (isWeb) {
+    const sourceDepot = isAdmin ? transferSourceDepotCode : userDepotCode;
+    if (!sourceDepot) {
+      const message = isAdmin
+        ? 'Veuillez sélectionner un dépôt source.'
+        : 'Code dépôt de l’utilisateur introuvable.';
+      if (isWebAlert) {
         window.alert(`❌ Erreur : ${message}`);
       } else {
         Alert.alert('Erreur', message);
@@ -1028,8 +1072,7 @@ const InventoryComponent = () => {
 
     if (!transferDepotCode) {
       const message = 'Veuillez sélectionner un dépôt de destination.';
-      const isWeb = typeof window !== 'undefined' && typeof window.alert === 'function';
-      if (isWeb) {
+      if (isWebAlert) {
         window.alert(`❌ Erreur : ${message}`);
       } else {
         Alert.alert('Erreur', message);
@@ -1037,10 +1080,9 @@ const InventoryComponent = () => {
       return;
     }
 
-    if (transferDepotCode === userDepotCode) {
+    if (transferDepotCode === sourceDepot) {
       const message = 'Le dépôt de destination doit être différent du dépôt de départ.';
-      const isWeb = typeof window !== 'undefined' && typeof window.alert === 'function';
-      if (isWeb) {
+      if (isWebAlert) {
         window.alert(`❌ Erreur : ${message}`);
       } else {
         Alert.alert('Erreur', message);
@@ -1049,10 +1091,10 @@ const InventoryComponent = () => {
     }
 
     const productName = editingProduct?.name || editingProduct?.productName || 'ce produit';
-    const details = `Êtes-vous sûr de vouloir transférer ${quantity} unité(s) de "${productName}" du dépôt ${userDepotCode} vers ${transferDepotCode} ?${transferObservation ? `\n\nObservation : ${transferObservation}` : ''}`;
-    const isWeb = typeof window !== 'undefined' && typeof window.confirm === 'function';
+    const details = `Êtes-vous sûr de vouloir transférer ${quantity} unité(s) de "${productName}" du dépôt ${sourceDepot} vers ${transferDepotCode} ?${transferObservation ? `\n\nObservation : ${transferObservation}` : ''}`;
+    const isWebConfirm = typeof window !== 'undefined' && typeof window.confirm === 'function';
 
-    if (isWeb) {
+    if (isWebConfirm) {
       const confirmed = window.confirm(`Transférer le stock\n\n${details}`);
       if (confirmed) {
         handleTransferStock();
@@ -1784,15 +1826,63 @@ const InventoryComponent = () => {
                 ) : (
                   <View style={styles.transferFormWeb}>
                     <View style={styles.transferDepotSectionWeb}>
+                      {isAdmin ? (
+                        <>
+                          <Text style={styles.stockFormLabelWeb}>Dépôt source *</Text>
+                          {depotCodesLoading ? (
+                            <View style={styles.depotLoadingContainerWeb}>
+                              <ActivityIndicator size="small" color="#3B82F6" />
+                              <Text style={styles.depotLoadingTextWeb}>Chargement des dépôts...</Text>
+                            </View>
+                          ) : depotOptions.length > 0 ? (
+                            <View style={styles.depotChipsContainerWeb}>
+                              {depotOptions.map((code) => (
+                                <TouchableOpacity
+                                  key={code}
+                                  style={[
+                                    styles.depotChipWeb,
+                                    transferSourceDepotCode === code && styles.depotChipActiveWeb
+                                  ]}
+                                  onPress={() => setTransferSourceDepotCode(code)}
+                                >
+                                  <Text
+                                    style={[
+                                      styles.depotChipTextWeb,
+                                      transferSourceDepotCode === code && styles.depotChipTextActiveWeb
+                                    ]}
+                                  >
+                                    {code}
+                                  </Text>
+                                </TouchableOpacity>
+                              ))}
+                            </View>
+                          ) : (
+                            <Text style={styles.stockHelperTextWeb}>
+                              Aucun dépôt disponible pour le transfert.
+                            </Text>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          <Text style={styles.stockFormLabelWeb}>Dépôt source</Text>
+                          <Text style={styles.stockHelperTextWeb}>
+                            {userDepotCode
+                              ? `Le transfert partira du dépôt ${userDepotCode}.`
+                              : 'Code dépôt de l’utilisateur introuvable.'}
+                          </Text>
+                        </>
+                      )}
+                    </View>
+                    <View style={styles.transferDepotSectionWeb}>
                       <Text style={styles.stockFormLabelWeb}>Dépôt de destination *</Text>
                       {depotCodesLoading ? (
                         <View style={styles.depotLoadingContainerWeb}>
                           <ActivityIndicator size="small" color="#3B82F6" />
                           <Text style={styles.depotLoadingTextWeb}>Chargement des dépôts...</Text>
                         </View>
-                      ) : filteredDepotCodes.length > 0 ? (
+                      ) : destinationDepotCodes.length > 0 ? (
                         <View style={styles.depotChipsContainerWeb}>
-                          {filteredDepotCodes.map((code) => (
+                          {destinationDepotCodes.map((code) => (
                             <TouchableOpacity
                               key={code}
                               style={[
@@ -1850,11 +1940,11 @@ const InventoryComponent = () => {
                     <View style={styles.stockFormActionsWeb}>
                       <TouchableOpacity
                         style={[
-                          styles.stockTransferButtonWeb,
-                          (transferLoading || filteredDepotCodes.length === 0) && styles.disabledButtonWeb
+                          styles.stockTransferButtonWeb, 
+                          (transferLoading || destinationDepotCodes.length === 0) && styles.disabledButtonWeb
                         ]}
                         onPress={confirmTransferStock}
-                        disabled={transferLoading || filteredDepotCodes.length === 0}
+                        disabled={transferLoading || destinationDepotCodes.length === 0}
                       >
                         {transferLoading ? (
                           <ActivityIndicator size="small" color="#FFFFFF" />
@@ -2400,42 +2490,89 @@ const InventoryComponent = () => {
                   </>
                 ) : (
                   <>
-                    <View style={styles.formFieldMobile}>
-                      <Text style={styles.formLabelMobile}>Dépôt de destination *</Text>
-                      {depotCodesLoading ? (
-                        <View style={styles.depotLoadingContainerMobile}>
-                          <ActivityIndicator size="small" color="#3B82F6" />
-                          <Text style={styles.depotLoadingTextMobile}>Chargement...</Text>
-                        </View>
-                      ) : filteredDepotCodes.length > 0 ? (
-                        <View style={styles.depotChipsContainerMobile}>
-                          {filteredDepotCodes.map((code) => (
-                            <TouchableOpacity
-                              key={code}
-                              style={[
-                                styles.depotChipMobile,
-                                transferDepotCode === code && styles.depotChipActiveMobile
-                              ]}
-                              onPress={() => setTransferDepotCode(code)}
-                            >
-                              <Text
+                  <View style={styles.formFieldMobile}>
+                    {isAdmin ? (
+                      <>
+                        <Text style={styles.formLabelMobile}>Dépôt source *</Text>
+                        {depotCodesLoading ? (
+                          <View style={styles.depotLoadingContainerMobile}>
+                            <ActivityIndicator size="small" color="#3B82F6" />
+                            <Text style={styles.depotLoadingTextMobile}>Chargement...</Text>
+                          </View>
+                        ) : depotOptions.length > 0 ? (
+                          <View style={styles.depotChipsContainerMobile}>
+                            {depotOptions.map((code) => (
+                              <TouchableOpacity
+                                key={code}
                                 style={[
-                                  styles.depotChipTextMobile,
-                                  transferDepotCode === code && styles.depotChipTextActiveMobile
+                                  styles.depotChipMobile,
+                                  transferSourceDepotCode === code && styles.depotChipActiveMobile
                                 ]}
+                                onPress={() => setTransferSourceDepotCode(code)}
                               >
-                                {code}
-                              </Text>
-                            </TouchableOpacity>
-                          ))}
-                        </View>
-                      ) : (
-                        <Text style={styles.stockInfoTextMobile}>Aucun dépôt disponible.</Text>
-                      )}
-                      {depotCodesError && (
-                        <Text style={styles.stockErrorTextMobile}>{depotCodesError}</Text>
-                      )}
-                    </View>
+                                <Text
+                                  style={[
+                                    styles.depotChipTextMobile,
+                                    transferSourceDepotCode === code && styles.depotChipTextActiveMobile
+                                  ]}
+                                >
+                                  {code}
+                                </Text>
+                              </TouchableOpacity>
+                            ))}
+                          </View>
+                        ) : (
+                          <Text style={styles.stockInfoTextMobile}>Aucun dépôt disponible.</Text>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <Text style={styles.formLabelMobile}>Dépôt source</Text>
+                        <Text style={styles.stockInfoTextMobile}>
+                          {userDepotCode
+                            ? `Le transfert partira du dépôt ${userDepotCode}.`
+                            : 'Code dépôt de l’utilisateur introuvable.'}
+                        </Text>
+                      </>
+                    )}
+                  </View>
+
+                  <View style={styles.formFieldMobile}>
+                    <Text style={styles.formLabelMobile}>Dépôt de destination *</Text>
+                    {depotCodesLoading ? (
+                      <View style={styles.depotLoadingContainerMobile}>
+                        <ActivityIndicator size="small" color="#3B82F6" />
+                        <Text style={styles.depotLoadingTextMobile}>Chargement...</Text>
+                      </View>
+                    ) : destinationDepotCodes.length > 0 ? (
+                      <View style={styles.depotChipsContainerMobile}>
+                        {destinationDepotCodes.map((code) => (
+                          <TouchableOpacity
+                            key={code}
+                            style={[
+                              styles.depotChipMobile,
+                              transferDepotCode === code && styles.depotChipActiveMobile
+                            ]}
+                            onPress={() => setTransferDepotCode(code)}
+                          >
+                            <Text
+                              style={[
+                                styles.depotChipTextMobile,
+                                transferDepotCode === code && styles.depotChipTextActiveMobile
+                              ]}
+                            >
+                              {code}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    ) : (
+                      <Text style={styles.stockInfoTextMobile}>Aucun dépôt disponible.</Text>
+                    )}
+                    {depotCodesError && (
+                      <Text style={styles.stockErrorTextMobile}>{depotCodesError}</Text>
+                    )}
+                  </View>
 
                     <View style={styles.formFieldMobile}>
                       <Text style={styles.formLabelMobile}>Quantité *</Text>
@@ -2465,10 +2602,10 @@ const InventoryComponent = () => {
                     <TouchableOpacity
                       style={[
                         styles.stockTransferButtonMobile,
-                        (transferLoading || filteredDepotCodes.length === 0) && styles.disabledButtonMobile
+                        (transferLoading || destinationDepotCodes.length === 0) && styles.disabledButtonMobile
                       ]}
                       onPress={confirmTransferStock}
-                      disabled={transferLoading || filteredDepotCodes.length === 0}
+                      disabled={transferLoading || destinationDepotCodes.length === 0}
                     >
                       {transferLoading ? (
                         <ActivityIndicator size="small" color="#FFFFFF" />
