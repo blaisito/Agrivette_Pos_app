@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Dimensions, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { createCategory, deleteCategory, getCategories, updateCategory } from '../api/categoryApi';
 import { createProduct, getProducts, updateProduct } from '../api/productApi';
 import { getProductStockHistory, reapprovisionStock, sortieStock, transferStock } from '../api/stockApi';
@@ -388,6 +388,7 @@ const InventoryComponent = () => {
   const [transferSourceDepotCode, setTransferSourceDepotCode] = useState('');
   const [transferQuantity, setTransferQuantity] = useState('');
   const [transferObservation, setTransferObservation] = useState('');
+  const [transferExpirationDate, setTransferExpirationDate] = useState<string>('');
   const [transferLoading, setTransferLoading] = useState(false);
   const depotOptions = useMemo(
     () => availableDepotCodes.filter((code) => !!code),
@@ -451,6 +452,7 @@ const InventoryComponent = () => {
     setStockObservation('');
     setTransferQuantity('');
     setTransferObservation('');
+    setTransferExpirationDate('');
     setTransferDepotCode('');
     setTransferSourceDepotCode(isAdmin ? '' : (userDepotCode || ''));
     setStockManagementTab('adjust');
@@ -778,6 +780,17 @@ const InventoryComponent = () => {
     return date.toLocaleString();
   };
 
+const toIsoWithZulu = (dateString?: string) => {
+  if (!dateString) {
+    return '';
+  }
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+  return date.toISOString();
+};
+
   const openCategoryModal = () => {
     setShowCategoryModal(true);
   };
@@ -1097,6 +1110,7 @@ const InventoryComponent = () => {
         toDepotCode: transferDepotCode,
         qte: quantity,
         observation: transferObservation || null,
+        expirationDate: transferExpirationDate ? toIsoWithZulu(transferExpirationDate) : null,
       };
       console.log(payload);
 
@@ -1183,6 +1197,16 @@ const InventoryComponent = () => {
       return;
     }
 
+    if (!transferExpirationDate) {
+      const message = 'Veuillez sélectionner une date d’expiration.';
+      if (isWebAlert) {
+        window.alert(`❌ Erreur : ${message}`);
+      } else {
+        Alert.alert('Erreur', message);
+      }
+      return;
+    }
+
     if (transferDepotCode === sourceDepot) {
       const message = 'Le dépôt de destination doit être différent du dépôt de départ.';
       if (isWebAlert) {
@@ -1194,7 +1218,7 @@ const InventoryComponent = () => {
     }
 
     const productName = editingProduct?.name || editingProduct?.productName || 'ce produit';
-    const details = `Êtes-vous sûr de vouloir transférer ${quantity} unité(s) de "${productName}" du dépôt ${sourceDepot} vers ${transferDepotCode} ?${transferObservation ? `\n\nObservation : ${transferObservation}` : ''}`;
+    const details = `Êtes-vous sûr de vouloir transférer ${quantity} unité(s) de "${productName}" du dépôt ${sourceDepot} vers ${transferDepotCode} ?${transferObservation ? `\n\nObservation : ${transferObservation}` : ''}\n\nDate d'expiration : ${formatDateTime(transferExpirationDate)}`;
     const isWebConfirm = typeof window !== 'undefined' && typeof window.confirm === 'function';
 
     if (isWebConfirm) {
@@ -2216,6 +2240,33 @@ const InventoryComponent = () => {
                       </View>
                     </View>
 
+                    <View style={styles.stockFormGroupWeb}>
+                      <Text style={styles.stockFormLabelWeb}>Date d'expiration *</Text>
+                      <TextInput
+                        style={styles.stockFormInputWeb}
+                        value={transferExpirationDate}
+                        onChangeText={setTransferExpirationDate}
+                        placeholder="Sélectionnez une date"
+                        placeholderTextColor="#9CA3AF"
+                        onFocus={(event) => {
+                          if (Platform.OS === 'web') {
+                            const target = event?.target as unknown as HTMLInputElement | undefined;
+                            if (target) {
+                              target.type = 'datetime-local';
+                            }
+                          }
+                        }}
+                        onBlur={(event) => {
+                          if (Platform.OS === 'web') {
+                            const target = event?.target as unknown as HTMLInputElement | undefined;
+                            if (target) {
+                              target.type = 'text';
+                            }
+                          }
+                        }}
+                      />
+                    </View>
+
                     <View style={styles.stockFormActionsWeb}>
                       <TouchableOpacity
                         style={[
@@ -2886,6 +2937,33 @@ const InventoryComponent = () => {
                         onChangeText={setTransferObservation}
                         multiline
                         numberOfLines={2}
+                      />
+                    </View>
+
+                    <View style={styles.formFieldMobile}>
+                      <Text style={styles.formLabelMobile}>Date d'expiration *</Text>
+                      <TextInput
+                        style={styles.formInputMobile}
+                        placeholder="2025-11-13T11:33"
+                        placeholderTextColor="#9CA3AF"
+                        value={transferExpirationDate}
+                        onChangeText={setTransferExpirationDate}
+                        onFocus={(event: any) => {
+                          if (Platform.OS === 'web') {
+                            const target = event?.target as HTMLInputElement | undefined;
+                            if (target) {
+                              target.type = 'datetime-local';
+                            }
+                          }
+                        }}
+                        onBlur={(event: any) => {
+                          if (Platform.OS === 'web') {
+                            const target = event?.target as HTMLInputElement | undefined;
+                            if (target) {
+                              target.type = 'text';
+                            }
+                          }
+                        }}
                       />
                     </View>
 
