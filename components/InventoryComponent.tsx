@@ -1503,30 +1503,53 @@ const historyModal = (
                   <Text style={styles.historyEmptyText}>Aucun enregistrement trouvé pour ce dépôt.</Text>
                 </View>
               ) : (
-                currentHistoryItems.map((entry: any, index: number) => (
-                  <View key={`${historyTab}-${index}`} style={styles.historyCard}>
-                    <View style={styles.historyCardHeader}>
-                      <Text style={styles.historyCardTitle}>
-                        {entry?.user?.username || 'Utilisateur inconnu'}
+                currentHistoryItems.map((entry: any, index: number) => {
+                  const expirationDateValue =
+                    entry?.expirationDate && entry.expirationDate !== '0001-01-01T00:00:00'
+                      ? entry.expirationDate
+                      : entry?.product?.expirationDate;
+                  let showExpiryBadge = false;
+                  if (historyTab === 'reaprovision' && expirationDateValue) {
+                    const expiryDate = new Date(expirationDateValue);
+                    if (!Number.isNaN(expiryDate.getTime())) {
+                      const sixMonthsFromNow = new Date();
+                      sixMonthsFromNow.setMonth(sixMonthsFromNow.getMonth() + 6);
+                      showExpiryBadge = expiryDate <= sixMonthsFromNow;
+                    }
+                  }
+
+                  return (
+                    <View key={`${historyTab}-${index}`} style={styles.historyCard}>
+                      <View style={styles.historyCardHeader}>
+                        <Text style={styles.historyCardTitle}>
+                          {entry?.user?.username || 'Utilisateur inconnu'}
+                        </Text>
+                        <View style={styles.historyCardHeaderRight}>
+                          {showExpiryBadge ? (
+                            <View style={styles.expiryBadge}>
+                              <Text style={styles.expiryBadgeText}>Expiration</Text>
+                            </View>
+                          ) : null}
+                          <Text style={styles.historyCardQty}>{entry?.qte ?? 0} u.</Text>
+                        </View>
+                      </View>
+                      <Text style={styles.historyCardMeta}>
+                        Dépôt : {entry?.user?.depotCode || entry?.depotCode || 'N/A'}
                       </Text>
-                      <Text style={styles.historyCardQty}>{entry?.qte ?? 0} u.</Text>
+                      <Text style={styles.historyCardMeta}>
+                        Créé le : {formatDateTime(entry?.user?.created)}
+                      </Text>
+                      <Text style={styles.historyCardMeta}>
+                        Date d'expiration : {formatDateTime(expirationDateValue)}
+                      </Text>
+                      {entry?.observation ? (
+                        <Text style={styles.historyCardObservation}>
+                          Observation : {entry.observation}
+                        </Text>
+                      ) : null}
                     </View>
-                    <Text style={styles.historyCardMeta}>
-                      Dépôt : {entry?.user?.depotCode || entry?.depotCode || 'N/A'}
-                    </Text>
-                    <Text style={styles.historyCardMeta}>
-                      Créé le : {formatDateTime(entry?.user?.created)}
-                    </Text>
-                    <Text style={styles.historyCardMeta}>
-                      Date d'expiration : {formatDateTime(entry?.expirationDate || entry?.product?.expirationDate)}
-                    </Text>
-                    {entry?.observation ? (
-                      <Text style={styles.historyCardObservation}>
-                        Observation : {entry.observation}
-                      </Text>
-                    ) : null}
-                  </View>
-                ))
+                  );
+                })
               )}
             </ScrollView>
           </View>
@@ -2096,7 +2119,7 @@ const historyModal = (
                     <View style={styles.stockFormGroupWeb}>
                       <Text style={styles.stockFormLabelWeb}>Date d'expiration *</Text>
                       <TextInput
-                        style={styles.stockFormInputWeb}
+                        style={[styles.stockFormInputWeb,{marginBottom: 10}]}
                         value={adjustExpirationDate}
                         onChangeText={setAdjustExpirationDate}
                         placeholder="Sélectionnez une date"
@@ -4421,6 +4444,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 8,
   },
+  historyCardHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   historyCardTitle: {
     fontSize: 15,
     fontWeight: '600',
@@ -4430,6 +4457,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: '#2563EB',
+    marginLeft: 12,
+  },
+  expiryBadge: {
+    backgroundColor: '#F97316',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    marginRight: 8,
+  },
+  expiryBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    textTransform: 'uppercase',
   },
   historyCardMeta: {
     fontSize: 13,
