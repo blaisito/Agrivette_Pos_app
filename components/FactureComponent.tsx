@@ -118,7 +118,7 @@ const FactureComponent = ({ onInvoiceCountChange }: FactureComponentProps) => {
   const [invoiceReportData, setInvoiceReportData] = useState<Invoice[]>([]);
   const invoiceReportIframeRef = useRef<HTMLIFrameElement | null>(null);
   const [paymentAmount, setPaymentAmount] = useState<string>('');
-  const [paymentDevise, setPaymentDevise] = useState<number>(paymentDeviseOptions[0].value);
+  const [paymentDevise, setPaymentDevise] = useState<number>(1);
   const [paymentObservation, setPaymentObservation] = useState<string>('');
   const [isSubmittingPayment, setIsSubmittingPayment] = useState<boolean>(false);
   const [payments, setPayments] = useState<any[]>([]);
@@ -1637,7 +1637,7 @@ Voulez-vous confirmer l'impression de cette facture ?`;
 
   const resetPaymentForm = () => {
     setPaymentAmount('');
-    setPaymentDevise(paymentDeviseOptions[0].value);
+  setPaymentDevise(1);
     setPaymentObservation('');
   };
 
