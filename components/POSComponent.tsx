@@ -119,7 +119,7 @@ const POSComponent = ({ onCartItemCountChange }: POSComponentProps) => {
   const [discount, setDiscount] = useState('');
   const [amountCdf, setAmountCdf] = useState('');
   const [amountUsd, setAmountUsd] = useState('');
-  const [useUsdAmounts, setUseUsdAmounts] = useState(false);
+  const [useUsdAmounts, setUseUsdAmounts] = useState(true);
   const [paymentMethod, setPaymentMethod] = useState('Cash');
   const [isDebt, setIsDebt] = useState<boolean>(false);
   const [customerName, setCustomerName] = useState('');
@@ -183,6 +183,17 @@ const POSComponent = ({ onCartItemCountChange }: POSComponentProps) => {
     const clamped = Math.max(0, Math.min(parsed, maxValue));
     return decimals === 0 ? Math.round(clamped).toString() : clamped.toFixed(decimals);
   };
+
+ const getPriceForCurrency = (item: any, isUsd: boolean, rate: number) => {
+   if (isUsd) {
+     if (typeof item.priceUsd === 'number' && item.priceUsd > 0) {
+       return item.priceUsd;
+     }
+     const priceCdf = typeof item.priceCdf === 'number' ? item.priceCdf : 0;
+     return rate > 0 ? priceCdf / rate : 0;
+   }
+   return typeof item.priceCdf === 'number' ? item.priceCdf : 0;
+ };
 
   const handleAmountCdfChange = (value: string) => {
     if (useUsdAmounts) {
@@ -506,16 +517,7 @@ const POSComponent = ({ onCartItemCountChange }: POSComponentProps) => {
     const newItems = [...orderItems];
     newItems[index].quantity += 1;
     const isUsd = currencyPerItem[index];
-    
-    let price;
-    if (isUsd) {
-      // Prix en USD : calculer le prix USD en divisant le prix CDF par le taux de change actuel
-      price = newItems[index].priceCdf / exchangeRate;
-    } else {
-      // Prix en CDF : utiliser le prix CDF original stocké dans la base de données
-      price = newItems[index].priceCdf;
-    }
-    
+    const price = getPriceForCurrency(newItems[index], isUsd, exchangeRate);
     newItems[index].price = price;
     newItems[index].total = newItems[index].quantity * price;
     setOrderItems(newItems);
@@ -527,16 +529,7 @@ const POSComponent = ({ onCartItemCountChange }: POSComponentProps) => {
     if (newItems[index].quantity > 1) {
       newItems[index].quantity -= 1;
       const isUsd = currencyPerItem[index];
-      
-      let price;
-      if (isUsd) {
-        // Prix en USD : calculer le prix USD en divisant le prix CDF par le taux de change actuel
-        price = newItems[index].priceCdf / exchangeRate;
-      } else {
-        // Prix en CDF : utiliser le prix CDF original stocké dans la base de données
-        price = newItems[index].priceCdf;
-      }
-      
+      const price = getPriceForCurrency(newItems[index], isUsd, exchangeRate);
       newItems[index].price = price;
       newItems[index].total = newItems[index].quantity * price;
       setOrderItems(newItems);
@@ -552,16 +545,7 @@ const POSComponent = ({ onCartItemCountChange }: POSComponentProps) => {
     // Mettre à jour le prix et total de l'item
     const newItems = [...orderItems];
     const isUsd = newCurrencyPerItem[index];
-    
-    let price;
-    if (isUsd) {
-      // Passer en USD : calculer le prix USD en divisant le prix CDF par le taux de change actuel
-      price = newItems[index].priceCdf / exchangeRate;
-    } else {
-      // Passer en CDF : utiliser le prix CDF original stocké dans la base de données
-      price = newItems[index].priceCdf;
-    }
-    
+    const price = getPriceForCurrency(newItems[index], isUsd, exchangeRate);
     newItems[index].price = price;
     newItems[index].total = newItems[index].quantity * price;
     setOrderItems(newItems);
@@ -570,21 +554,34 @@ const POSComponent = ({ onCartItemCountChange }: POSComponentProps) => {
   // Fonction pour ajouter un produit directement au panier
   const addProductToCart = (product: any) => {
     // Ajouter le produit au panier
+    const priceCdfValue = typeof product.priceCdf === 'number' ? product.priceCdf : 0;
+    const priceUsdValue =
+      typeof product.priceUsd === 'number' && product.priceUsd > 0
+        ? product.priceUsd
+        : exchangeRate > 0
+          ? priceCdfValue / exchangeRate
+          : 0;
+    const initialCurrencyIsUsd = true;
+    const initialPrice = getPriceForCurrency(
+      { priceCdf: priceCdfValue, priceUsd: priceUsdValue },
+      initialCurrencyIsUsd,
+      exchangeRate
+    );
     const newItem = {
       id: product.id, // ⚠️ Ajouter l'ID du produit
       productId: product.id, // ⚠️ Ajouter aussi productId pour compatibilité
       name: product.productName,
       quantity: 1,
-      price: product.priceCdf, // Utiliser le prix CDF original stocké dans la base de données
-      total: product.priceCdf,
-      priceUsd: product.priceUsd,
-      priceCdf: product.priceCdf // Stocker le prix CDF original
+      price: initialPrice,
+      total: initialPrice,
+      priceUsd: priceUsdValue,
+      priceCdf: priceCdfValue // Stocker le prix CDF original
     };
     
     setOrderItems(prev => [...prev, newItem]);
     
-    // Initialiser la devise à CDF (false) pour le nouvel item
-    setCurrencyPerItem(prev => [...prev, false]);
+    // Initialiser la devise à USD (true) pour le nouvel item
+    setCurrencyPerItem(prev => [...prev, initialCurrencyIsUsd]);
     
     // Marquer le produit comme sélectionné
     setSelectedProducts(prev => new Set([...prev, product.productName]));
