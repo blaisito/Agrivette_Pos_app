@@ -37,14 +37,14 @@ const formatInvoiceForReceiptPOS = (orderItems: any[], selectedTable: any, custo
   
   return {
     // ENTÊTE RESTAURANT (identique à FactureComponent)
-    organisationName: "RESTAURANT CHEZ JESSICA",
+    organisationName: "AGRIVET-CONGO",
     adresse1: "611b av des chutes",
     adresse2: "Lubumbashi, RDC",
-    phone1: "(+243) 811-400-523",
-    phone2: "(+243) 998-554-300",
-    rccm: "RCCM .P16-A-4666",
-    idOrganisation: "ID.NAT.6-93-N4666",
-    numeroImpot: "NUMERO IMPOT, A2423042Y",
+    phone1: "(+243) 000-000-0000",
+    phone2: "(+243) 000-000-0000",
+    rccm: "RCCM ********",
+    idOrganisation: "ID.NAT.********",
+    numeroImpot: "NUMERO IMPOT, ********",
     logoPath: "images/logo.png",
     
     // INFORMATIONS FACTURE
@@ -672,9 +672,8 @@ const POSComponent = ({ onCartItemCountChange }: POSComponentProps) => {
 
       // Transformer les orderItems en format ventes pour l'API
       const ventes = orderItems.map((item, index) => {
-        // Utiliser directement les prix du produit sélectionné
-        const priceUsd = typeof item.priceUsd === 'number' ? item.priceUsd : 0;
-        const priceCdf = typeof item.priceCdf === 'number' ? item.priceCdf : 0;
+        // Déterminer la devise sélectionnée pour cet item
+        const isUsd = currencyPerItem[index] === true;
         
         // Utiliser item.productId ou item.id selon ce qui existe
         const productId = item.productId || item.id;
@@ -684,13 +683,34 @@ const POSComponent = ({ onCartItemCountChange }: POSComponentProps) => {
           throw new Error(`Pas de productId pour l'item: ${item.name}`);
         }
         
+        // Si la devise est USD, envoyer priceUsd avec la valeur et priceCdf = 0
+        // Si la devise est CDF, envoyer priceCdf avec la valeur et priceUsd = 0
+        let priceUsd = 0;
+        let priceCdf = 0;
+        
+        if (isUsd) {
+          // Devise USD sélectionnée
+          if (typeof item.priceUsd === 'number' && item.priceUsd > 0) {
+            priceUsd = item.priceUsd;
+          } else {
+            // Si pas de priceUsd, calculer depuis priceCdf
+            const priceCdfValue = typeof item.priceCdf === 'number' ? item.priceCdf : 0;
+            priceUsd = exchangeRate > 0 ? priceCdfValue / exchangeRate : 0;
+          }
+          priceCdf = 0;
+        } else {
+          // Devise CDF sélectionnée
+          priceCdf = typeof item.priceCdf === 'number' ? item.priceCdf : 0;
+          priceUsd = 0;
+        }
+        
         return {
           productId: productId,
           depotCode: depotCode,
           qte: item.quantity,
           taux: exchangeRate, // Taux affiché à côté de la table
-          priceUsd: priceUsd, // Prix USD directement de l'objet item (minimum 1.0)
-          priceCdf: priceCdf // Prix CDF directement de l'objet item (minimum exchangeRate)
+          priceUsd: priceUsd, // Prix USD (0 si devise CDF sélectionnée)
+          priceCdf: priceCdf // Prix CDF (0 si devise USD sélectionnée)
         };
       });
 
@@ -826,7 +846,7 @@ Vérifiez votre connexion internet et réessayez.`;
       return `• ${item.name} (${item.quantity}x) - ${formattedTotal} ${currency}`;
     }).join('\n');
     
-    return `🍽️ RESTAURANT CHEZ JESSICA
+    return `AGRIVET-CONGO
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 📋 RÉCAPITULATIF DE COMMANDE
