@@ -1,9 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Dimensions, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { createCategory, deleteCategory, getCategories, updateCategory } from '../api/categoryApi';
 import { createProduct, getProducts, updateProduct } from '../api/productApi';
-import { reapprovisionStock, sortieStock, transferStock } from '../api/stockApi';
+import { getProductStockHistory, reapprovisionStock, sortieStock, transferStock } from '../api/stockApi';
 import { getDepotCodes } from '../api/userApi';
 import { useApi } from '../hooks/useApi';
 import { useFetch } from '../hooks/useFetch';
@@ -363,6 +363,16 @@ const InventoryComponent = () => {
     imageBase64: 'UkVTVE9NQU5BR0VSQVBQ' // Valeur par défaut valide
   });
   const [editingProduct, setEditingProduct] = useState<any>(null);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [historyTab, setHistoryTab] = useState<'reaprovision' | 'sorties'>('reaprovision');
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [historyData, setHistoryData] = useState<{ reaprovision: any[]; sorties: any[] }>({
+    reaprovision: [],
+    sorties: []
+  });
+  const [historyDepotCode, setHistoryDepotCode] = useState<string>('');
+  const [historyProduct, setHistoryProduct] = useState<any>(null);
   
   // États pour le formulaire de stock
   const [stockQuantity, setStockQuantity] = useState('');
@@ -449,6 +459,71 @@ const InventoryComponent = () => {
   useEffect(() => {
     setStockFeedback(null);
   }, [stockManagementTab]);
+
+  useEffect(() => {
+    if (!showHistoryModal) {
+      return;
+    }
+
+    if (isAdmin) {
+      if (historyDepotCode && availableDepotCodes.includes(historyDepotCode)) {
+        return;
+      }
+      const fallbackDepot = availableDepotCodes.find((code) => !!code);
+      if (fallbackDepot && historyDepotCode !== fallbackDepot) {
+        setHistoryDepotCode(fallbackDepot);
+      }
+    } else if (userDepotCode && historyDepotCode !== userDepotCode) {
+      setHistoryDepotCode(userDepotCode);
+    }
+  }, [showHistoryModal, isAdmin, availableDepotCodes, historyDepotCode, userDepotCode]);
+
+  useEffect(() => {
+    const loadHistory = async () => {
+      if (!historyProduct?.id) {
+        return;
+      }
+      const depotCode = historyDepotCode || (!isAdmin ? userDepotCode : '');
+      if (!depotCode) {
+        if (isAdmin) {
+          setHistoryError(
+            depotOptions.length === 0
+              ? 'Aucun dépôt disponible.'
+              : "Sélectionnez un dépôt pour afficher l'historique."
+          );
+          setHistoryData({ reaprovision: [], sorties: [] });
+        } else {
+          setHistoryError('Aucun dépôt sélectionné.');
+          setHistoryData({ reaprovision: [], sorties: [] });
+        }
+        return;
+      }
+      setHistoryLoading(true);
+      setHistoryError(null);
+      try {
+        const response = await getProductStockHistory(historyProduct.id, depotCode);
+        const payload = response?.data || {};
+        setHistoryData({
+          reaprovision: Array.isArray(payload.reaprovision) ? payload.reaprovision : [],
+          sorties: Array.isArray(payload.soties)
+            ? payload.soties
+            : Array.isArray(payload.sorties)
+            ? payload.sorties
+            : []
+        });
+      } catch (error: any) {
+        console.error("Erreur lors du chargement de l'historique de stock:", error);
+        setHistoryError(error?.message || "Impossible de charger l'historique.");
+        setHistoryData({ reaprovision: [], sorties: [] });
+      } finally {
+        setHistoryLoading(false);
+      }
+    };
+
+    if (showHistoryModal) {
+      loadHistory();
+    }
+  }, [showHistoryModal, historyDepotCode, historyProduct, isAdmin, userDepotCode, depotOptions]);
   
   // Liste des produits avec images (du POSComponent)
   const menuItems = [
@@ -692,6 +767,17 @@ const InventoryComponent = () => {
     }
   };
 
+  const formatDateTime = (dateString?: string | null) => {
+    if (!dateString) {
+      return 'N/A';
+    }
+    const date = new Date(dateString);
+    if (Number.isNaN(date.getTime())) {
+      return dateString;
+    }
+    return date.toLocaleString();
+  };
+
   const openCategoryModal = () => {
     setShowCategoryModal(true);
   };
@@ -741,6 +827,23 @@ const InventoryComponent = () => {
     });
     setActiveTab('product-management');
     setStockFeedback(null);
+  };
+
+  const openHistoryModal = (product: any) => {
+    setHistoryProduct(product);
+    setHistoryTab('reaprovision');
+    setHistoryData({ reaprovision: [], sorties: [] });
+    setHistoryError(null);
+    setShowHistoryModal(true);
+  };
+
+  const closeHistoryModal = () => {
+    setShowHistoryModal(false);
+    setHistoryProduct(null);
+    setHistoryDepotCode('');
+    setHistoryData({ reaprovision: [], sorties: [] });
+    setHistoryError(null);
+    setHistoryLoading(false);
   };
 
   const openProductModal = () => {
@@ -1227,11 +1330,181 @@ const InventoryComponent = () => {
     { id: 5, date: '2024-01-01', type: 'increase', quantity: 40, reason: 'Stock initial', user: 'Admin' }
   ];
 
+  const currentHistoryItems = historyTab === 'reaprovision' ? historyData.reaprovision : historyData.sorties;
+  const historyDepotDisplay = historyDepotCode || (!isAdmin ? userDepotCode || '' : '');
+  const historyModal = (
+    <Modal
+      visible={showHistoryModal}
+      onRequestClose={closeHistoryModal}
+      animationType="fade"
+      transparent
+    >
+      <View style={styles.historyModalOverlay}>
+        <View
+          style={[
+            styles.historyModalContent,
+            isLargeScreen ? styles.historyModalContentWeb : styles.historyModalContentMobile
+          ]}
+        >
+          <View style={styles.historyModalHeader}>
+            <View style={styles.historyModalTitleBlock}>
+              <Text style={styles.historyModalTitle}>Historique du stock</Text>
+              {historyProduct?.productName ? (
+                <Text style={styles.historyModalSubtitle}>{historyProduct.productName}</Text>
+              ) : null}
+              {historyDepotDisplay ? (
+                <Text style={styles.historyDepotInfo}>Dépôt actif : {historyDepotDisplay}</Text>
+              ) : null}
+            </View>
+            <TouchableOpacity style={styles.historyModalCloseButton} onPress={closeHistoryModal}>
+              <Ionicons name="close" size={20} color="#1F2937" />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.historyModalBody}>
+            {isAdmin ? (
+              <View style={styles.historyDepotSelector}>
+                <Text style={styles.historyDepotLabel}>Sélectionner un dépôt</Text>
+                {depotOptions.length > 0 ? (
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    <View style={styles.historyDepotChips}>
+                      {depotOptions.map((code) => (
+                        <TouchableOpacity
+                          key={code}
+                          style={[
+                            styles.historyDepotChip,
+                            historyDepotCode === code && styles.historyDepotChipActive
+                          ]}
+                          onPress={() => setHistoryDepotCode(code)}
+                        >
+                          <Text
+                            style={[
+                              styles.historyDepotChipText,
+                              historyDepotCode === code && styles.historyDepotChipTextActive
+                            ]}
+                          >
+                            {code}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </ScrollView>
+                ) : (
+                  <Text style={styles.historyDepotValue}>Aucun dépôt disponible</Text>
+                )}
+              </View>
+            ) : (
+              <View style={styles.historyDepotSelector}>
+                <Text style={styles.historyDepotLabel}>Dépôt</Text>
+                <Text style={styles.historyDepotValue}>{historyDepotDisplay || 'Non défini'}</Text>
+              </View>
+            )}
+
+            <View style={styles.historyTabs}>
+              <TouchableOpacity
+                style={[
+                  styles.historyTabButton,
+                  historyTab === 'reaprovision' && styles.historyTabButtonActive
+                ]}
+                onPress={() => setHistoryTab('reaprovision')}
+              >
+                <Text
+                  style={[
+                    styles.historyTabButtonText,
+                    historyTab === 'reaprovision' && styles.historyTabButtonTextActive
+                  ]}
+                >
+                  Approvisionnements
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.historyTabButton,
+                  historyTab === 'sorties' && styles.historyTabButtonActive
+                ]}
+                onPress={() => setHistoryTab('sorties')}
+              >
+                <Text
+                  style={[
+                    styles.historyTabButtonText,
+                    historyTab === 'sorties' && styles.historyTabButtonTextActive
+                  ]}
+                >
+                  Sorties
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.historySummary}>
+              <Text style={styles.historySummaryText}>
+                {historyLoading
+                  ? 'Chargement en cours...'
+                  : historyError
+                  ? 'Erreur de chargement'
+                  : `Total ${historyTab === 'reaprovision' ? 'approvisionnements' : 'sorties'} : ${
+                      currentHistoryItems.length
+                    }`}
+              </Text>
+              <Text style={styles.historySummaryCount}>
+                {currentHistoryItems.length} enregistrement{currentHistoryItems.length > 1 ? 's' : ''}
+              </Text>
+            </View>
+
+            <ScrollView
+              style={[
+                styles.historyModalScroll,
+                !isLargeScreen && styles.historyModalScrollMobile
+              ]}
+              contentContainerStyle={styles.historyListContent}
+            >
+              {historyLoading ? (
+                <View style={styles.historyLoadingContainer}>
+                  <ActivityIndicator size="large" color="#2563EB" />
+                  <Text style={styles.historySummaryText}>Chargement de l'historique...</Text>
+                </View>
+              ) : historyError ? (
+                <Text style={styles.historyErrorText}>{historyError}</Text>
+              ) : currentHistoryItems.length === 0 ? (
+                <View style={styles.historyEmptyContainer}>
+                  <Ionicons name="time-outline" size={32} color="#9CA3AF" />
+                  <Text style={styles.historyEmptyText}>Aucun enregistrement trouvé pour ce dépôt.</Text>
+                </View>
+              ) : (
+                currentHistoryItems.map((entry: any, index: number) => (
+                  <View key={`${historyTab}-${index}`} style={styles.historyCard}>
+                    <View style={styles.historyCardHeader}>
+                      <Text style={styles.historyCardTitle}>
+                        {entry?.user?.username || 'Utilisateur inconnu'}
+                      </Text>
+                      <Text style={styles.historyCardQty}>{entry?.qte ?? 0} u.</Text>
+                    </View>
+                    <Text style={styles.historyCardMeta}>
+                      Dépôt : {entry?.user?.depotCode || entry?.depotCode || 'N/A'}
+                    </Text>
+                    <Text style={styles.historyCardMeta}>
+                      Créé le : {formatDateTime(entry?.user?.created)}
+                    </Text>
+                    {entry?.observation ? (
+                      <Text style={styles.historyCardObservation}>
+                        Observation : {entry.observation}
+                      </Text>
+                    ) : null}
+                  </View>
+                ))
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+
   // Version Desktop/Large Screen
   if (isLargeScreen) {
     return (
-      <ScrollView style={[styles.containerWeb, {paddingHorizontal: 140}]}>
-        <Text style={styles.titleWeb}>Inventaire</Text>
+      <>
+        <ScrollView style={[styles.containerWeb, {paddingHorizontal: 140}]}>
+          <Text style={styles.titleWeb}>Inventaire</Text>
         
         {/* Onglets */}
         <View style={styles.tabsPillContainerWeb}>
@@ -1399,6 +1672,12 @@ const InventoryComponent = () => {
                           <Text style={styles.priceCellWeb}>{product.priceCdf} CDF</Text>
                           <Text style={styles.stockCellWeb}>{product.inStock || 0}</Text>
                           <View style={styles.actionsCellWeb}>
+                            <TouchableOpacity
+                              style={[styles.actionButtonWeb, styles.historyButtonWeb]}
+                              onPress={() => openHistoryModal(product)}
+                            >
+                              <Ionicons name="time-outline" size={16} color="#2563EB" />
+                            </TouchableOpacity>
                             <TouchableOpacity 
                               style={styles.actionButtonWeb} 
                               onPress={() => selectProductForEdit(product)}
@@ -1960,12 +2239,15 @@ const InventoryComponent = () => {
             )}
         </View>
       )}
-    </ScrollView>
+        </ScrollView>
+        {historyModal}
+      </>
     );
   }
 
   // Version Mobile - Modern Design
   return (
+    <>
     <ScrollView style={styles.containerMobile}>
       {/* Tabs Navigation Mobile */}
       <View style={styles.tabsContainerMobile}>
@@ -2083,12 +2365,20 @@ const InventoryComponent = () => {
                           <Text style={styles.productNameMobile}>{product.productName}</Text>
                           <Text style={styles.productCategoryMobile}>{product.category?.categoryName || 'N/A'}</Text>
                         </View>
-                        <TouchableOpacity 
-                          style={styles.editIconMobile}
-                          onPress={() => selectProductForEdit(product)}
-                        >
-                          <Ionicons name="create" size={24} color="#3B82F6" />
-                        </TouchableOpacity>
+                        <View style={styles.productHeaderActionsMobile}>
+                          <TouchableOpacity
+                            style={styles.historyIconMobile}
+                            onPress={() => openHistoryModal(product)}
+                          >
+                            <Ionicons name="time-outline" size={22} color="#2563EB" />
+                          </TouchableOpacity>
+                          <TouchableOpacity 
+                            style={styles.editIconMobile}
+                            onPress={() => selectProductForEdit(product)}
+                          >
+                            <Ionicons name="create" size={24} color="#3B82F6" />
+                          </TouchableOpacity>
+                        </View>
                       </View>
                       <View style={styles.productDetailsMobile}>
                         <View style={styles.priceRowMobile}>
@@ -2624,6 +2914,8 @@ const InventoryComponent = () => {
         </View>
       )}
     </ScrollView>
+    {historyModal}
+    </>
   );
 };
 
@@ -2837,6 +3129,9 @@ const styles = StyleSheet.create({
     padding: 8,
     borderRadius: 6,
     backgroundColor: '#F3F4F6',
+  },
+  historyButtonWeb: {
+    backgroundColor: '#DBEAFE',
   },
   formContainerWeb: {
     backgroundColor: '#FFFFFF',
@@ -3209,6 +3504,16 @@ const styles = StyleSheet.create({
   productCategoryMobile: {
     fontSize: 12,
     color: '#6B7280',
+  },
+  productHeaderActionsMobile: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  historyIconMobile: {
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: '#DBEAFE',
   },
   editIconMobile: {
     padding: 12,
@@ -3833,6 +4138,219 @@ const styles = StyleSheet.create({
   },
   stockFeedbackSuccessWeb: {
     color: '#16A34A',
+  },
+  historyModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  historyModalContent: {
+    width: '100%',
+    maxHeight: '90%',
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    overflow: 'hidden',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  historyModalContentWeb: {
+    maxWidth: 760,
+  },
+  historyModalContentMobile: {
+    maxWidth: '100%',
+  },
+  historyModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: '#F8FAFC',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+  },
+  historyModalTitleBlock: {
+    flex: 1,
+  },
+  historyModalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1F2937',
+  },
+  historyModalSubtitle: {
+    marginTop: 4,
+    fontSize: 14,
+    color: '#4B5563',
+    fontWeight: '500',
+  },
+  historyDepotInfo: {
+    marginTop: 4,
+    fontSize: 12,
+    color: '#9CA3AF',
+  },
+  historyModalCloseButton: {
+    marginLeft: 12,
+    padding: 8,
+    borderRadius: 999,
+    backgroundColor: '#E5E7EB',
+  },
+  historyModalBody: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  historyDepotSelector: {
+    marginBottom: 16,
+  },
+  historyDepotLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 8,
+  },
+  historyDepotValue: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#1F2937',
+  },
+  historyDepotChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  historyDepotChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: '#E5E7EB',
+  },
+  historyDepotChipActive: {
+    backgroundColor: '#2563EB',
+  },
+  historyDepotChipText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#1F2937',
+  },
+  historyDepotChipTextActive: {
+    color: '#FFFFFF',
+  },
+  historyTabs: {
+    flexDirection: 'row',
+    borderRadius: 999,
+    backgroundColor: '#E5E7EB',
+    padding: 4,
+    marginBottom: 16,
+  },
+  historyTabButton: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: 999,
+  },
+  historyTabButtonActive: {
+    backgroundColor: '#2563EB',
+    shadowColor: '#1D4ED8',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  historyTabButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#4B5563',
+  },
+  historyTabButtonTextActive: {
+    color: '#FFFFFF',
+  },
+  historySummary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  historySummaryText: {
+    fontSize: 13,
+    color: '#6B7280',
+  },
+  historySummaryCount: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1F2937',
+  },
+  historyModalScroll: {
+    maxHeight: 420,
+  },
+  historyModalScrollMobile: {
+    maxHeight: 360,
+  },
+  historyListContent: {
+    paddingBottom: 24,
+  },
+  historyLoadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 32,
+    gap: 12,
+  },
+  historyErrorText: {
+    fontSize: 14,
+    color: '#DC2626',
+    textAlign: 'center',
+  },
+  historyEmptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 32,
+    gap: 8,
+  },
+  historyEmptyText: {
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  historyCard: {
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#111827',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  historyCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  historyCardTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1F2937',
+  },
+  historyCardQty: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#2563EB',
+  },
+  historyCardMeta: {
+    fontSize: 13,
+    color: '#4B5563',
+    marginBottom: 4,
+  },
+  historyCardObservation: {
+    fontSize: 13,
+    color: '#6B7280',
   },
   
   // Styles pour l'affichage du stock actuel

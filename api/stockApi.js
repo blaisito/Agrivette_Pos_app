@@ -67,3 +67,15 @@ export const transferStock = async (data) => {
     throw error;
   }
 };
+
+// Récupérer l'historique du stock d'un produit
+export const getProductStockHistory = async (productId, depotCode) => {
+  try {
+    const query = depotCode ? `?depotCode=${encodeURIComponent(depotCode)}` : '';
+    const response = await apiClient.get(`/api/v1.0/Stock/product-stock/${productId}${query}`);
+    return response;
+  } catch (error) {
+    console.error("Erreur lors de la récupération de l'historique du stock:", error);
+    throw error;
+  }
+};
