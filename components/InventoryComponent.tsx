@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Dimensions, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { createCategory, deleteCategory, getCategories, updateCategory } from '../api/categoryApi';
-import { createProduct, getProducts, updateProduct } from '../api/productApi';
+import { createProduct, getProductById, getProducts, updateProduct } from '../api/productApi';
 import { getProductStockHistory, reapprovisionStock, sortieStock, transferStock } from '../api/stockApi';
 import { getDepotCodes } from '../api/userApi';
 import { useApi } from '../hooks/useApi';
@@ -390,6 +390,12 @@ const InventoryComponent = () => {
   const [transferObservation, setTransferObservation] = useState('');
   const [adjustExpirationDate, setAdjustExpirationDate] = useState<string>('');
   const [transferLoading, setTransferLoading] = useState(false);
+  const [destinationProductInfo, setDestinationProductInfo] = useState<{ inStock: number; productName: string } | null>(null);
+  const [destinationProductLoading, setDestinationProductLoading] = useState(false);
+  const [destinationProductError, setDestinationProductError] = useState<string | null>(null);
+  const [sourceProductInfo, setSourceProductInfo] = useState<{ inStock: number; productName: string } | null>(null);
+  const [sourceProductLoading, setSourceProductLoading] = useState(false);
+  const [sourceProductError, setSourceProductError] = useState<string | null>(null);
   const depotOptions = useMemo(
     () => availableDepotCodes.filter((code) => !!code),
     [availableDepotCodes]
@@ -456,11 +462,107 @@ const InventoryComponent = () => {
     setTransferDepotCode('');
     setTransferSourceDepotCode(isAdmin ? '' : (userDepotCode || ''));
     setStockManagementTab('adjust');
+    setDestinationProductInfo(null);
+    setDestinationProductError(null);
+    setDestinationProductLoading(false);
+    setSourceProductInfo(null);
+    setSourceProductError(null);
+    setSourceProductLoading(false);
   }, [editingProduct, isAdmin, userDepotCode]);
 
   useEffect(() => {
     setStockFeedback(null);
   }, [stockManagementTab]);
+
+  useEffect(() => {
+    if (!editingProduct || stockManagementTab !== 'transfer') {
+      setDestinationProductInfo(null);
+      setDestinationProductError(null);
+      setDestinationProductLoading(false);
+      setSourceProductInfo(null);
+      setSourceProductError(null);
+      setSourceProductLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    const fetchSourceProduct = async () => {
+      try {
+        setSourceProductLoading(true);
+        setSourceProductError(null);
+        const sourceDepot = isAdmin ? transferSourceDepotCode : userDepotCode;
+        if (!sourceDepot) {
+          setSourceProductInfo(null);
+          return;
+        }
+        const response = await getProductById(editingProduct.id, sourceDepot);
+        if (cancelled) return;
+        const productData = response?.data?.data ?? response?.data ?? response;
+        if (productData && typeof productData === 'object') {
+          setSourceProductInfo({
+            inStock: Number(productData.inStock) || 0,
+            productName: productData.productName || editingProduct.productName || 'Produit'
+          });
+        } else {
+          setSourceProductInfo(null);
+        }
+      } catch (error: any) {
+        if (cancelled) return;
+        console.error('Erreur lors du chargement du stock du dépôt source:', error);
+        setSourceProductError(error?.message || 'Impossible de récupérer le stock du dépôt source.');
+        setSourceProductInfo(null);
+      } finally {
+        if (!cancelled) {
+          setSourceProductLoading(false);
+        }
+      }
+    };
+
+    const fetchDestinationProduct = async () => {
+      if (!transferDepotCode) {
+        setDestinationProductInfo(null);
+        setDestinationProductError(null);
+        setDestinationProductLoading(false);
+        return;
+      }
+
+      try {
+        setDestinationProductLoading(true);
+        setDestinationProductError(null);
+        const response = await getProductById(editingProduct.id, transferDepotCode);
+        if (cancelled) return;
+        const productData =
+          response?.data?.data ??
+          response?.data ??
+          response;
+        if (productData && typeof productData === 'object') {
+          setDestinationProductInfo({
+            inStock: Number(productData.inStock) || 0,
+            productName: productData.productName || editingProduct.productName || 'Produit'
+          });
+        } else {
+          setDestinationProductInfo(null);
+        }
+      } catch (error: any) {
+        if (cancelled) return;
+        console.error('Erreur lors du chargement du stock du dépôt destination:', error);
+        setDestinationProductError(error?.message || 'Impossible de récupérer le stock du dépôt destination.');
+        setDestinationProductInfo(null);
+      } finally {
+        if (!cancelled) {
+          setDestinationProductLoading(false);
+        }
+      }
+    };
+
+    fetchSourceProduct();
+    fetchDestinationProduct();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [editingProduct, transferDepotCode, transferSourceDepotCode, stockManagementTab, isAdmin, userDepotCode]);
 
   useEffect(() => {
     if (!showHistoryModal) {
@@ -2046,13 +2148,53 @@ const historyModal = (
                 <View style={styles.currentStockInfoWeb}>
                   <View style={styles.currentStockItemWeb}>
                     <Text style={styles.currentStockLabelWeb}>Stock actuel</Text>
-                    <Text style={styles.currentStockValueWeb}>{editingProduct.inStock || 0}</Text>
+                    <Text style={styles.currentStockValueWeb}>
+                      Source : 
+                      {stockManagementTab === 'transfer'
+                        ? sourceProductLoading
+                          ? '...'
+                          : sourceProductError
+                          ? '—'
+                          : sourceProductInfo
+                          ? sourceProductInfo.inStock
+                          : editingProduct.inStock || 0
+                        : editingProduct.inStock || 0}
+                    </Text>
                   </View>
                   <View style={styles.currentStockItemWeb}>
-                    <Text style={styles.currentStockLabelWeb}>Stock minimum</Text>
-                    <Text style={styles.currentStockValueWeb}>{editingProduct.minimalStock || 0}</Text>
+                    <Text style={styles.currentStockLabelWeb}>
+                      {stockManagementTab === 'transfer'
+                        ? destinationProductLoading
+                          ? 'Stock destination (chargement...)'
+                          : destinationProductError
+                          ? 'Stock destination indisponible'
+                          : destinationProductInfo
+                          ? destinationProductInfo.productName
+                          : transferDepotCode
+                          ? 'Stock destination indisponible'
+                          : 'Sélectionnez un dépôt de destination'
+                        : 'Stock minimum'}
+                    </Text>
+                    <Text style={styles.currentStockValueWeb}>
+                      Destination:
+                      {stockManagementTab === 'transfer'
+                        ? destinationProductLoading
+                          ? '...'
+                          : destinationProductError
+                          ? '—'
+                          : destinationProductInfo
+                          ? destinationProductInfo.inStock
+                          : '-'
+                        : editingProduct.minimalStock || 0}
+                    </Text>
                   </View>
                 </View>
+                {stockManagementTab === 'transfer' && sourceProductError ? (
+                  <Text style={styles.stockErrorTextWeb}>{sourceProductError}</Text>
+                ) : null}
+                {stockManagementTab === 'transfer' && destinationProductError ? (
+                  <Text style={styles.stockErrorTextWeb}>{destinationProductError}</Text>
+                ) : null}
 
                 <View style={styles.stockTabsWeb}>
                   <TouchableOpacity
@@ -2754,8 +2896,55 @@ const historyModal = (
                 <Text style={styles.stockTitleMobile}>Gestion du stock</Text>
                 <View style={styles.currentStockMobile}>
                   <Text style={styles.currentStockLabelMobile}>Stock actuel:</Text>
-                  <Text style={styles.currentStockValueMobile}>{editingProduct.inStock || 0} unités</Text>
+                  <Text style={styles.currentStockValueMobile}>
+                    {stockManagementTab === 'transfer'
+                      ? sourceProductLoading
+                        ? '...'
+                        : sourceProductError
+                        ? '—'
+                        : sourceProductInfo
+                        ? `${sourceProductInfo.inStock} unités`
+                        : `${editingProduct.inStock || 0} unités`
+                      : `${editingProduct.inStock || 0} unités`}
+                  </Text>
                 </View>
+                {stockManagementTab === 'transfer' ? (
+                  <View style={styles.destinationStockMobile}>
+                    <Text style={styles.destinationStockLabelMobile}>
+                      {destinationProductLoading
+                        ? 'Stock destination (chargement...)'
+                        : destinationProductError
+                        ? 'Stock destination indisponible'
+                        : destinationProductInfo
+                        ? destinationProductInfo.productName
+                        : transferDepotCode
+                        ? 'Stock destination indisponible'
+                        : 'Sélectionnez un dépôt de destination'}
+                    </Text>
+                    <Text style={styles.destinationStockValueMobile}>
+                      {destinationProductLoading
+                        ? '...'
+                        : destinationProductError
+                        ? '—'
+                        : destinationProductInfo
+                        ? `${destinationProductInfo.inStock} unités`
+                        : '-'}
+                    </Text>
+                    {destinationProductError ? (
+                      <Text style={styles.destinationStockErrorMobile}>{destinationProductError}</Text>
+                    ) : null}
+                  </View>
+                ) : (
+                  <View style={styles.destinationStockMobile}>
+                    <Text style={styles.destinationStockLabelMobile}>Stock minimum</Text>
+                    <Text style={styles.destinationStockValueMobile}>
+                      {editingProduct.minimalStock || 0} unités
+                    </Text>
+                  </View>
+                )}
+                {stockManagementTab === 'transfer' && sourceProductError ? (
+                  <Text style={styles.destinationStockErrorMobile}>{sourceProductError}</Text>
+                ) : null}
 
                 <View style={styles.stockToggleContainerMobile}>
                   <TouchableOpacity
@@ -3892,6 +4081,24 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: '#7C3AED',
+  },
+  destinationStockMobile: {
+    marginTop: 12,
+  },
+  destinationStockLabelMobile: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 4,
+  },
+  destinationStockValueMobile: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1F2937',
+  },
+  destinationStockErrorMobile: {
+    marginTop: 4,
+    fontSize: 12,
+    color: '#DC2626',
   },
   stockToggleContainerMobile: {
     flexDirection: 'row',

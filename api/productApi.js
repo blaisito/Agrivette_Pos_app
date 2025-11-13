@@ -29,8 +29,9 @@ export const getProducts = async (options) => {
   return response;
 };
 
-export const getProductById = async (productId) => {
-  const response = await apiClient.get(PRODUCT_ENDPOINTS.GET_BY_ID(productId));
+export const getProductById = async (productId, depotCode) => {
+  const query = depotCode ? `?depotCode=${encodeURIComponent(depotCode)}` : '';
+  const response = await apiClient.get(`${PRODUCT_ENDPOINTS.GET_BY_ID(productId)}${query}`);
   return response;
 };
 
