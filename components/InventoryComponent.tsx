@@ -388,7 +388,7 @@ const InventoryComponent = () => {
   const [transferSourceDepotCode, setTransferSourceDepotCode] = useState('');
   const [transferQuantity, setTransferQuantity] = useState('');
   const [transferObservation, setTransferObservation] = useState('');
-  const [transferExpirationDate, setTransferExpirationDate] = useState<string>('');
+  const [adjustExpirationDate, setAdjustExpirationDate] = useState<string>('');
   const [transferLoading, setTransferLoading] = useState(false);
   const depotOptions = useMemo(
     () => availableDepotCodes.filter((code) => !!code),
@@ -452,7 +452,7 @@ const InventoryComponent = () => {
     setStockObservation('');
     setTransferQuantity('');
     setTransferObservation('');
-    setTransferExpirationDate('');
+    setAdjustExpirationDate('');
     setTransferDepotCode('');
     setTransferSourceDepotCode(isAdmin ? '' : (userDepotCode || ''));
     setStockManagementTab('adjust');
@@ -881,6 +881,7 @@ const toIsoWithZulu = (dateString?: string) => {
     setStockDepotCode(userDepotCode ?? null);
     setTransferQuantity('');
     setTransferObservation('');
+    setAdjustExpirationDate('');
     setTransferDepotCode('');
     setTransferSourceDepotCode(isAdmin ? '' : (userDepotCode || ''));
     setStockFeedback(null);
@@ -929,6 +930,14 @@ const toIsoWithZulu = (dateString?: string) => {
       return;
     }
 
+    if (action === 'add' && !adjustExpirationDate) {
+      setStockFeedback({
+        type: 'error',
+        message: "Veuillez sélectionner une date d'expiration.",
+      });
+      return;
+    }
+
     const userData = await getUserData();
     if (!userData || !userData.id) {
       setStockFeedback({
@@ -938,13 +947,16 @@ const toIsoWithZulu = (dateString?: string) => {
       return;
     }
 
-    const stockData = {
+    const stockData: any = {
       productId: editingProduct.id,
       userId: userData.id,
+      depotCode: effectiveDepotCode,
       qte: quantity,
       observation: stockObservation || null,
-      depotCode: effectiveDepotCode,
     };
+    if (action === 'add') {
+      stockData.expirationDate = toIsoWithZulu(adjustExpirationDate);
+    }
 
     try {
       setStockLoading(true);
@@ -973,6 +985,7 @@ const toIsoWithZulu = (dateString?: string) => {
       setStockQuantity('');
       setStockObservation('');
       setStockDepotCode(userDepotCode ?? null);
+      setAdjustExpirationDate('');
 
       refetchProducts();
     } catch (error: any) {
@@ -1029,8 +1042,18 @@ const toIsoWithZulu = (dateString?: string) => {
       return;
     }
 
+    if (action === 'add' && !adjustExpirationDate) {
+      setStockFeedback({
+        type: 'error',
+        message: "Veuillez sélectionner une date d'expiration.",
+      });
+      return;
+    }
+
     const productLabel = editingProduct?.name || editingProduct?.productName || 'ce produit';
-    const message = `Êtes-vous sûr de vouloir ${actionText} ${quantity} unité(s) du stock pour "${productLabel}" ?${stockObservation ? `\n\nObservation: ${stockObservation}` : ''}\n\nDépôt: ${depotLabel}`;
+    const message = `Êtes-vous sûr de vouloir ${actionText} ${quantity} unité(s) du stock pour "${productLabel}" ?${stockObservation ? `\n\nObservation: ${stockObservation}` : ''}\n\nDépôt: ${depotLabel}${
+      action === 'add' ? `\n\nDate d'expiration: ${formatDateTime(adjustExpirationDate)}` : ''
+    }`;
 
     const isWeb = typeof window !== 'undefined' && typeof window.confirm === 'function';
 
@@ -1110,7 +1133,6 @@ const toIsoWithZulu = (dateString?: string) => {
         toDepotCode: transferDepotCode,
         qte: quantity,
         observation: transferObservation || null,
-        expirationDate: transferExpirationDate ? toIsoWithZulu(transferExpirationDate) : null,
       };
       console.log(payload);
 
@@ -1197,16 +1219,6 @@ const toIsoWithZulu = (dateString?: string) => {
       return;
     }
 
-    if (!transferExpirationDate) {
-      const message = 'Veuillez sélectionner une date d’expiration.';
-      if (isWebAlert) {
-        window.alert(`❌ Erreur : ${message}`);
-      } else {
-        Alert.alert('Erreur', message);
-      }
-      return;
-    }
-
     if (transferDepotCode === sourceDepot) {
       const message = 'Le dépôt de destination doit être différent du dépôt de départ.';
       if (isWebAlert) {
@@ -1218,7 +1230,7 @@ const toIsoWithZulu = (dateString?: string) => {
     }
 
     const productName = editingProduct?.name || editingProduct?.productName || 'ce produit';
-    const details = `Êtes-vous sûr de vouloir transférer ${quantity} unité(s) de "${productName}" du dépôt ${sourceDepot} vers ${transferDepotCode} ?${transferObservation ? `\n\nObservation : ${transferObservation}` : ''}\n\nDate d'expiration : ${formatDateTime(transferExpirationDate)}`;
+    const details = `Êtes-vous sûr de vouloir transférer ${quantity} unité(s) de "${productName}" du dépôt ${sourceDepot} vers ${transferDepotCode} ?${transferObservation ? `\n\nObservation : ${transferObservation}` : ''}`;
     const isWebConfirm = typeof window !== 'undefined' && typeof window.confirm === 'function';
 
     if (isWebConfirm) {
@@ -1356,7 +1368,7 @@ const toIsoWithZulu = (dateString?: string) => {
 
   const currentHistoryItems = historyTab === 'reaprovision' ? historyData.reaprovision : historyData.sorties;
   const historyDepotDisplay = historyDepotCode || (!isAdmin ? userDepotCode || '' : '');
-  const historyModal = (
+const historyModal = (
     <Modal
       visible={showHistoryModal}
       onRequestClose={closeHistoryModal}
@@ -1475,10 +1487,7 @@ const toIsoWithZulu = (dateString?: string) => {
             </View>
 
             <ScrollView
-              style={[
-                styles.historyModalScroll,
-                !isLargeScreen && styles.historyModalScrollMobile
-              ]}
+              style={styles.historyModalScroll}
               contentContainerStyle={styles.historyListContent}
             >
               {historyLoading ? (
@@ -1507,6 +1516,9 @@ const toIsoWithZulu = (dateString?: string) => {
                     </Text>
                     <Text style={styles.historyCardMeta}>
                       Créé le : {formatDateTime(entry?.user?.created)}
+                    </Text>
+                    <Text style={styles.historyCardMeta}>
+                      Date d'expiration : {formatDateTime(entry?.expirationDate || entry?.product?.expirationDate)}
                     </Text>
                     {entry?.observation ? (
                       <Text style={styles.historyCardObservation}>
@@ -2081,6 +2093,33 @@ const toIsoWithZulu = (dateString?: string) => {
                       </View>
                     </View>
 
+                    <View style={styles.stockFormGroupWeb}>
+                      <Text style={styles.stockFormLabelWeb}>Date d'expiration *</Text>
+                      <TextInput
+                        style={styles.stockFormInputWeb}
+                        value={adjustExpirationDate}
+                        onChangeText={setAdjustExpirationDate}
+                        placeholder="Sélectionnez une date"
+                        placeholderTextColor="#9CA3AF"
+                        onFocus={(event) => {
+                          if (Platform.OS === 'web') {
+                            const target = event?.target as unknown as HTMLInputElement | undefined;
+                            if (target) {
+                              target.type = 'datetime-local';
+                            }
+                          }
+                        }}
+                        onBlur={(event) => {
+                          if (Platform.OS === 'web') {
+                            const target = event?.target as unknown as HTMLInputElement | undefined;
+                            if (target) {
+                              target.type = 'text';
+                            }
+                          }
+                        }}
+                      />
+                    </View>
+
                     <View style={styles.stockFormActionsWeb}>
                       <TouchableOpacity 
                         style={[styles.stockAddButtonWeb, stockLoading && styles.disabledButtonWeb]} 
@@ -2238,33 +2277,6 @@ const toIsoWithZulu = (dateString?: string) => {
                           placeholderTextColor="#9CA3AF"
                         />
                       </View>
-                    </View>
-
-                    <View style={styles.stockFormGroupWeb}>
-                      <Text style={styles.stockFormLabelWeb}>Date d'expiration *</Text>
-                      <TextInput
-                        style={styles.stockFormInputWeb}
-                        value={transferExpirationDate}
-                        onChangeText={setTransferExpirationDate}
-                        placeholder="Sélectionnez une date"
-                        placeholderTextColor="#9CA3AF"
-                        onFocus={(event) => {
-                          if (Platform.OS === 'web') {
-                            const target = event?.target as unknown as HTMLInputElement | undefined;
-                            if (target) {
-                              target.type = 'datetime-local';
-                            }
-                          }
-                        }}
-                        onBlur={(event) => {
-                          if (Platform.OS === 'web') {
-                            const target = event?.target as unknown as HTMLInputElement | undefined;
-                            if (target) {
-                              target.type = 'text';
-                            }
-                          }
-                        }}
-                      />
                     </View>
 
                     <View style={styles.stockFormActionsWeb}>
@@ -2784,6 +2796,33 @@ const toIsoWithZulu = (dateString?: string) => {
                       />
                     </View>
 
+                    <View style={styles.formFieldMobile}>
+                      <Text style={styles.formLabelMobile}>Date d'expiration *</Text>
+                      <TextInput
+                        style={styles.formInputMobile}
+                        placeholder="2025-11-13T12:42"
+                        placeholderTextColor="#9CA3AF"
+                        value={adjustExpirationDate}
+                        onChangeText={setAdjustExpirationDate}
+                        onFocus={(event: any) => {
+                          if (Platform.OS === 'web') {
+                            const target = event?.target as HTMLInputElement | undefined;
+                            if (target) {
+                              target.type = 'datetime-local';
+                            }
+                          }
+                        }}
+                        onBlur={(event: any) => {
+                          if (Platform.OS === 'web') {
+                            const target = event?.target as HTMLInputElement | undefined;
+                            if (target) {
+                              target.type = 'text';
+                            }
+                          }
+                        }}
+                      />
+                    </View>
+
                     <View style={styles.stockActionsMobile}>
                       <TouchableOpacity 
                         style={styles.stockAddButtonMobile} 
@@ -2937,33 +2976,6 @@ const toIsoWithZulu = (dateString?: string) => {
                         onChangeText={setTransferObservation}
                         multiline
                         numberOfLines={2}
-                      />
-                    </View>
-
-                    <View style={styles.formFieldMobile}>
-                      <Text style={styles.formLabelMobile}>Date d'expiration *</Text>
-                      <TextInput
-                        style={styles.formInputMobile}
-                        placeholder="2025-11-13T11:33"
-                        placeholderTextColor="#9CA3AF"
-                        value={transferExpirationDate}
-                        onChangeText={setTransferExpirationDate}
-                        onFocus={(event: any) => {
-                          if (Platform.OS === 'web') {
-                            const target = event?.target as HTMLInputElement | undefined;
-                            if (target) {
-                              target.type = 'datetime-local';
-                            }
-                          }
-                        }}
-                        onBlur={(event: any) => {
-                          if (Platform.OS === 'web') {
-                            const target = event?.target as HTMLInputElement | undefined;
-                            if (target) {
-                              target.type = 'text';
-                            }
-                          }
-                        }}
                       />
                     </View>
 
@@ -4280,6 +4292,7 @@ const styles = StyleSheet.create({
   historyModalBody: {
     paddingHorizontal: 20,
     paddingVertical: 16,
+    flex: 1,
   },
   historyDepotSelector: {
     marginBottom: 16,
@@ -4363,10 +4376,7 @@ const styles = StyleSheet.create({
     color: '#1F2937',
   },
   historyModalScroll: {
-    maxHeight: 420,
-  },
-  historyModalScrollMobile: {
-    maxHeight: 360,
+    flex: 1,
   },
   historyListContent: {
     paddingBottom: 24,
