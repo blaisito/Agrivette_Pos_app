@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Dimensions, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { getCategories } from '../api/categoryApi';
 import { getExchangeRate } from '../api/configurationApi';
-import { addFacturePayment, deleteFacture, getAllFactures, getFacturePayments, getFacturesByDateRange, markFactureAsAborted, markFactureAsPayed, printFacture, updateFacture } from '../api/factureApi';
+import { addFacturePayment, deleteFacture, deleteFacturePayment, getAllFactures, getFacturePayments, getFacturesByDateRange, markFactureAsAborted, markFactureAsPayed, printFacture, updateFacture } from '../api/factureApi';
 import { getProducts } from '../api/productApi';
 import { getTables } from '../api/tableApi';
 import { useFetch } from '../hooks/useFetch';
@@ -125,6 +125,7 @@ const FactureComponent = ({ onInvoiceCountChange }: FactureComponentProps) => {
   const [paymentsLoading, setPaymentsLoading] = useState<boolean>(false);
   const [paymentsError, setPaymentsError] = useState<string | null>(null);
   const [showPaymentsModal, setShowPaymentsModal] = useState<boolean>(false);
+  const [deletingPaymentId, setDeletingPaymentId] = useState<string | null>(null);
   const invoiceTotals = useMemo(() => {
     if (!selectedInvoiceForDetails) {
       return {
@@ -1620,6 +1621,49 @@ Voulez-vous confirmer l'impression de cette facture ?`;
       setPayments([]);
     } finally {
       setPaymentsLoading(false);
+    }
+  };
+
+  const handleDeletePayment = async (paymentId?: string) => {
+    if (!paymentId) {
+      Alert.alert('Erreur', 'Identifiant du paiement invalide.');
+      return;
+    }
+
+    const confirmMessage = 'Êtes-vous sûr de vouloir supprimer ce paiement ?';
+
+    const executeDeletion = async () => {
+      setDeletingPaymentId(paymentId);
+      try {
+        await deleteFacturePayment(paymentId);
+        Alert.alert('Succès', 'Paiement supprimé avec succès.');
+        setPayments(prev => prev.filter(payment => payment.id !== paymentId));
+        await refetchInvoices();
+        if (selectedInvoiceForDetails?.id) {
+          await fetchPayments(selectedInvoiceForDetails.id);
+        }
+      } catch (error) {
+        console.error('Erreur lors de la suppression du paiement:', error);
+        Alert.alert('Erreur', 'Impossible de supprimer le paiement.');
+      } finally {
+        setDeletingPaymentId(null);
+      }
+    };
+
+    if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
+      if (window.confirm(confirmMessage)) {
+        executeDeletion();
+      }
+    } else {
+      Alert.alert(
+        'Confirmation',
+        confirmMessage,
+        [
+          { text: 'Annuler', style: 'cancel' },
+          { text: 'Supprimer', style: 'destructive', onPress: executeDeletion },
+        ],
+        { cancelable: true }
+      );
     }
   };
 
@@ -3558,6 +3602,25 @@ Voulez-vous confirmer la modification de cette facture ?`;
                         <Text style={styles.paymentHistoryDate}>
                           Créé le {formatPaymentDate(payment.created)}
                         </Text>
+                        <View style={styles.paymentHistoryActions}>
+                          <TouchableOpacity
+                            style={[
+                              styles.deletePaymentButton,
+                              deletingPaymentId === payment.id && styles.deletePaymentButtonDisabled,
+                            ]}
+                            onPress={() => handleDeletePayment(payment.id)}
+                            disabled={deletingPaymentId === payment.id}
+                          >
+                            {deletingPaymentId === payment.id ? (
+                              <ActivityIndicator size="small" color="#FFFFFF" />
+                            ) : (
+                              <>
+                                <Ionicons name="trash" size={16} color="#FFFFFF" />
+                                <Text style={styles.deletePaymentButtonText}>Supprimer</Text>
+                              </>
+                            )}
+                          </TouchableOpacity>
+                        </View>
                       </View>
                     );
                   })
@@ -4617,6 +4680,25 @@ Voulez-vous confirmer la modification de cette facture ?`;
                     <Text style={styles.paymentHistoryDate}>
                       Créé le {formatPaymentDate(payment.created)}
                     </Text>
+                    <View style={styles.paymentHistoryActions}>
+                      <TouchableOpacity
+                        style={[
+                          styles.deletePaymentButton,
+                          deletingPaymentId === payment.id && styles.deletePaymentButtonDisabled,
+                        ]}
+                        onPress={() => handleDeletePayment(payment.id)}
+                        disabled={deletingPaymentId === payment.id}
+                      >
+                        {deletingPaymentId === payment.id ? (
+                          <ActivityIndicator size="small" color="#FFFFFF" />
+                        ) : (
+                          <>
+                            <Ionicons name="trash" size={16} color="#FFFFFF" />
+                            <Text style={styles.deletePaymentButtonText}>Supprimer</Text>
+                          </>
+                        )}
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 );
               })
@@ -6690,6 +6772,28 @@ const styles = StyleSheet.create({
     borderColor: '#E5E7EB',
     padding: 16,
     marginBottom: 12,
+  },
+  paymentHistoryActions: {
+    marginTop: 12,
+    alignItems: 'flex-end',
+  },
+  deletePaymentButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#EF4444',
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+  },
+  deletePaymentButtonDisabled: {
+    opacity: 0.7,
+  },
+  deletePaymentButtonText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '600',
   },
   paymentHistoryRow: {
     flexDirection: 'row',

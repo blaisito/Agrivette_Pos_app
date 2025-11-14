@@ -183,3 +183,19 @@ export const getFacturePayments = async (factureId) => {
     throw error;
   }
 };
+
+// Supprimer un paiement d'une facture
+export const deleteFacturePayment = async (paymentId) => {
+  if (!paymentId) {
+    throw new Error("paymentId manquant pour la suppression du paiement.");
+  }
+  try {
+    const response = await apiClient.delete(
+      `/api/v1.0/Facture/payments/remove/${paymentId}`,
+    );
+    return response;
+  } catch (error) {
+    console.error("Erreur lors de la suppression du paiement:", error);
+    throw error;
+  }
+};
