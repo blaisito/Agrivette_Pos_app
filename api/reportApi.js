@@ -8,7 +8,7 @@ import { apiClient } from './client';
  * @param {string} endDate - End date in format MM/DD/YYYY
  * @returns {Promise} API response
  */
-export const getSellingReport = async (startDate, endDate) => {
+export const getSellingReport = async (startDate, endDate, depotCode) => {
   try {
     // Convertir les dates au format ISO pour l'API
     const isoStartDate = convertToISOFormat(startDate, false); // Date de début
@@ -16,7 +16,8 @@ export const getSellingReport = async (startDate, endDate) => {
     
     const startDateEncoded = encodeURIComponent(isoStartDate);
     const endDateEncoded = encodeURIComponent(isoEndDate);
-    const endpoint = `/api/v1.0/Report/selling-report?startDate=${startDateEncoded}&endDate=${endDateEncoded}`;
+    const depotParam = depotCode ? `&depotCode=${encodeURIComponent(depotCode)}` : '';
+    const endpoint = `/api/v1.0/Report/selling-report?startDate=${startDateEncoded}&endDate=${endDateEncoded}${depotParam}`;
     
     return await apiClient.get(endpoint);
   } catch (error) {

@@ -4,7 +4,8 @@ import { Dimensions, Linking, Modal, Platform, ScrollView, StyleSheet, Text, Tou
 import { getExchangeRate } from '../api/configurationApi';
 import { getProductConsumptionReport, getSellingReport, getTodayDateRange } from '../api/reportApi';
 import { getStockReaprovision, getStockSortie } from '../api/stockReportApi';
-import { getUsers } from '../api/userApi';
+import { getDepotCodes, getUsers } from '../api/userApi';
+import { getUserData } from '../utils/storage';
 import BottomSheetCalendarModal from './ui/BottomSheetCalendarModal';
 import CalendarModal from './ui/CalendarModal';
 
@@ -74,6 +75,12 @@ const ReportsComponent = () => {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
   const [selectedReportType, setSelectedReportType] = useState<'sales' | 'consumption' | 'stock'>('sales');
+  const [userDepotCode, setUserDepotCode] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState<boolean>(false);
+  const [selectedDepotCode, setSelectedDepotCode] = useState<string>('');
+  const [depotCodes, setDepotCodes] = useState<string[]>([]);
+  const [depotCodesLoading, setDepotCodesLoading] = useState<boolean>(false);
+  const [depotCodesError, setDepotCodesError] = useState<string | null>(null);
 
 
   function formatDateForAPI(date: Date) {
@@ -291,9 +298,20 @@ const ReportsComponent = () => {
     setSellingReportLoading(true);
     setSellingReportError(null);
 
+    const effectiveDepotCode = selectedDepotCode || userDepotCode || '';
 
+    if (!effectiveDepotCode) {
+      setSellingReportError('Aucun dépôt disponible pour charger le rapport.');
+      setSellingReportData([]);
+      setSellingReportLoading(false);
+      return;
+    }
 
-    const response = await getSellingReport(dateRange.startDate, dateRange.endDate);
+    const response = await getSellingReport(
+      dateRange.startDate,
+      dateRange.endDate,
+      effectiveDepotCode
+    );
 
     if (response.success === false) {
       setSellingReportError(response.error || 'Erreur lors du chargement du rapport de vente');
@@ -422,12 +440,76 @@ const ReportsComponent = () => {
     }
   };
 
+  const loadDepotCodes = async () => {
+    setDepotCodesLoading(true);
+    setDepotCodesError(null);
+    try {
+      const response = await getDepotCodes();
+      let codes: string[] = [];
+      if (response?.data && Array.isArray(response.data)) {
+        codes = response.data;
+      } else if (Array.isArray(response)) {
+        codes = response;
+      }
+      const normalizedCodes = codes
+        .filter(code => typeof code === 'string' && code.trim() !== '')
+        .map(code => code.trim());
+      setDepotCodes(normalizedCodes);
+      if (normalizedCodes.length === 0) {
+        setDepotCodesError('Aucun dépôt disponible.');
+      }
+    } catch (error) {
+      console.error('Erreur lors du chargement des dépôts:', error);
+      setDepotCodesError('Erreur lors du chargement des dépôts');
+      setDepotCodes([]);
+    } finally {
+      setDepotCodesLoading(false);
+    }
+  };
+
   // Load exchange rate, users and categories when component mounts
   useEffect(() => {
     loadExchangeRate();
     loadUsers();
     loadCategories();
   }, []);
+
+  useEffect(() => {
+    const loadUserContext = async () => {
+      try {
+        const user = await getUserData();
+        if (user?.depotCode) {
+          setUserDepotCode(user.depotCode);
+          setSelectedDepotCode(prev => prev || user.depotCode);
+        }
+        const claims: string[] = Array.isArray(user?.claims) ? (user.claims as string[]) : [];
+        const hasAdminClaim = claims.some(
+          (claim: string) => typeof claim === 'string' && claim.toLowerCase() === 'admin'
+        );
+        setIsAdmin(hasAdminClaim);
+      } catch (error) {
+        console.error('Erreur lors du chargement des informations utilisateur:', error);
+      }
+    };
+
+    loadUserContext();
+  }, []);
+
+  useEffect(() => {
+    if (isAdmin) {
+      loadDepotCodes();
+    }
+  }, [isAdmin]);
+
+  useEffect(() => {
+    if (isAdmin) {
+      if (!selectedDepotCode && depotCodes.length > 0) {
+        setSelectedDepotCode(depotCodes[0]);
+      }
+    } else if (userDepotCode && selectedDepotCode !== userDepotCode) {
+      setSelectedDepotCode(userDepotCode);
+    }
+  }, [isAdmin, userDepotCode, depotCodes, selectedDepotCode]);
 
   // Load data when component mounts or date range changes
   useEffect(() => {
@@ -437,6 +519,12 @@ const ReportsComponent = () => {
       loadConsumptionReportData();
     }
   }, [selectedReportType, dateRange]);
+
+  useEffect(() => {
+    if (selectedReportType === 'sales') {
+      loadSellingReportData();
+    }
+  }, [selectedDepotCode, selectedReportType]);
 
   // Calculate summary data for selling report
   const filteredSellingReportData = sellingReportData.filter(sale => {
@@ -1002,6 +1090,55 @@ const ReportsComponent = () => {
                 </TouchableOpacity>
               </View>
             </View>
+
+          {selectedReportType === 'sales' && (
+            <View style={styles.depotSelectorContainerWeb}>
+              <Text style={styles.filterLabelWeb}>Dépôt</Text>
+              {isAdmin ? (
+                depotCodesLoading ? (
+                  <Text style={styles.depotHelperText}>Chargement des dépôts...</Text>
+                ) : depotCodesError ? (
+                  <Text style={[styles.depotHelperText, styles.depotHelperTextError]}>
+                    {depotCodesError}
+                  </Text>
+                ) : depotCodes.length === 0 ? (
+                  <Text style={styles.depotHelperText}>Aucun dépôt disponible.</Text>
+                ) : (
+                  <View style={styles.depotChipsWeb}>
+                    {depotCodes.map((code) => {
+                      const isSelected = selectedDepotCode === code;
+                      return (
+                        <TouchableOpacity
+                          key={code}
+                          style={[
+                            styles.depotChipWeb,
+                            isSelected && styles.depotChipWebActive,
+                          ]}
+                          onPress={() => setSelectedDepotCode(code)}
+                        >
+                          <Text
+                            style={[
+                              styles.depotChipTextWeb,
+                              isSelected && styles.depotChipTextWebActive,
+                            ]}
+                          >
+                            {code}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                )
+              ) : (
+                <View style={styles.depotBadgeWeb}>
+                  <Ionicons name="business" size={16} color="#4C1D95" />
+                  <Text style={styles.depotBadgeTextWeb}>
+                    {userDepotCode || 'Aucun dépôt assigné'}
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
 
 
             {/* Bouton pour charger les données de stock */}
@@ -1643,6 +1780,59 @@ const ReportsComponent = () => {
           </TouchableOpacity>
         )}
       </View>
+
+      {selectedReportType === 'sales' && (
+        <View style={styles.depotSelectorContainerMobile}>
+          <Text style={styles.sectionTitleMobile}>Dépôt</Text>
+          {isAdmin ? (
+            depotCodesLoading ? (
+              <Text style={styles.depotHelperTextMobile}>Chargement des dépôts...</Text>
+            ) : depotCodesError ? (
+              <Text style={[styles.depotHelperTextMobile, styles.depotHelperTextError]}>
+                {depotCodesError}
+              </Text>
+            ) : depotCodes.length === 0 ? (
+              <Text style={styles.depotHelperTextMobile}>Aucun dépôt disponible.</Text>
+            ) : (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.depotChipsScrollMobile}
+              >
+                {depotCodes.map((code) => {
+                  const isSelected = selectedDepotCode === code;
+                  return (
+                    <TouchableOpacity
+                      key={code}
+                      style={[
+                        styles.depotChipMobile,
+                        isSelected && styles.depotChipMobileActive,
+                      ]}
+                      onPress={() => setSelectedDepotCode(code)}
+                    >
+                      <Text
+                        style={[
+                          styles.depotChipTextMobile,
+                          isSelected && styles.depotChipTextMobileActive,
+                        ]}
+                      >
+                        {code}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            )
+          ) : (
+            <View style={styles.depotBadgeMobile}>
+              <Ionicons name="business" size={16} color="#4C1D95" />
+              <Text style={styles.depotBadgeTextMobile}>
+                {userDepotCode || 'Aucun dépôt assigné'}
+              </Text>
+            </View>
+          )}
+        </View>
+      )}
 
       {selectedReportType === 'sales' ? (
         <>
@@ -3965,6 +4155,107 @@ const styles = StyleSheet.create({
   filtersSectionModernMobile: {
     marginBottom: 16,
     marginHorizontal: 16,
+  },
+  depotSelectorContainerWeb: {
+    marginTop: 16,
+    paddingHorizontal: 4,
+  },
+  depotChipsWeb: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 8,
+  },
+  depotChipWeb: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    backgroundColor: '#F9FAFB',
+  },
+  depotChipWebActive: {
+    backgroundColor: '#7C3AED',
+    borderColor: '#7C3AED',
+  },
+  depotChipTextWeb: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#4B5563',
+  },
+  depotChipTextWebActive: {
+    color: '#FFFFFF',
+  },
+  depotBadgeWeb: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#EEF2FF',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+    marginTop: 8,
+  },
+  depotBadgeTextWeb: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#4C1D95',
+  },
+  depotHelperText: {
+    marginTop: 8,
+    fontSize: 13,
+    color: '#6B7280',
+  },
+  depotHelperTextError: {
+    color: '#DC2626',
+  },
+  depotSelectorContainerMobile: {
+    marginBottom: 16,
+    marginHorizontal: 16,
+  },
+  depotChipsScrollMobile: {
+    marginTop: 8,
+  },
+  depotChipMobile: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    backgroundColor: '#FFFFFF',
+    marginRight: 8,
+  },
+  depotChipMobileActive: {
+    backgroundColor: '#7C3AED',
+    borderColor: '#7C3AED',
+  },
+  depotChipTextMobile: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#4B5563',
+  },
+  depotChipTextMobileActive: {
+    color: '#FFFFFF',
+  },
+  depotBadgeMobile: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#EEF2FF',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+    marginTop: 8,
+  },
+  depotBadgeTextMobile: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#4C1D95',
+  },
+  depotHelperTextMobile: {
+    marginTop: 8,
+    fontSize: 12,
+    color: '#6B7280',
   },
   dateGridMobile: {
     flexDirection: 'row',
