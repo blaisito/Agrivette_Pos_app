@@ -1036,8 +1036,10 @@ ${orderDetails}
                         <View style={styles.menuItemContentWeb}>
                           <Text numberOfLines={2} style={styles.menuItemNameWeb}>{product.productName}</Text>
                           <Text style={styles.menuItemCategoryWeb}>{product.category?.categoryName || 'N/A'}</Text>
-                          <Text style={styles.menuItemPriceWeb}>USD ${(product.priceCdf / exchangeRate).toFixed(2)}</Text>
-                          <Text style={styles.menuItemPriceCdfWeb}>CDF {product.priceCdf.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}</Text>
+                          <Text style={styles.menuItemPriceWeb}>USD {(Number(product.priceUsd || 0)).toFixed(2)}</Text>
+                          <Text style={styles.menuItemPriceCdfWeb}>
+                            CDF {(Number(product.priceUsd || 0) * (exchangeRate || 0)).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}
+                          </Text>
                           <Text style={[styles.menuItemStockWeb, isOutOfStock && styles.menuItemStockEmpty]}>
                             Stock: {product.inStock || 0}
                           </Text>
@@ -1875,8 +1877,10 @@ ${orderDetails}
                               <View style={styles.menuItemContentMobile}>
                                 <Text numberOfLines={2} style={styles.menuItemNameMobile}>{product.productName}</Text>
                                 <Text style={styles.menuItemCategoryMobile}>{product.category?.categoryName || 'N/A'}</Text>
-                                <Text style={styles.menuItemPriceMobile}>USD ${(product.priceCdf / exchangeRate).toFixed(2)}</Text>
-                                <Text style={styles.menuItemPriceCdfMobile}>CDF {product.priceCdf.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}</Text>
+                                <Text style={styles.menuItemPriceMobile}>USD {(Number(product.priceUsd || 0)).toFixed(2)}</Text>
+                                <Text style={styles.menuItemPriceCdfMobile}>
+                                  CDF {(Number(product.priceUsd || 0) * (exchangeRate || 0)).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}
+                                </Text>
                                 <Text style={[
                                   styles.menuItemStockMobile,
                                   isOutOfStock && styles.menuItemStockEmptyMobile
