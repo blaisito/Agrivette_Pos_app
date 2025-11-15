@@ -2896,7 +2896,7 @@ const historyModal = (
                   onChangeText={(text) => setNewProduct({...newProduct, priceUsd: text})}
                 />
               </View>
-              <View style={[styles.formFieldMobile, { flex: 1 }]}>
+              <View style={[styles.formFieldMobile, { flex: 1, display: 'none' }]}>
                 <Text style={styles.formLabelMobile}>Prix CDF *</Text>
                 <TextInput
                   style={styles.formInputMobile}
