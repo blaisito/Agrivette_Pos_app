@@ -2095,7 +2095,7 @@ const historyModal = (
                   />
                 </View>
                 
-                <View style={styles.formGroupWeb}>
+                <View style={[styles.formGroupWeb, { display: 'none' }]}>
                    <Text style={styles.formLabelWeb}>Prix (CDF) *</Text>
                   <TextInput
                     style={styles.formInputWeb}
