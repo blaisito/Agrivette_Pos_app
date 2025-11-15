@@ -195,7 +195,8 @@ const InventoryComponent = () => {
       priceCdf: parseFloat(newProduct.priceCdf),
       minimalStock: parseInt(newProduct.minimalStock) || 0,
       imageBase64: newProduct.imageBase64,
-      depotCode
+      depotCode,
+      expirationDate: newProduct.expirationDate ? toIsoWithZulu(newProduct.expirationDate) : null
     };
 
     const success = await executeApi(updateProduct, editingProduct.id, productData);
@@ -217,7 +218,8 @@ const InventoryComponent = () => {
         priceUsd: '',
         priceCdf: '',
         minimalStock: '',
-        imageBase64: 'UkVTVE9NQU5BR0VSQVBQ'
+        imageBase64: 'UkVTVE9NQU5BR0VSQVBQ',
+        expirationDate: ''
       });
       // Rafraîchir la liste des produits
       refetchProducts();
@@ -294,7 +296,8 @@ const InventoryComponent = () => {
       priceCdf: parseFloat(newProduct.priceCdf),
       minimalStock: parseInt(newProduct.minimalStock) || 0,
       imageBase64: newProduct.imageBase64,
-      depotCode
+      depotCode,
+      expirationDate: newProduct.expirationDate ? toIsoWithZulu(newProduct.expirationDate) : null
     };
 
     const success = await executeApi(createProduct, productData);
@@ -315,7 +318,8 @@ const InventoryComponent = () => {
         priceUsd: '',
         priceCdf: '',
         minimalStock: '',
-        imageBase64: 'UkVTVE9NQU5BR0VSQVBQ'
+        imageBase64: 'UkVTVE9NQU5BR0VSQVBQ',
+        expirationDate: ''
       });
       // Rafraîchir la liste des produits
       refetchProducts();
@@ -361,7 +365,7 @@ const InventoryComponent = () => {
     priceCdf: '', // Prix en CDF
     minimalStock: '', // Stock minimum
     imageBase64: 'UkVTVE9NQU5BR0VSQVBQ', // Valeur par défaut valide
-    expirationDate: '' // Date d'expiration
+  expirationDate: '' // Date d'expiration
   });
   const [editingProduct, setEditingProduct] = useState<any>(null);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
@@ -951,7 +955,8 @@ const isExpiringWithinSixMonths = (dateString?: string | null) => {
       priceCdf: (product.priceCdf || 0).toString(),
       minimalStock: (product.minimalStock || product.minStock || 0).toString(),
       imageBase64: product.imageBase64 || product.image || 'UkVTVE9NQU5BR0VSQVBQ',
-      description: product.description || ''
+      description: product.description || '',
+      expirationDate: product.expirationDate || ''
     });
     setActiveTab('product-management');
     setStockFeedback(null);
@@ -988,7 +993,8 @@ const isExpiringWithinSixMonths = (dateString?: string | null) => {
       priceCdf: '',
       minimalStock: '',
       imageBase64: 'UkVTVE9NQU5BR0VSQVBQ',
-      description: ''
+      description: '',
+      expirationDate: ''
     });
     // Réinitialiser le formulaire de stock
     setStockQuantity('');
@@ -2113,6 +2119,36 @@ const historyModal = (
                     keyboardType="numeric"
                   />
                 </View>
+
+                <View style={styles.formGroupWeb}>
+                  <Text style={styles.formLabelWeb}>Date d'expiration</Text>
+                  <TextInput
+                    style={styles.formInputWeb}
+                    value={newProduct.expirationDate}
+                    onChangeText={(text) => setNewProduct({
+                      ...newProduct,
+                      expirationDate: text
+                    })}
+                    placeholder="2025-12-31T23:59"
+                    placeholderTextColor="#9CA3AF"
+                    onFocus={(event) => {
+                      if (Platform.OS === 'web') {
+                        const target = event?.target as unknown as HTMLInputElement | undefined;
+                        if (target) {
+                          target.type = 'datetime-local';
+                        }
+                      }
+                    }}
+                    onBlur={(event) => {
+                      if (Platform.OS === 'web') {
+                        const target = event?.target as unknown as HTMLInputElement | undefined;
+                        if (target) {
+                          target.type = 'text';
+                        }
+                      }
+                    }}
+                  />
+                </View>
                 
               <View style={styles.formGroupWeb}>
                 <Text style={styles.formLabelWeb}>Description</Text>
@@ -2140,7 +2176,8 @@ const historyModal = (
                         priceUsd: '',
                         priceCdf: '',
                         minimalStock: '',
-                        imageBase64: 'UkVTVE9NQU5BR0VSQVBQ'
+                        imageBase64: 'UkVTVE9NQU5BR0VSQVBQ',
+                        expirationDate: ''
                       });
                     }}
                   >
@@ -2659,7 +2696,7 @@ const historyModal = (
                             <Text style={styles.expirationValueMobile}>
                               {formatDateTime(product.expirationDate)}
                             </Text>
-                            {isExpiringSoon && (
+                {isExpiringSoon && (
                               <View style={styles.expirationBadgeMobile}>
                                 <Text style={styles.expirationBadgeTextMobile}>Expiration</Text>
                               </View>
@@ -2884,6 +2921,33 @@ const historyModal = (
               />
             </View>
 
+            <View style={styles.formFieldMobile}>
+              <Text style={styles.formLabelMobile}>Date d'expiration</Text>
+              <TextInput
+                style={styles.formInputMobile}
+                placeholder="2025-12-31T23:59"
+                placeholderTextColor="#9CA3AF"
+                value={newProduct.expirationDate}
+                onChangeText={(text) => setNewProduct({ ...newProduct, expirationDate: text })}
+                onFocus={(event: any) => {
+                  if (Platform.OS === 'web') {
+                    const target = event?.target as HTMLInputElement | undefined;
+                    if (target) {
+                      target.type = 'datetime-local';
+                    }
+                  }
+                }}
+                onBlur={(event: any) => {
+                  if (Platform.OS === 'web') {
+                    const target = event?.target as HTMLInputElement | undefined;
+                    if (target) {
+                      target.type = 'text';
+                    }
+                  }
+                }}
+              />
+            </View>
+
             <View style={styles.formActionsMobile}>
               {editingProduct ? (
                 <>
@@ -2908,7 +2972,8 @@ const historyModal = (
                       priceUsd: '',
                       priceCdf: '',
                       minimalStock: '',
-                      imageBase64: 'UkVTVE9NQU5BR0VSQVBQ'
+                      imageBase64: 'UkVTVE9NQU5BR0VSQVBQ',
+                      expirationDate: ''
                     });
                   }}>
                     <Text style={styles.cancelButtonTextMobile}>Annuler</Text>
