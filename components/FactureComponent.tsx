@@ -1,9 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Dimensions, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { getCategories } from '../api/categoryApi';
 import { getExchangeRate } from '../api/configurationApi';
-import { addFacturePayment, deleteFacture, deleteFacturePayment, getAllFactures, getFacturePayments, getFacturesByDateRange, markFactureAsAborted, markFactureAsPayed, printFacture, updateFacture } from '../api/factureApi';
+import { addFacturePayment, deleteFacture, deleteFacturePayment, getAllFactures, getFactureById, getFacturePayments, getFacturesByDateRange, markFactureAsAborted, markFactureAsPayed, printFacture, updateFacture } from '../api/factureApi';
 import { getProducts } from '../api/productApi';
 import { getTables } from '../api/tableApi';
 import { useFetch } from '../hooks/useFetch';
@@ -103,6 +103,8 @@ const FactureComponent = ({ onInvoiceCountChange }: FactureComponentProps) => {
   // États pour la section droite (Web uniquement)
   const [selectedInvoiceForDetails, setSelectedInvoiceForDetails] = useState<any>(null);
   const [activeDetailsTab, setActiveDetailsTab] = useState('edit');
+  const [invoiceDetailsLoading, setInvoiceDetailsLoading] = useState(false);
+  const [invoiceDetailsError, setInvoiceDetailsError] = useState<string | null>(null);
   
   // État pour le loading du bouton modifier facture
   const [isUpdatingInvoice, setIsUpdatingInvoice] = useState(false);
@@ -139,42 +141,31 @@ const FactureComponent = ({ onInvoiceCountChange }: FactureComponentProps) => {
         remainingUsd: 0,
       };
     }
-    const items = Array.isArray(selectedInvoiceForDetails.items)
-      ? selectedInvoiceForDetails.items
-      : [];
-    const basketTotalCdf = items.reduce((sum: number, item: any) => {
-      const subtotal =
-        Number(item.subTotalCdf) ||
-        Number(item.priceCdf || 0) * Number(item.qte || item.quantity || 1);
-      return sum + (Number.isFinite(subtotal) ? subtotal : 0);
-    }, 0);
-    const basketTotalUsd = items.reduce((sum: number, item: any) => {
-      const subtotal =
-        Number(item.subTotalUsd) ||
-        Number(item.priceUsd || 0) * Number(item.qte || item.quantity || 1);
-      return sum + (Number.isFinite(subtotal) ? subtotal : 0);
-    }, 0);
-    const reductionCdf = Number(selectedInvoiceForDetails.reductionCdf) || 0;
-    const reductionUsd = Number(selectedInvoiceForDetails.reductionUsd) || 0;
-    const fallbackPaidCdf = basketTotalCdf - reductionCdf;
-    const fallbackPaidUsd = basketTotalUsd - reductionUsd;
-    const paidCdf = Number(
-      selectedInvoiceForDetails.amountPaidCdf ?? fallbackPaidCdf
+    const totalAfterReductionCdf = Number(
+      selectedInvoiceForDetails.totalAfterReductionCdf ?? 0
     );
-    const paidUsd = Number(
-      selectedInvoiceForDetails.amountPaidUsd ?? fallbackPaidUsd
+    const totalAfterReductionUsd = Number(
+      selectedInvoiceForDetails.totalAfterReductionUsd ?? 0
     );
-    const remainingCdfRaw = basketTotalCdf - reductionCdf - paidCdf;
-    const remainingUsdRaw = basketTotalUsd - reductionUsd - paidUsd;
+    const paidCdf = Number(selectedInvoiceForDetails.amountPaidCdf ?? 0);
+    const paidUsd = Number(selectedInvoiceForDetails.amountPaidUsd ?? 0);
+    const remainingCdfRaw = totalAfterReductionCdf - paidCdf;
+    const remainingUsdRaw = totalAfterReductionUsd - paidUsd;
     return {
-      basketTotalCdf,
-      basketTotalUsd,
-      reductionCdf,
-      reductionUsd,
+      basketTotalCdf: Number(selectedInvoiceForDetails.totalCdf ?? 0),
+      basketTotalUsd: Number(selectedInvoiceForDetails.totalUsd ?? 0),
+      reductionCdf: Number(selectedInvoiceForDetails.reductionCdf ?? 0),
+      reductionUsd: Number(selectedInvoiceForDetails.reductionUsd ?? 0),
+      totalAfterReductionCdf,
+      totalAfterReductionUsd,
       paidCdf,
       paidUsd,
-      remainingCdf: Math.max(0, Math.floor(remainingCdfRaw)),
-      remainingUsd: Math.max(0, Number(remainingUsdRaw.toFixed(2))),
+      remainingCdf: Number.isFinite(remainingCdfRaw)
+        ? Number(remainingCdfRaw.toFixed(0))
+        : 0,
+      remainingUsd: Number.isFinite(remainingUsdRaw)
+        ? Number(remainingUsdRaw.toFixed(2))
+        : 0,
     };
   }, [selectedInvoiceForDetails]);
   const paymentLimit = Math.max(
@@ -282,6 +273,8 @@ const FactureComponent = ({ onInvoiceCountChange }: FactureComponentProps) => {
     status: number;
     totalCdf: number;
     totalUsd: number;
+    totalAfterReductionCdf: number;
+    totalAfterReductionUsd: number;
     amountPaidCdf: number;
     amountPaidUsd: number;
     reductionCdf: number;
@@ -296,6 +289,97 @@ const FactureComponent = ({ onInvoiceCountChange }: FactureComponentProps) => {
     typePaiement?: string | null;
     dette?: boolean;
   }
+
+  const normalizeInvoiceData = useCallback(
+    (invoice: any): Invoice => {
+      const rawDate =
+        invoice.createdAt ||
+        invoice.updatedAt ||
+        invoice.created ||
+        invoice.dateCreated ||
+        invoice.creationDate ||
+        invoice.date ||
+        new Date().toISOString();
+
+      const formattedDate = new Date(rawDate).toLocaleDateString('fr-FR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+
+      const reductionCdf = Number(invoice.reductionCdf ?? 0);
+      const reductionUsd = Number(invoice.reductionUsd ?? 0);
+      const totalCdf = Number(invoice.totalCdf ?? 0);
+      const fallbackUsd = totalCdf && exchangeRate ? totalCdf / exchangeRate : 0;
+      const totalUsd = Number(invoice.totalUsd ?? fallbackUsd);
+      const totalAfterReductionCdf = Number(
+        invoice.totalAfterReductionCdf ?? totalCdf - reductionCdf
+      );
+      const totalAfterReductionUsd = Number(
+        invoice.totalAfterReductionUsd ?? totalUsd - reductionUsd
+      );
+      const itemsSource = Array.isArray(invoice.ventes)
+        ? invoice.ventes
+        : Array.isArray(invoice.items)
+        ? invoice.items
+        : [];
+      const normalizedItems = itemsSource.map((item: any, index: number) => {
+        const quantity = Number(item.qte ?? item.quantity ?? 1);
+        const priceCdf = Number(item.priceCdf ?? 0);
+        const priceUsd = Number(item.priceUsd ?? 0);
+        return {
+          ...item,
+          id: item.id || item.productId || `${invoice.id}-item-${index}`,
+          productId: item.productId || item.id,
+          qte: quantity,
+          quantity,
+          priceUsd,
+          priceCdf,
+          subTotalUsd: Number(item.subTotalUsd ?? priceUsd * quantity),
+          subTotalCdf: Number(item.subTotalCdf ?? priceCdf * quantity),
+          taux: Number(item.taux ?? exchangeRate),
+        };
+      });
+
+      return {
+        id: invoice.id,
+        customerName: invoice.client || invoice.customerName || 'Client anonyme',
+        description: invoice.description || '',
+        date: formattedDate,
+        status: Number(invoice.status ?? 0),
+        totalCdf: Number.isFinite(totalCdf) ? totalCdf : 0,
+        totalUsd: Number.isFinite(totalUsd) ? totalUsd : 0,
+        totalAfterReductionCdf: Number.isFinite(totalAfterReductionCdf)
+          ? totalAfterReductionCdf
+          : 0,
+        totalAfterReductionUsd: Number.isFinite(totalAfterReductionUsd)
+          ? totalAfterReductionUsd
+          : 0,
+        amountPaidCdf: Number(
+          invoice.amountPaidCdf ?? totalAfterReductionCdf ?? totalCdf
+        ),
+        amountPaidUsd: Number(
+          invoice.amountPaidUsd ?? totalAfterReductionUsd ?? totalUsd
+        ),
+        reductionCdf,
+        reductionUsd,
+        items: normalizedItems,
+        tableId: invoice.tableId,
+        tableNomination: invoice.tableNomination,
+        userId: invoice.userId,
+        userName: invoice.userName,
+        createdAt:
+          invoice.createdAt || invoice.created || invoice.dateCreated || invoice.creationDate,
+        updatedAt:
+          invoice.updatedAt || invoice.updated || invoice.dateUpdated || invoice.updateDate,
+        typePaiement: invoice.typePaiement ?? invoice.paymentType ?? null,
+        dette: typeof invoice.dette === 'boolean' ? invoice.dette : Boolean(invoice.isDebt),
+      };
+    },
+    [exchangeRate]
+  );
 
   // Récupération des factures depuis l'API avec filtrage par date
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -330,40 +414,9 @@ const FactureComponent = ({ onInvoiceCountChange }: FactureComponentProps) => {
       
       // Transform the API response to match our Invoice interface
       if (invoicesData && Array.isArray(invoicesData)) {
-        const transformedInvoices: Invoice[] = invoicesData.map((invoice: any) => ({
-          id: invoice.id,
-          customerName: invoice.client || 'Client anonyme',
-          description: invoice.description || '',
-          date: invoice.created ? new Date(invoice.created).toLocaleDateString('fr-FR', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-          }) : new Date().toLocaleDateString('fr-FR', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-          }),
-          status: invoice.status,
-          totalCdf: invoice.totalCdf || 0,
-          totalUsd: invoice.totalUsd || 0,
-          amountPaidCdf: invoice.amountPaidCdf ?? invoice.totalAfterReductionCdf ?? invoice.totalCdf ?? 0,
-          amountPaidUsd: invoice.amountPaidUsd ?? invoice.totalAfterReductionUsd ?? invoice.totalUsd ?? ((invoice.amountPaidCdf ?? invoice.totalAfterReductionCdf ?? invoice.totalCdf ?? 0) / (exchangeRate || 1)),
-          reductionCdf: invoice.reductionCdf || 0,
-          reductionUsd: invoice.reductionUsd || 0,
-          items: invoice.ventes || [],
-          tableId: invoice.tableId,
-          tableNomination: invoice.tableNomination,
-          userId: invoice.userId,
-          userName: invoice.userName,
-          createdAt: invoice.createdAt || invoice.created || invoice.dateCreated || invoice.creationDate,
-          updatedAt: invoice.updatedAt || invoice.updated || invoice.dateUpdated || invoice.updateDate,
-          typePaiement: invoice.typePaiement ?? invoice.paymentType ?? null,
-          dette: typeof invoice.dette === 'boolean' ? invoice.dette : Boolean(invoice.isDebt),
-        }));
+        const transformedInvoices: Invoice[] = invoicesData.map((invoice: any) =>
+          normalizeInvoiceData(invoice)
+        );
         
         setInvoices(transformedInvoices);
       } else {
@@ -389,6 +442,46 @@ const FactureComponent = ({ onInvoiceCountChange }: FactureComponentProps) => {
       console.error('Error refetching invoices:', error);
     }
   };
+
+  const fetchInvoiceDetails = useCallback(
+    async (
+      invoiceId: string,
+      options: { updateDetails?: boolean; updateModal?: boolean } = { updateDetails: true }
+    ): Promise<Invoice | null> => {
+      if (!invoiceId) {
+        return null;
+      }
+      try {
+        setInvoiceDetailsLoading(true);
+        setInvoiceDetailsError(null);
+        const response = await getFactureById(invoiceId);
+        const invoicePayload = response?.data?.data ?? response?.data ?? response;
+        if (!invoicePayload) {
+          setInvoiceDetailsError('Aucune donnée de facture reçue.');
+          return null;
+        }
+        const normalized = normalizeInvoiceData(invoicePayload);
+        if (options.updateModal) {
+          setSelectedInvoice(normalized);
+          setSelectedInvoiceForMobileEdit(normalized);
+        }
+        if (options.updateDetails ?? true) {
+          setSelectedInvoiceForDetails(normalized);
+        }
+        setInvoices(prev =>
+          prev.map(inv => (inv.id === normalized.id ? { ...inv, ...normalized } : inv))
+        );
+        return normalized;
+      } catch (error) {
+        console.error('Erreur lors du chargement de la facture:', error);
+        setInvoiceDetailsError("Impossible de charger les détails de cette facture.");
+        return null;
+      } finally {
+        setInvoiceDetailsLoading(false);
+      }
+    },
+    [normalizeInvoiceData]
+  );
 
   // Fetch data when component mounts or date range changes
   useEffect(() => {
@@ -1392,14 +1485,19 @@ const FactureComponent = ({ onInvoiceCountChange }: FactureComponentProps) => {
 
   // Fonctions pour la modal (Mobile uniquement)
   const openInvoiceModal = (invoice: any) => {
-    setSelectedInvoice(invoice);
-    setSelectedInvoiceForMobileEdit(invoice); // Initialiser pour la modification mobile
-    setSelectedInvoiceForDetails(invoice);
+    if (!invoice) return;
+    const normalizedInvoice = normalizeInvoiceData(invoice);
+    setSelectedInvoice(normalizedInvoice);
+    setSelectedInvoiceForMobileEdit(normalizedInvoice); // Initialiser pour la modification mobile
+    setSelectedInvoiceForDetails(normalizedInvoice);
     setActiveMobileModalTab('details'); // Réinitialiser l'onglet actif
     if (isLargeScreen) {
       setShowInvoiceModal(true);
     }
     setActiveModalTab('details');
+    if (invoice.id) {
+      fetchInvoiceDetails(invoice.id, { updateDetails: true, updateModal: true });
+    }
   };
 
   const closeInvoiceModal = () => {
@@ -1432,8 +1530,13 @@ const FactureComponent = ({ onInvoiceCountChange }: FactureComponentProps) => {
 
   // Fonction pour sélectionner une facture pour la section droite (Web)
   const selectInvoiceForDetails = (invoice: any) => {
-    setSelectedInvoiceForDetails(invoice);
+    if (!invoice) return;
+    const normalizedInvoice = normalizeInvoiceData(invoice);
+    setSelectedInvoiceForDetails(normalizedInvoice);
     setActiveDetailsTab('edit');
+    if (invoice.id) {
+      fetchInvoiceDetails(invoice.id, { updateDetails: true, updateModal: false });
+    }
   };
 
   // Fonction pour imprimer une facture
@@ -2851,6 +2954,16 @@ Voulez-vous confirmer la modification de cette facture ?`;
                   </View>
                   <Text style={styles.editSubtitleWeb}>{selectedInvoiceForDetails.tableNomination || 'Table'}</Text>
                 </View>
+
+                {invoiceDetailsLoading && (
+                  <View style={styles.editLoadingBannerWeb}>
+                    <ActivityIndicator size="small" color="#7C3AED" />
+                    <Text style={styles.editLoadingTextWeb}>Chargement des détails de la facture...</Text>
+                  </View>
+                )}
+                {invoiceDetailsError && !invoiceDetailsLoading && (
+                  <Text style={styles.editErrorTextWeb}>{invoiceDetailsError}</Text>
+                )}
 
                 {/* Onglets */}
                 <View style={styles.editTabsWeb}>
@@ -6160,6 +6273,26 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
+  },
+  editLoadingBannerWeb: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#EEF2FF',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  editLoadingTextWeb: {
+    fontSize: 13,
+    color: '#4338CA',
+    fontWeight: '500',
+  },
+  editErrorTextWeb: {
+    fontSize: 13,
+    color: '#DC2626',
+    marginBottom: 12,
   },
   editTitleRowWeb: {
     flexDirection: 'row',
