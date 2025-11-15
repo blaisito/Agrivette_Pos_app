@@ -129,7 +129,7 @@ const DashboardComponent = () => {
           >
             <Text style={styles.welcomeTitle}>Bienvenue, {userDisplayName || 'Utilisateur'} !</Text>
             <Text style={styles.welcomeSubtitle}>
-              Voici un aperçu de votre restaurant aujourd'hui.
+              Voici un aperçu de votre gestion aujourd'hui.
             </Text>
           </LinearGradient>
         </View>
@@ -211,9 +211,9 @@ const DashboardComponent = () => {
         />
         <View style={styles.bannerOverlayMobile}>
           <View style={styles.bannerContentMobile}>
-            <Text style={styles.bannerTitleMobile}>Restaurant Manager Pro</Text>
+            <Text style={styles.bannerTitleMobile}>POST-MARKET Pro</Text>
             <Text style={styles.bannerSubtitleMobile}>
-              Optimisez votre restaurant avec notre solution complète de gestion
+              Optimisez votre gestion avec notre solution complète de gestion.
             </Text>
             
           </View>
@@ -230,7 +230,7 @@ const DashboardComponent = () => {
         >
           <Text style={styles.welcomeTitle}>Bienvenue, {userDisplayName || 'Utilisateur'} !</Text>
           <Text style={styles.welcomeSubtitle}>
-            Voici un aperçu de votre restaurant aujourd'hui.
+            Voici un aperçu de votre gestion aujourd'hui.
           </Text>
         </LinearGradient>
       </View>

@@ -77,7 +77,7 @@ const ReportsComponent = () => {
   const [selectedReportType, setSelectedReportType] = useState<'sales' | 'consumption' | 'stock'>('sales');
   const [userDepotCode, setUserDepotCode] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
-  const [selectedDepotCode, setSelectedDepotCode] = useState<string>('');
+  const [selectedDepotCode, setSelectedDepotCode] = useState<string | null>(null);
   const [depotCodes, setDepotCodes] = useState<string[]>([]);
   const [depotCodesLoading, setDepotCodesLoading] = useState<boolean>(false);
   const [depotCodesError, setDepotCodesError] = useState<string | null>(null);
@@ -503,7 +503,7 @@ const ReportsComponent = () => {
 
   useEffect(() => {
     if (isAdmin) {
-      if (!selectedDepotCode && depotCodes.length > 0) {
+      if (selectedDepotCode === null && depotCodes.length > 0) {
         setSelectedDepotCode(depotCodes[0]);
       }
     } else if (userDepotCode && selectedDepotCode !== userDepotCode) {
@@ -1105,6 +1105,22 @@ const ReportsComponent = () => {
                   <Text style={styles.depotHelperText}>Aucun dépôt disponible.</Text>
                 ) : (
                   <View style={styles.depotChipsWeb}>
+                    <TouchableOpacity
+                      style={[
+                        styles.depotChipWeb,
+                        selectedDepotCode === '' && styles.depotChipWebActive,
+                      ]}
+                      onPress={() => setSelectedDepotCode('')}
+                    >
+                      <Text
+                        style={[
+                          styles.depotChipTextWeb,
+                          selectedDepotCode === '' && styles.depotChipTextWebActive,
+                        ]}
+                      >
+                        Tout
+                      </Text>
+                    </TouchableOpacity>
                     {depotCodes.map((code) => {
                       const isSelected = selectedDepotCode === code;
                       return (
@@ -1799,6 +1815,22 @@ const ReportsComponent = () => {
                 showsHorizontalScrollIndicator={false}
                 style={styles.depotChipsScrollMobile}
               >
+                <TouchableOpacity
+                  style={[
+                    styles.depotChipMobile,
+                    selectedDepotCode === '' && styles.depotChipMobileActive,
+                  ]}
+                  onPress={() => setSelectedDepotCode('')}
+                >
+                  <Text
+                    style={[
+                      styles.depotChipTextMobile,
+                      selectedDepotCode === '' && styles.depotChipTextMobileActive,
+                    ]}
+                  >
+                    Tout
+                  </Text>
+                </TouchableOpacity>
                 {depotCodes.map((code) => {
                   const isSelected = selectedDepotCode === code;
                   return (

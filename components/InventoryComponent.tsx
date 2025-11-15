@@ -360,7 +360,8 @@ const InventoryComponent = () => {
     priceUsd: '', // Prix en USD
     priceCdf: '', // Prix en CDF
     minimalStock: '', // Stock minimum
-    imageBase64: 'UkVTVE9NQU5BR0VSQVBQ' // Valeur par défaut valide
+    imageBase64: 'UkVTVE9NQU5BR0VSQVBQ', // Valeur par défaut valide
+    expirationDate: '' // Date d'expiration
   });
   const [editingProduct, setEditingProduct] = useState<any>(null);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
@@ -891,6 +892,18 @@ const toIsoWithZulu = (dateString?: string) => {
     return '';
   }
   return date.toISOString();
+};
+
+const isExpiringWithinSixMonths = (dateString?: string | null) => {
+  if (!dateString) return false;
+  const expiration = new Date(dateString);
+  if (Number.isNaN(expiration.getTime())) return false;
+
+  const today = new Date();
+  const sixMonthsAhead = new Date(today);
+  sixMonthsAhead.setMonth(sixMonthsAhead.getMonth() + 6);
+
+  return expiration <= sixMonthsAhead;
 };
 
   const openCategoryModal = () => {
@@ -1794,6 +1807,7 @@ const historyModal = (
                     <Text style={styles.tableHeaderTextWeb}>Catégorie</Text>
                     <Text style={styles.tableHeaderTextWeb}>Prix USD</Text>
                     <Text style={styles.tableHeaderTextWeb}>Prix CDF</Text>
+                    <Text style={styles.tableHeaderTextWeb}>Expiration</Text>
                     <Text style={styles.tableHeaderTextWeb}>Stock</Text>
                     <Text style={styles.tableHeaderTextWeb}>Actions</Text>
                   </View>
@@ -1831,6 +1845,16 @@ const historyModal = (
                           <Text style={styles.categoryCellWeb}>{product.category?.categoryName || 'N/A'}</Text>
                           <Text style={styles.priceCellWeb}>${product.priceUsd}</Text>
                           <Text style={styles.priceCellWeb}>{product.priceCdf} CDF</Text>
+                          <View style={styles.expirationCellWeb}>
+                            <Text style={styles.expirationDateTextWeb}>
+                              {formatDateTime(product.expirationDate)}
+                            </Text>
+                            {isExpiringWithinSixMonths(product.expirationDate) && (
+                              <View style={styles.expirationBadgeWeb}>
+                                <Text style={styles.expirationBadgeTextWeb}>Expiration</Text>
+                              </View>
+                            )}
+                          </View>
                           <Text style={styles.stockCellWeb}>{product.inStock || 0}</Text>
                           <View style={styles.actionsCellWeb}>
                             <TouchableOpacity
@@ -2583,8 +2607,10 @@ const historyModal = (
                       product.category?.categoryName === selectedCategory;
                     return matchesSearch && matchesCategory;
                   })
-                  .map((product: any) => (
-                    <View key={product.id} style={styles.productCardMobile}>
+                  .map((product: any) => {
+                    const isExpiringSoon = isExpiringWithinSixMonths(product.expirationDate);
+                    return (
+                      <View key={product.id} style={styles.productCardMobile}>
                       <View style={styles.productHeaderMobile}>
                         <View style={styles.productIconMobile}>
                           <Ionicons name="cube" size={20} color="#7C3AED" />
@@ -2627,9 +2653,23 @@ const historyModal = (
                             {product.inStock || 0} unités
                           </Text>
                         </View>
+                        <View style={styles.expirationRowMobile}>
+                          <Text style={styles.expirationLabelMobile}>Expiration:</Text>
+                          <View style={styles.expirationValueWrapperMobile}>
+                            <Text style={styles.expirationValueMobile}>
+                              {formatDateTime(product.expirationDate)}
+                            </Text>
+                            {isExpiringSoon && (
+                              <View style={styles.expirationBadgeMobile}>
+                                <Text style={styles.expirationBadgeTextMobile}>Expiration</Text>
+                              </View>
+                            )}
+                          </View>
+                        </View>
                       </View>
                     </View>
-                  ))}
+                    );
+                  })}
                 {products.filter((product: any) => {
                   const matchesSearch = searchQuery === '' || 
                     product.productName.toLowerCase().includes(searchQuery.toLowerCase());
@@ -3403,6 +3443,28 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#1F2937',
   },
+  expirationCellWeb: {
+    flex: 1.2,
+    flexDirection: 'column',
+    gap: 6,
+  },
+  expirationDateTextWeb: {
+    fontSize: 13,
+    color: '#4B5563',
+  },
+  expirationBadgeWeb: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#F87171',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  expirationBadgeTextWeb: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    textTransform: 'uppercase',
+  },
   stockCellWeb: {
     flex: 1,
     fontSize: 14,
@@ -3855,6 +3917,41 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
     color: '#10B981',
+  },
+  expirationRowMobile: {
+    marginTop: 6,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  expirationLabelMobile: {
+    fontSize: 13,
+    color: '#6B7280',
+  },
+  expirationValueWrapperMobile: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 6,
+  },
+  expirationValueMobile: {
+    fontSize: 13,
+    color: '#374151',
+    fontWeight: '500',
+    textAlign: 'right',
+  },
+  expirationBadgeMobile: {
+    backgroundColor: '#F87171',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+  },
+  expirationBadgeTextMobile: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    textTransform: 'uppercase',
   },
   stockEmptyMobile: {
     color: '#EF4444',

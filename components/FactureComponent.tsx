@@ -3038,7 +3038,7 @@ Voulez-vous confirmer la modification de cette facture ?`;
                 {/* Totaux de la facture */}
                 <View style={styles.editSectionWeb}>
                   
-                  <Text style={styles.editSectionTitleWeb}>Totaux de la facture</Text>
+                  <Text style={styles.editSectionTitleWeb}>Total payé</Text>
                   <View style={styles.editTotalRowWeb}>
                     <Text style={styles.editTotalLabelWeb}>Total CDF:</Text>
                     <Text style={styles.editTotalValueWeb}>
