@@ -17,10 +17,40 @@ interface FactureComponentProps {
   onInvoiceCountChange?: (count: number) => void;
 }
 
+const parseInvoiceDate = (rawDate?: string) => {
+  if (!rawDate) {
+    return new Date();
+  }
+
+  // Essayer avec le parseur natif
+  const directDate = new Date(rawDate);
+  if (!Number.isNaN(directDate.getTime())) {
+    return directDate;
+  }
+
+  // Essayer le format "dd/MM/yyyy HH:mm"
+  const match = rawDate.match(/(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2}))?/);
+  if (match) {
+    const [, day, month, year, hour = '00', minute = '00'] = match;
+    const parsedDate = new Date(
+      Number(year),
+      Number(month) - 1,
+      Number(day),
+      Number(hour),
+      Number(minute)
+    );
+    if (!Number.isNaN(parsedDate.getTime())) {
+      return parsedDate;
+    }
+  }
+
+  // Fallback
+  return new Date();
+};
+
 // Fonction pour formater les données de facture en format de reçu
 const formatInvoiceForReceipt = (invoice: any) => {
-  // Utiliser la date de la facture ou la date actuelle
-  const factureDate = invoice.date ? new Date(invoice.date).toISOString() : new Date().toISOString();
+  const factureDate = parseInvoiceDate(invoice.date).toISOString();
   return {
     organisationName: "RESTAURANT CHEZ JESSICA",
     adresse1: "611b av des chutes",
@@ -1544,6 +1574,7 @@ const FactureComponent = ({ onInvoiceCountChange }: FactureComponentProps) => {
     if (!selectedInvoiceForDetails) return;
     
     setIsPrinting(true);
+    console.log('selectedInvoiceForDetails', selectedInvoiceForDetails);
     try {
       const receiptData = formatInvoiceForReceipt(selectedInvoiceForDetails);
       await printFacture(receiptData);
