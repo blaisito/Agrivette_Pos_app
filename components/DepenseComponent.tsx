@@ -388,7 +388,7 @@ const generateDepensePrintHTML = (
     </head>
     <body>
       <div class="container">
-        <h1 class="brand">CHEZ JESSICA</h1>
+        <h1 class="brand">AGRIVET-CONGO</h1>
         <h2>Rapport des dépenses</h2>
         <p class="subtitle">Période du ${startLabel} au ${endLabel}</p>
         <p class="meta">Généré le ${generatedLabel}</p>
