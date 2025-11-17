@@ -1051,14 +1051,6 @@ const isExpiringWithinSixMonths = (dateString?: string | null) => {
       return;
     }
 
-    if (action === 'add' && !adjustExpirationDate) {
-      setStockFeedback({
-        type: 'error',
-        message: "Veuillez sélectionner une date d'expiration.",
-      });
-      return;
-    }
-
     const userData = await getUserData();
     if (!userData || !userData.id) {
       setStockFeedback({
@@ -1075,8 +1067,11 @@ const isExpiringWithinSixMonths = (dateString?: string | null) => {
       qte: quantity,
       observation: stockObservation || null,
     };
-    if (action === 'add') {
-      stockData.expirationDate = toIsoWithZulu(adjustExpirationDate);
+    if (action === 'add' && adjustExpirationDate) {
+      const iso = toIsoWithZulu(adjustExpirationDate);
+      if (iso) {
+        stockData.expirationDate = iso;
+      }
     }
 
     try {
@@ -1159,14 +1154,6 @@ const isExpiringWithinSixMonths = (dateString?: string | null) => {
       setStockFeedback({
         type: 'error',
         message: 'Veuillez sélectionner un dépôt.',
-      });
-      return;
-    }
-
-    if (action === 'add' && !adjustExpirationDate) {
-      setStockFeedback({
-        type: 'error',
-        message: "Veuillez sélectionner une date d'expiration.",
       });
       return;
     }
@@ -2320,7 +2307,7 @@ const historyModal = (
                     </View>
 
                     <View style={styles.stockFormGroupWeb}>
-                      <Text style={styles.stockFormLabelWeb}>Date d'expiration *</Text>
+                      <Text style={styles.stockFormLabelWeb}>Date d'expiration</Text>
                       <TextInput
                         style={[styles.stockFormInputWeb,{marginBottom: 10}]}
                         value={adjustExpirationDate}
@@ -3114,7 +3101,7 @@ const historyModal = (
                     </View>
 
                     <View style={styles.formFieldMobile}>
-                      <Text style={styles.formLabelMobile}>Date d'expiration *</Text>
+                      <Text style={styles.formLabelMobile}>Date d'expiration</Text>
                       <TextInput
                         style={styles.formInputMobile}
                         placeholder="2025-11-13T12:42"
