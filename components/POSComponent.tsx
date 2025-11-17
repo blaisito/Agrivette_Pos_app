@@ -914,8 +914,8 @@ ${orderDetails}
     return (
       <View style={styles.containerWeb}>
 
-        {/* Header avec bouton retour */}
-        <View style={styles.posHeaderWeb}>
+        {/* Header avec bouton retour 
+        <View style={[styles.posHeaderWeb, { visibility: 'hidden' }]}>
           <TouchableOpacity 
             style={styles.backToTableButton}
             onPress={() => setShowTableModal(true)}
@@ -931,7 +931,7 @@ ${orderDetails}
               {selectedTable ? (selectedTable.description || 'Poste disponible') : ''}
             </Text>
           </View>
-        </View>
+        </View>*/}
 
         <View style={styles.mainContentWeb}>
           
@@ -1062,6 +1062,14 @@ ${orderDetails}
           {/* Panneau gauche - Résumé de commande */}
           <View style={styles.orderPanelWeb}>
             <ScrollView style={styles.orderScrollView}>
+            <View style={[styles.posHeaderInfo, { marginTop: 10 }]}>
+            <Text style={styles.posHeaderTitle}>
+              POS - {selectedTable ? (selectedTable.nomination || `Table ${selectedTable.id}`) : 'Table non sélectionnée'} | Taux: {exchangeRate}
+            </Text>
+            <Text style={styles.posHeaderSubtitle}>
+              {selectedTable ? (selectedTable.description || 'Poste disponible') : ''}
+            </Text>
+          </View>
               {/* Articles de commande */}
               <View style={styles.orderItemsContainer}>
                 {orderItems.map((item, index) => (
