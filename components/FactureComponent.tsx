@@ -52,14 +52,14 @@ const parseInvoiceDate = (rawDate?: string) => {
 const formatInvoiceForReceipt = (invoice: any) => {
   const factureDate = parseInvoiceDate(invoice.date).toISOString();
   return {
-    organisationName: "RESTAURANT CHEZ JESSICA",
-    adresse1: "611b av des chutes",
+    organisationName: "AGRIVET-CONGO intrants Agricoles et Vétérinaires",
+    adresse1: "Av. Mama Yemo coin Likasi C/Lubumbashi",
     adresse2: "Lubumbashi, RDC",
-    phone1: "(+243) 811-400-523",
-    phone2: "(+243) 998-554-300",
-    rccm: "RCCM .P16-A-4666",
-    idOrganisation: "ID.NAT.6-93-N4666",
-    numeroImpot: "NUMERO IMPOT, A2423042Y",
+    phone1: "(+243) 994541568",
+    phone2: "(+243) 997024538",
+    rccm: "RCCM LSH/17-A5532-IMPOT-A17212",
+    idOrganisation: "ID.NAT 05-G4701-N13657S",
+    numeroImpot: "",
     logoPath: "images/logo.png",
     tableName: invoice.tableNomination || "N/A",
     date: factureDate,

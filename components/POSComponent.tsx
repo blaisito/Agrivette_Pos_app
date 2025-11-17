@@ -38,13 +38,13 @@ const formatInvoiceForReceiptPOS = (orderItems: any[], selectedTable: any, custo
   return {
     // ENTÊTE RESTAURANT (identique à FactureComponent)
     organisationName: "AGRIVET-CONGO",
-    adresse1: "611b av des chutes",
+    adresse1: "Av. Mama Yemo coin Likasi C/Lubumbashi",
     adresse2: "Lubumbashi, RDC",
-    phone1: "(+243) 000-000-0000",
-    phone2: "(+243) 000-000-0000",
-    rccm: "RCCM ********",
-    idOrganisation: "ID.NAT.********",
-    numeroImpot: "NUMERO IMPOT, ********",
+    phone1: "(+243) 994541568",
+    phone2: "(+243) 997024538",
+    rccm: "RCCM LSH/17-A5532-IMPOT-A17212",
+    idOrganisation: "ID.NAT 05-G4701-N13657S",
+    numeroImpot: "",
     logoPath: "images/logo.png",
     
     // INFORMATIONS FACTURE
