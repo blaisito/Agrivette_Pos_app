@@ -543,6 +543,24 @@ const getPriceForCurrency = (item: any, isUsd: boolean, rate: number) => {
     }
   };
 
+  const handleQuantityInputChange = (index: number, value: string) => {
+    const trimmed = value.trim();
+    const parsed = Number(trimmed);
+    const quantity = trimmed === '' ? 0 : Math.floor(parsed);
+
+    if (trimmed !== '' && (!Number.isFinite(parsed) || parsed <= 0)) {
+      return;
+    }
+
+    const newItems = [...orderItems];
+    newItems[index].quantity = quantity;
+    const isUsd = currencyPerItem[index];
+    const price = getPriceForCurrency(newItems[index], isUsd, exchangeRate);
+    newItems[index].price = price;
+    newItems[index].total = quantity * price;
+    setOrderItems(newItems);
+  };
+
   // Fonction pour changer la devise d'un item
   const toggleCurrency = (index: number) => {
     const newCurrencyPerItem = [...currencyPerItem];
@@ -1063,7 +1081,12 @@ ${orderDetails}
                           >
                             <Ionicons name="remove" size={16} color="#6B7280" />
                           </TouchableOpacity>
-                          <Text style={styles.quantityText}>{item.quantity}</Text>
+                          <TextInput
+                            style={styles.quantityInput}
+                            keyboardType="numeric"
+                            value={String(item.quantity)}
+                            onChangeText={(text) => handleQuantityInputChange(index, text)}
+                          />
                           <TouchableOpacity
                             onPress={() => increaseQuantity(index)}
                             style={styles.quantityButton}
@@ -1497,7 +1520,12 @@ ${orderDetails}
                         >
                           <Ionicons name="remove" size={14} color="#6B7280" />
                         </TouchableOpacity>
-                        <Text style={styles.quantityText}>{item.quantity}</Text>
+                        <TextInput
+                          style={styles.quantityInput}
+                          keyboardType="numeric"
+                          value={String(item.quantity)}
+                          onChangeText={(text) => handleQuantityInputChange(index, text)}
+                        />
                         <TouchableOpacity
                           onPress={() => increaseQuantity(index)}
                           style={styles.quantityButton}
@@ -2016,7 +2044,12 @@ ${orderDetails}
                             >
                               <Ionicons name="remove" size={16} color="#6B7280" />
                             </TouchableOpacity>
-                            <Text style={{ paddingHorizontal: 12, fontWeight: '600', color: '#222' }}>{item.quantity}</Text>
+                          <TextInput
+                            style={styles.quantityInputModal}
+                            keyboardType="numeric"
+                            value={String(item.quantity)}
+                            onChangeText={(text) => handleQuantityInputChange(idx, text)}
+                          />
                             <TouchableOpacity
                               onPress={() => increaseQuantity(idx)}
                               style={{ padding: 6, backgroundColor: '#F3F4F6', borderRadius: 4 }}
@@ -2630,6 +2663,30 @@ const styles = StyleSheet.create({
     color: '#1F2937',
     minWidth: 20,
     textAlign: 'center',
+  },
+  quantityInput: {
+    width: 48,
+    height: 32,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    borderRadius: 4,
+    marginHorizontal: 6,
+    textAlign: 'center',
+    color: '#1F2937',
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+  },
+  quantityInputModal: {
+    width: 48,
+    height: 32,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    borderRadius: 4,
+    marginHorizontal: 6,
+    textAlign: 'center',
+    color: '#1F2937',
+    paddingVertical: 4,
+    paddingHorizontal: 6,
   },
   
   // Sélection de produit
