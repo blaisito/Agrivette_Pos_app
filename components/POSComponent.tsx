@@ -1010,16 +1010,10 @@ ${orderDetails}
                         key={product.id || index}
                         style={[
                           styles.menuItemWeb,
-                          selectedProducts.has(product.productName) && styles.menuItemSelected,
-                          isOutOfStock && styles.menuItemDisabled
+                          selectedProducts.has(product.productName) && styles.menuItemSelected
                         ]}
-                        onPress={() => {
-                          if (!isOutOfStock) {
-                            addProductToCart(product);
-                          }
-                        }}
-                        disabled={isOutOfStock}
-                        activeOpacity={isOutOfStock ? 1 : 0.7}
+                        onPress={() => addProductToCart(product)}
+                        activeOpacity={0.7}
                       >
                         {selectedProducts.has(product.productName) && !isOutOfStock && (
                           <View style={styles.checkIconContainer}>
@@ -1851,16 +1845,10 @@ ${orderDetails}
                               key={product.id || index}
                               style={[
                                 styles.menuItemMobile,
-                                selectedProducts.has(product.productName) && styles.menuItemSelected,
-                                isOutOfStock && styles.menuItemDisabled
+                                selectedProducts.has(product.productName) && styles.menuItemSelected
                               ]}
-                              onPress={() => {
-                                if (!isOutOfStock) {
-                                  addProductToCart(product);
-                                }
-                              }}
-                              disabled={isOutOfStock}
-                              activeOpacity={isOutOfStock ? 1 : 0.7}
+                              onPress={() => addProductToCart(product)}
+                              activeOpacity={0.7}
                             >
                               {selectedProducts.has(product.productName) && !isOutOfStock && (
                                 <View style={styles.checkIconContainer}>
