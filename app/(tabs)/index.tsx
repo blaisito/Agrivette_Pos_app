@@ -216,12 +216,14 @@ export default function HomeScreen() {
     // Filtrer selon les permissions
     return allTabs.filter(tab => {
       if (!tab.requiredPermission) return true; // Accueil toujours disponible
+
+      if (tab.requiredPermission === 'billing') {
+        return true;
+      }
       
       switch (tab.requiredPermission) {
         case 'pos':
           return userPermissions.canAccessPOS;
-        case 'billing':
-          return userPermissions.canAccessBilling;
         case 'reports':
           return userPermissions.canAccessReports;
         case 'inventory':
