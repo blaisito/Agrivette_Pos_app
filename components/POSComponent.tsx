@@ -21,7 +21,7 @@ const showAlert = (title: string, message: string) => {
 };
 
 // Fonction pour formater les données de facture POS en format de reçu
-const formatInvoiceForReceiptPOS = (orderItems: any[], selectedTable: any, customerName: string, customerContact: string, paymentMethod: string, totalCdf: number, totalUsd: number, totalUsdInCdf: number, discount: number, exchangeRate: number) => {
+const formatInvoiceForReceiptPOS = (orderItems: any[], selectedTable: any, customerName: string, customerContact: string, paymentMethod: string, totalCdf: number, totalUsd: number, totalUsdInCdf: number, discount: number, exchangeRate: number, amountCdf: number, amountUsd: number, reductionCdf: number, reductionUsd: number, totalFinalCdf: number, totalFinalUsd: number) => {
   const factureDate = new Date().toISOString();
   
   // Mapper les orderItems vers items (même structure que FactureComponent)
@@ -34,6 +34,10 @@ const formatInvoiceForReceiptPOS = (orderItems: any[], selectedTable: any, custo
   
   // Calculer le total final avec réduction
   const finalTotalCdf = totalCdf + totalUsdInCdf - discount;
+  
+  // Calculer le total dynamique (reste à payer) : (Montant total) - réduction - montant payé
+  const remainingAmountCdf = Math.max(0, totalFinalCdf - reductionCdf - amountCdf);
+  const remainingAmountUsd = Math.max(0, totalFinalUsd - reductionUsd - amountUsd);
   
   return {
     // ENTÊTE RESTAURANT (identique à FactureComponent)
@@ -58,6 +62,14 @@ const formatInvoiceForReceiptPOS = (orderItems: any[], selectedTable: any, custo
     // TOTAUX (clés identiques)
     total: finalTotalCdf,
     netTotal: totalUsd,
+    
+    // RÉDUCTION APPLIQUÉE
+    reductionCdf: reductionCdf,
+    reductionUsd: reductionUsd,
+    
+    // TOTAL DYNAMIQUE (reste à payer)
+    remainingAmountCdf: remainingAmountCdf,
+    remainingAmountUsd: remainingAmountUsd,
     
     // MESSAGE FINAL
     thanksMessage: "Thank you for your business! Come again soon!"
@@ -745,8 +757,6 @@ const getPriceForCurrency = (item: any, isUsd: boolean, rate: number) => {
         ventes: ventes // Ventes en dernier comme dans le cURL
       };
 
-      console.log('factureData', factureData);
-
       // Appeler l'API pour créer la facture
       const response = await createFacture(factureData);
       
@@ -764,7 +774,13 @@ const getPriceForCurrency = (item: any, isUsd: boolean, rate: number) => {
           totalUsdDisplay,
           totalUsdInCdfDisplay,
           receiptDiscount,
-          exchangeRate
+          exchangeRate,
+          inputAmountCdf,
+          inputAmountUsd,
+          displayReductionCdf,
+          displayReductionUsd,
+          total,
+          totalFinalUsd
         );
         
         // Réinitialiser le panier et les états

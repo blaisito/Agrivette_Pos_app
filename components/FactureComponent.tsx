@@ -51,6 +51,33 @@ const parseInvoiceDate = (rawDate?: string) => {
 // Fonction pour formater les données de facture en format de reçu
 const formatInvoiceForReceipt = (invoice: any) => {
   const factureDate = parseInvoiceDate(invoice.date).toISOString();
+  
+  // Récupérer les valeurs de réduction
+  const reductionCdf = invoice.reductionCdf || 0;
+  const reductionUsd = invoice.reductionUsd || 0;
+  
+  // Récupérer les montants payés
+  const amountPaidCdf = invoice.amountPaidCdf || 0;
+  const amountPaidUsd = invoice.amountPaidUsd || 0;
+  
+  // Calculer le total après réduction
+  const totalCdf = invoice.totalCdf || 0;
+  const totalUsd = invoice.totalUsd || 0;
+  const totalAfterReductionCdf = (invoice.totalAfterReductionCdf !== undefined) 
+    ? invoice.totalAfterReductionCdf 
+    : totalCdf - reductionCdf;
+  const totalAfterReductionUsd = (invoice.totalAfterReductionUsd !== undefined) 
+    ? invoice.totalAfterReductionUsd 
+    : totalUsd - reductionUsd;
+  
+  // Calculer le total dynamique (reste à payer) : (Montant total après réduction) - montant payé
+  const remainingAmountCdf = invoice.remainingAmountCdf !== undefined
+    ? invoice.remainingAmountCdf
+    : Math.max(0, totalAfterReductionCdf - amountPaidCdf);
+  const remainingAmountUsd = invoice.remainingAmountUsd !== undefined
+    ? invoice.remainingAmountUsd
+    : Math.max(0, totalAfterReductionUsd - amountPaidUsd);
+  
   return {
     organisationName: "AGRIVET-CONGO intrants Agricoles et Vétérinaires",
     adresse1: "Av. Mama Yemo coin Likasi C/Lubumbashi",
@@ -72,6 +99,15 @@ const formatInvoiceForReceipt = (invoice: any) => {
     })) || [],
     total: invoice.amountPaidCdf || 0,
     netTotal: invoice.amountPaidUsd || 0,
+    
+    // RÉDUCTION APPLIQUÉE
+    reductionCdf: reductionCdf,
+    reductionUsd: reductionUsd,
+    
+    // TOTAL DYNAMIQUE (reste à payer)
+    remainingAmountCdf: remainingAmountCdf,
+    remainingAmountUsd: remainingAmountUsd,
+    
     thanksMessage: "Thank you for your business! Come again soon!"
   };
 };
@@ -1662,18 +1698,40 @@ Voulez-vous confirmer l'impression de cette facture ?`;
     setIsPrinting(true);
     try {
       // Créer un objet facture avec les modifications
+      const totalCdf = editableItems.reduce((sum: number, item: any) => 
+        sum + (item.subTotalCdf || item.priceCdf * (item.qte || item.quantity) || 0), 0);
+      const totalUsd = editableItems.reduce((sum: number, item: any) => 
+        sum + (item.subTotalUsd || item.priceUsd * (item.qte || item.quantity) || 0), 0);
+      
+      const reductionCdf = selectedInvoiceForDetails.reductionCdf || 0;
+      const reductionUsd = selectedInvoiceForDetails.reductionUsd || 0;
+      
+      // Calculer le total après réduction
+      const totalAfterReductionCdf = totalCdf - reductionCdf;
+      const totalAfterReductionUsd = totalUsd - reductionUsd;
+      
+      // Récupérer les montants payés (ou utiliser le total après réduction par défaut)
+      const amountPaidCdf = selectedInvoiceForDetails.amountPaidCdf ?? totalAfterReductionCdf;
+      const amountPaidUsd = selectedInvoiceForDetails.amountPaidUsd ?? totalAfterReductionUsd;
+      
+      // Calculer le total dynamique (reste à payer) : (Montant total après réduction) - montant payé
+      const remainingAmountCdf = Math.max(0, totalAfterReductionCdf - amountPaidCdf);
+      const remainingAmountUsd = Math.max(0, totalAfterReductionUsd - amountPaidUsd);
+      
       const modifiedInvoice = {
         ...selectedInvoiceForDetails,
         items: editableItems, // Utiliser les articles modifiés
         // Recalculer les totaux avec les modifications
-        totalCdf: editableItems.reduce((sum: number, item: any) => 
-          sum + (item.subTotalCdf || item.priceCdf * (item.qte || item.quantity) || 0), 0),
-        totalUsd: editableItems.reduce((sum: number, item: any) => 
-          sum + (item.subTotalUsd || item.priceUsd * (item.qte || item.quantity) || 0), 0),
-        amountPaidCdf: editableItems.reduce((sum: number, item: any) => 
-          sum + (item.subTotalCdf || item.priceCdf * (item.qte || item.quantity) || 0), 0) - (selectedInvoiceForDetails.reductionCdf || 0),
-        amountPaidUsd: editableItems.reduce((sum: number, item: any) => 
-          sum + (item.subTotalUsd || item.priceUsd * (item.qte || item.quantity) || 0), 0) - (selectedInvoiceForDetails.reductionUsd || 0)
+        totalCdf: totalCdf,
+        totalUsd: totalUsd,
+        reductionCdf: reductionCdf,
+        reductionUsd: reductionUsd,
+        totalAfterReductionCdf: totalAfterReductionCdf,
+        totalAfterReductionUsd: totalAfterReductionUsd,
+        amountPaidCdf: amountPaidCdf,
+        amountPaidUsd: amountPaidUsd,
+        remainingAmountCdf: remainingAmountCdf,
+        remainingAmountUsd: remainingAmountUsd
       };
       
       
