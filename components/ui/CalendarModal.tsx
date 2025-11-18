@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
-import { Modal, Platform, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Modal, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 interface CalendarModalProps {
   visible: boolean;
@@ -147,7 +147,7 @@ const CalendarModal: React.FC<CalendarModalProps> = ({
       onRequestClose={onClose}
     >
       <View style={styles.modalOverlay}>
-        <View style={styles.modalContainer}>
+        <View id='modalContainer' style={[styles.modalContainer, { maxHeight: Platform.OS === 'web' ? '90%' : '100%' }]}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>{title}</Text>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
@@ -155,6 +155,10 @@ const CalendarModal: React.FC<CalendarModalProps> = ({
             </TouchableOpacity>
           </View>
 
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+          >
           <View style={styles.calendarContainer}>
             {/* Header du calendrier avec navigation */}
             <View style={styles.calendarHeader}>
@@ -337,6 +341,7 @@ const CalendarModal: React.FC<CalendarModalProps> = ({
               </View>
             )}
           </View>
+          </ScrollView>
         </View>
       </View>
     </Modal>
@@ -381,6 +386,9 @@ const styles = {
   } as any,
   closeButton: {
     padding: 5,
+  } as any,
+  scrollContent: {
+    paddingBottom: 20,
   } as any,
   calendarContainer: {
     width: '100%',
