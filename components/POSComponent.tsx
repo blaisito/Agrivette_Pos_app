@@ -1340,7 +1340,7 @@ ${orderDetails}
                 <View style={styles.formField}>
                   <Text style={styles.formLabel}>Mode de paiement</Text>
                   <View style={styles.paymentMethodContainerMobile}>
-                    {['Cash', 'EquityBCDC', 'Ecobank', 'Orange-Money', 'M-Pesa', 'Airtel-Money'].map((method) => (
+                    {['Cash','TMB', 'EquityBCDC', 'Ecobank', 'Orange-Money', 'M-Pesa', 'Airtel-Money'].map((method) => (
                       <TouchableOpacity
                         key={method}
                         style={[
