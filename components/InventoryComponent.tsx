@@ -20,9 +20,11 @@ const InventoryComponent = () => {
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [userDepotCode, setUserDepotCode] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [selectedDepotFilter, setSelectedDepotFilter] = useState<string | null>(null);
+  const effectiveDepotForProducts = isAdmin ? selectedDepotFilter : userDepotCode;
   const productFetchParams = useMemo(
-    () => (userDepotCode ? { depotCode: userDepotCode } : null),
-    [userDepotCode]
+    () => (effectiveDepotForProducts ? { depotCode: effectiveDepotForProducts } : null),
+    [effectiveDepotForProducts]
   );
   
   // Hooks pour les données API
@@ -457,6 +459,26 @@ const InventoryComponent = () => {
 
     fetchDepotCodes();
   }, []);
+
+  useEffect(() => {
+    if (isAdmin) {
+      return;
+    }
+    setSelectedDepotFilter(userDepotCode ?? null);
+  }, [isAdmin, userDepotCode]);
+
+  useEffect(() => {
+    if (!isAdmin) {
+      return;
+    }
+    if (selectedDepotFilter && depotOptions.includes(selectedDepotFilter)) {
+      return;
+    }
+    const fallbackDepot = depotOptions[0] || null;
+    if (selectedDepotFilter !== fallbackDepot) {
+      setSelectedDepotFilter(fallbackDepot);
+    }
+  }, [isAdmin, depotOptions, selectedDepotFilter]);
 
   useEffect(() => {
     setStockQuantity('');
@@ -1757,6 +1779,97 @@ const historyModal = (
             )}
           </TouchableOpacity>
         </View>
+        {/* Filtres par dépôt 
+        <View style={[styles.depotFilterWrapperWeb, {visibility: 'hidden'}]}>
+          <Text style={styles.depotFilterLabelWeb}>Filtrer par dépôt</Text>
+          {isAdmin ? (
+            depotCodesLoading ? (
+              <View style={styles.depotFilterLoadingWeb}>
+                <ActivityIndicator size="small" color="#3B82F6" />
+                <Text style={styles.depotFilterInfoTextWeb}>Chargement des dépôts...</Text>
+              </View>
+            ) : depotOptions.length > 0 ? (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View style={styles.depotFilterChipsWeb}>
+                  {depotOptions.map((code) => (
+                    <TouchableOpacity
+                      key={code}
+                      style={[
+                        styles.depotFilterChipWeb,
+                        selectedDepotFilter === code && styles.depotFilterChipActiveWeb
+                      ]}
+                      onPress={() => setSelectedDepotFilter(code)}
+                    >
+                      <Text
+                        style={[
+                          styles.depotFilterChipTextWeb,
+                          selectedDepotFilter === code && styles.depotFilterChipTextActiveWeb
+                        ]}
+                      >
+                        {code}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </ScrollView>
+            ) : (
+              <Text style={styles.depotFilterInfoTextWeb}>Aucun dépôt disponible.</Text>
+            )
+          ) : (
+            <View style={styles.depotFilterInfoWeb}>
+              <Ionicons name="business-outline" size={16} color="#2563EB" />
+              <Text style={styles.depotFilterInfoTextWeb}>
+                Dépôt actif : {userDepotCode || 'Non défini'}
+              </Text>
+            </View>
+          )}
+        </View>*/}
+
+              {/* Filtres par dépôt */}
+              <View style={styles.depotFilterWrapperMobile}>
+                <Text style={styles.depotFilterLabelMobile}>Filtrer par dépôt</Text>
+                {isAdmin ? (
+                  depotCodesLoading ? (
+                    <View style={styles.depotFilterLoadingMobile}>
+                      <ActivityIndicator size="small" color="#7C3AED" />
+                      <Text style={styles.depotFilterInfoTextMobile}>Chargement des dépôts...</Text>
+                    </View>
+                  ) : depotOptions.length > 0 ? (
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                      <View style={styles.depotFilterChipsMobile}>
+                        {depotOptions.map((code) => (
+                          <TouchableOpacity
+                            key={code}
+                            style={[
+                              styles.depotFilterChipMobile,
+                              selectedDepotFilter === code && styles.depotFilterChipActiveMobile
+                            ]}
+                            onPress={() => setSelectedDepotFilter(code)}
+                          >
+                            <Text
+                              style={[
+                                styles.depotFilterChipTextMobile,
+                                selectedDepotFilter === code && styles.depotFilterChipTextActiveMobile
+                              ]}
+                            >
+                              {code}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    </ScrollView>
+                  ) : (
+                    <Text style={styles.depotFilterInfoTextMobile}>Aucun dépôt disponible.</Text>
+                  )
+                ) : (
+                  <View style={styles.depotFilterInfoMobile}>
+                    <Ionicons name="business-outline" size={16} color="#2563EB" />
+                    <Text style={styles.depotFilterInfoTextMobile}>
+                      Dépôt actif : {userDepotCode || 'Non défini'}
+                    </Text>
+                  </View>
+                )}
+              </View>
 
               {/* Filtres par catégorie */}
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryFiltersWeb}>
@@ -3409,6 +3522,56 @@ const styles = StyleSheet.create({
   categoryFiltersWeb: {
     marginBottom: 16,
   },
+  depotFilterWrapperWeb: {
+    marginBottom: 16,
+    gap: 8,
+  },
+  depotFilterLabelWeb: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 4,
+  },
+  depotFilterChipsWeb: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingVertical: 4,
+  },
+  depotFilterChipWeb: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: '#E5E7EB',
+  },
+  depotFilterChipActiveWeb: {
+    backgroundColor: '#2563EB',
+  },
+  depotFilterChipTextWeb: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#1F2937',
+  },
+  depotFilterChipTextActiveWeb: {
+    color: '#FFFFFF',
+  },
+  depotFilterInfoWeb: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  depotFilterInfoTextWeb: {
+    fontSize: 13,
+    color: '#374151',
+  },
+  depotFilterLoadingWeb: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   categoryFilterWeb: {
     paddingHorizontal: 16,
     paddingVertical: 8,
@@ -3856,6 +4019,55 @@ const styles = StyleSheet.create({
   },
   categoryFiltersMobile: {
     marginBottom: 16,
+  },
+  depotFilterWrapperMobile: {
+    marginBottom: 16,
+  },
+  depotFilterLabelMobile: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 6,
+  },
+  depotFilterChipsMobile: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  depotFilterChipMobile: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: '#E5E7EB',
+  },
+  depotFilterChipActiveMobile: {
+    backgroundColor: '#7C3AED',
+  },
+  depotFilterChipTextMobile: {
+    fontSize: 13,
+    color: '#1F2937',
+    fontWeight: '500',
+  },
+  depotFilterChipTextActiveMobile: {
+    color: '#FFFFFF',
+  },
+  depotFilterInfoMobile: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#EEF2FF',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  depotFilterInfoTextMobile: {
+    fontSize: 13,
+    color: '#374151',
+  },
+  depotFilterLoadingMobile: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   categoryFilterMobile: {
     paddingHorizontal: 14,
