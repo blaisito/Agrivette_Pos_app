@@ -1656,7 +1656,7 @@ const FactureComponent = ({ onInvoiceCountChange }: FactureComponentProps) => {
 📋 ID: ${selectedInvoiceForDetails.id}
 👤 Client: ${selectedInvoiceForDetails.customerName}
 📝 Description: ${selectedInvoiceForDetails.description || 'Aucune'}
-🏷️ Table: ${selectedInvoiceForDetails.tableNomination || 'N/A'}
+🏷️ Poste: ${selectedInvoiceForDetails.tableNomination || 'N/A'}
 📊 Statut: ${getStatusLabel(selectedInvoiceForDetails.status)}
 🛒 Articles: ${totalItems} article(s)
 💰 Total CDF: ${totalCdf.toFixed(0)} CDF
@@ -2817,7 +2817,7 @@ Voulez-vous confirmer la modification de cette facture ?`;
 
           {/* Filtre par table */}
           <View style={styles.filterGroup}>
-            <Text style={styles.filterLabel}>Table:</Text>
+            <Text style={styles.filterLabel}>Poste:</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               <View style={styles.filterButtons}>
                 <TouchableOpacity
@@ -3604,7 +3604,7 @@ Voulez-vous confirmer la modification de cette facture ?`;
                     <Text style={styles.printInfoValue}>{selectedInvoiceForDetails.customerName}</Text>
                   </View>
                   <View style={styles.printInfoRow}>
-                    <Text style={styles.printInfoLabel}>Table:</Text>
+                    <Text style={styles.printInfoLabel}>Poste:</Text>
                     <Text style={styles.printInfoValue}>{selectedInvoiceForDetails.tableNomination || 'N/A'}</Text>
                   </View>
                   <View style={styles.printInfoRow}>
@@ -4027,7 +4027,7 @@ Voulez-vous confirmer la modification de cette facture ?`;
         </View>
 
         <View style={styles.filterGroup}>
-          <Text style={styles.filterLabel}>Table:</Text>
+          <Text style={styles.filterLabel}>Poste:</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <View style={styles.filterButtons}>
               <TouchableOpacity
@@ -4304,7 +4304,7 @@ Voulez-vous confirmer la modification de cette facture ?`;
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Informations générales</Text>
                 <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Table:</Text>
+                  <Text style={styles.infoLabel}>Poste:</Text>
                   <Text style={styles.infoValue}>{selectedInvoice?.tableNomination || 'N/A'}</Text>
                 </View>
                 <View style={styles.infoRow}>
