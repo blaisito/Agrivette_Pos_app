@@ -403,6 +403,9 @@ const InventoryComponent = () => {
   const [sourceProductInfo, setSourceProductInfo] = useState<{ inStock: number; productName: string } | null>(null);
   const [sourceProductLoading, setSourceProductLoading] = useState(false);
   const [sourceProductError, setSourceProductError] = useState<string | null>(null);
+  const [adjustProductInfo, setAdjustProductInfo] = useState<{ inStock: number; productName: string } | null>(null);
+  const [adjustProductLoading, setAdjustProductLoading] = useState(false);
+  const [adjustProductError, setAdjustProductError] = useState<string | null>(null);
   const depotOptions = useMemo(
     () => availableDepotCodes.filter((code) => !!code),
     [availableDepotCodes]
@@ -503,11 +506,66 @@ const InventoryComponent = () => {
     setSourceProductInfo(null);
     setSourceProductError(null);
     setSourceProductLoading(false);
+    setAdjustProductInfo(null);
+    setAdjustProductError(null);
+    setAdjustProductLoading(false);
   }, [editingProduct, isAdmin, userDepotCode]);
 
   useEffect(() => {
     setStockFeedback(null);
   }, [stockManagementTab]);
+
+  useEffect(() => {
+    if (!editingProduct || stockManagementTab !== 'adjust') {
+      setAdjustProductInfo(null);
+      setAdjustProductError(null);
+      setAdjustProductLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    const fetchAdjustProduct = async () => {
+      const effectiveDepot = isAdmin ? stockDepotCode : userDepotCode;
+      if (!effectiveDepot) {
+        setAdjustProductInfo(null);
+        setAdjustProductError(null);
+        setAdjustProductLoading(false);
+        return;
+      }
+
+      try {
+        setAdjustProductLoading(true);
+        setAdjustProductError(null);
+        const response = await getProductById(editingProduct.id, effectiveDepot);
+        if (cancelled) return;
+        const productData = response?.data?.data ?? response?.data ?? response;
+        if (productData && typeof productData === 'object') {
+          setAdjustProductInfo({
+            inStock: Number(productData.inStock) || 0,
+            productName: productData.productName || editingProduct.productName || 'Produit'
+          });
+        } else {
+          setAdjustProductInfo(null);
+        }
+      } catch (error: any) {
+        if (cancelled) return;
+        console.error('Erreur lors du chargement du stock pour ajustement:', error);
+        setAdjustProductError(error?.message || 'Impossible de récupérer le stock du dépôt.');
+        setAdjustProductInfo(null);
+      } finally {
+        if (!cancelled) {
+          setAdjustProductLoading(false);
+        }
+      }
+    };
+
+    fetchAdjustProduct();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [editingProduct, stockManagementTab, stockDepotCode, isAdmin, userDepotCode]);
 
   useEffect(() => {
     if (!editingProduct || stockManagementTab !== 'transfer') {
@@ -2323,17 +2381,25 @@ const historyModal = (
                   <View style={styles.currentStockItemWeb}>
                     <Text style={styles.currentStockLabelWeb}>Stock actuel</Text>
                     <Text style={styles.currentStockValueWeb}>
-                      Source : 
                       {stockManagementTab === 'transfer'
-                        ? sourceProductLoading
-                          ? '...'
-                          : sourceProductError
-                          ? '—'
-                          : sourceProductInfo
-                          ? sourceProductInfo.inStock
-                          : editingProduct.inStock || 0
+                        ? `Source : ${sourceProductLoading
+                            ? '...'
+                            : sourceProductError
+                            ? '—'
+                            : sourceProductInfo
+                            ? sourceProductInfo.inStock
+                            : editingProduct.inStock || 0}`
+                        : adjustProductLoading
+                        ? 'Chargement...'
+                        : adjustProductError
+                        ? '—'
+                        : adjustProductInfo
+                        ? `${adjustProductInfo.inStock} unités`
                         : editingProduct.inStock || 0}
                     </Text>
+                    {stockManagementTab === 'adjust' && adjustProductError && (
+                      <Text style={styles.stockErrorTextWeb}>{adjustProductError}</Text>
+                    )}
                   </View>
                   <View style={styles.currentStockItemWeb}>
                     <Text style={styles.currentStockLabelWeb}>
@@ -2363,6 +2429,7 @@ const historyModal = (
                     </Text>
                   </View>
                 </View>
+                
                 {stockManagementTab === 'transfer' && sourceProductError ? (
                   <Text style={styles.stockErrorTextWeb}>{sourceProductError}</Text>
                 ) : null}
@@ -2408,54 +2475,51 @@ const historyModal = (
                 {stockManagementTab === 'adjust' ? (
                   <>
                     {isAdmin ? (
-                      <View style={styles.stockFormGroupWeb}>
-                        <Text style={styles.stockFormLabelWeb}>Dépôt *</Text>
-                        {depotCodesLoading ? (
-                          <View style={styles.depotLoadingContainerWeb}>
-                            <ActivityIndicator size="small" color="#3B82F6" />
-                            <Text style={styles.depotLoadingTextWeb}>Chargement des dépôts...</Text>
-                          </View>
-                        ) : depotOptions.length > 0 ? (
-                          <View style={styles.depotChipsContainerWeb}>
-                            {depotOptions.map((code) => (
-                              <TouchableOpacity
-                                key={code}
-                                style={[
-                                  styles.depotChipWeb,
-                                  stockDepotCode === code && styles.depotChipActiveWeb
-                                ]}
-                                onPress={() => setStockDepotCode(code)}
-                              >
-                                <Text
+                        <>
+                          <Text style={styles.stockFormLabelWeb}>Dépôt source *</Text>
+                          {depotCodesLoading ? (
+                            <View style={styles.depotLoadingContainerWeb}>
+                              <ActivityIndicator size="small" color="#3B82F6" />
+                              <Text style={styles.depotLoadingTextWeb}>Chargement des dépôts...</Text>
+                            </View>
+                          ) : depotOptions.length > 0 ? (
+                            <View style={styles.depotChipsContainerWeb}>
+                              {depotOptions.map((code) => (
+                                <TouchableOpacity
+                                  key={code}
                                   style={[
-                                    styles.depotChipTextWeb,
-                                    stockDepotCode === code && styles.depotChipTextActiveWeb
+                                    styles.depotChipWeb,
+                                    transferSourceDepotCode === code && styles.depotChipActiveWeb
                                   ]}
+                                  onPress={() => {setTransferSourceDepotCode(code); setStockDepotCode(code);}}
                                 >
-                                  {code}
-                                </Text>
-                              </TouchableOpacity>
-                            ))}
-                          </View>
-                        ) : (
+                                  <Text
+                                    style={[
+                                      styles.depotChipTextWeb,
+                                      transferSourceDepotCode === code && styles.depotChipTextActiveWeb
+                                    ]}
+                                  >
+                                    {code}
+                                  </Text>
+                                </TouchableOpacity>
+                              ))}
+                            </View>
+                          ) : (
+                            <Text style={styles.stockHelperTextWeb}>
+                              Aucun dépôt disponible pour le transfert.
+                            </Text>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          <Text style={styles.stockFormLabelWeb}>Dépôt source</Text>
                           <Text style={styles.stockHelperTextWeb}>
-                            Aucun dépôt disponible.
+                            {userDepotCode
+                              ? `Le transfert partira du dépôt ${userDepotCode}.`
+                              : 'Code dépôt de l’utilisateur introuvable.'}
                           </Text>
-                        )}
-                        {depotCodesError && (
-                          <Text style={styles.stockErrorTextWeb}>{depotCodesError}</Text>
-                        )}
-                      </View>
-                    ) : (
-                      <View style={styles.stockFormGroupWeb}>
-                        <Text style={styles.stockFormLabelWeb}>Dépôt</Text>
-                        <Text style={styles.stockHelperTextWeb}>
-                          {userDepotCode
-                            ? `Le stock sera ajusté pour le dépôt ${userDepotCode}.`
-                            : "Code dépôt de l'utilisateur introuvable."}
-                        </Text>
-                      </View>
-                    )}
+                        </>
+                      )}
 
                     <View style={styles.stockFormRowWeb}>
                       <View style={styles.stockFormGroupWeb}>
@@ -3173,9 +3237,19 @@ const historyModal = (
                         : sourceProductInfo
                         ? `${sourceProductInfo.inStock} unités`
                         : `${editingProduct.inStock || 0} unités`
+                      : adjustProductLoading
+                      ? 'Chargement...'
+                      : adjustProductError
+                      ? '—'
+                      : adjustProductInfo
+                      ? `${adjustProductInfo.inStock} unités`
                       : `${editingProduct.inStock || 0} unités`}
                   </Text>
+                  {stockManagementTab === 'adjust' && adjustProductError && (
+                    <Text style={styles.destinationStockErrorMobile}>{adjustProductError}</Text>
+                  )}
                 </View>
+                
                 {stockManagementTab === 'transfer' ? (
                   <View style={styles.destinationStockMobile}>
                     <Text style={styles.destinationStockLabelMobile}>
@@ -3210,6 +3284,7 @@ const historyModal = (
                     </Text>
                   </View>
                 )}
+                
                 {stockManagementTab === 'transfer' && sourceProductError ? (
                   <Text style={styles.destinationStockErrorMobile}>{sourceProductError}</Text>
                 ) : null}
