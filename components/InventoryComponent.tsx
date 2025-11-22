@@ -423,10 +423,18 @@ const InventoryComponent = () => {
   }, [transferDepotCode, filteredDepotCodes, isAdmin]);
 
   useEffect(() => {
-    if (userDepotCode) {
-      setStockDepotCode(userDepotCode);
+    if (isAdmin) {
+      // Pour les admins, initialiser avec le premier dépôt disponible si aucun n'est sélectionné
+      if (!stockDepotCode && depotOptions.length > 0) {
+        setStockDepotCode(depotOptions[0]);
+      }
+    } else {
+      // Pour les non-admins, utiliser le dépôt de l'utilisateur
+      if (userDepotCode) {
+        setStockDepotCode(userDepotCode);
+      }
     }
-  }, [userDepotCode]);
+  }, [userDepotCode, isAdmin, depotOptions]);
 
   useEffect(() => {
     if (isAdmin) {
@@ -1122,7 +1130,12 @@ const isExpiringWithinSixMonths = (dateString?: string | null) => {
 
       setStockQuantity('');
       setStockObservation('');
-      setStockDepotCode(userDepotCode ?? null);
+      // Réinitialiser le dépôt selon le rôle
+      if (isAdmin && depotOptions.length > 0) {
+        setStockDepotCode(depotOptions[0]);
+      } else {
+        setStockDepotCode(userDepotCode ?? null);
+      }
       setAdjustExpirationDate('');
 
       refetchProducts();
@@ -2394,6 +2407,56 @@ const historyModal = (
 
                 {stockManagementTab === 'adjust' ? (
                   <>
+                    {isAdmin ? (
+                      <View style={styles.stockFormGroupWeb}>
+                        <Text style={styles.stockFormLabelWeb}>Dépôt *</Text>
+                        {depotCodesLoading ? (
+                          <View style={styles.depotLoadingContainerWeb}>
+                            <ActivityIndicator size="small" color="#3B82F6" />
+                            <Text style={styles.depotLoadingTextWeb}>Chargement des dépôts...</Text>
+                          </View>
+                        ) : depotOptions.length > 0 ? (
+                          <View style={styles.depotChipsContainerWeb}>
+                            {depotOptions.map((code) => (
+                              <TouchableOpacity
+                                key={code}
+                                style={[
+                                  styles.depotChipWeb,
+                                  stockDepotCode === code && styles.depotChipActiveWeb
+                                ]}
+                                onPress={() => setStockDepotCode(code)}
+                              >
+                                <Text
+                                  style={[
+                                    styles.depotChipTextWeb,
+                                    stockDepotCode === code && styles.depotChipTextActiveWeb
+                                  ]}
+                                >
+                                  {code}
+                                </Text>
+                              </TouchableOpacity>
+                            ))}
+                          </View>
+                        ) : (
+                          <Text style={styles.stockHelperTextWeb}>
+                            Aucun dépôt disponible.
+                          </Text>
+                        )}
+                        {depotCodesError && (
+                          <Text style={styles.stockErrorTextWeb}>{depotCodesError}</Text>
+                        )}
+                      </View>
+                    ) : (
+                      <View style={styles.stockFormGroupWeb}>
+                        <Text style={styles.stockFormLabelWeb}>Dépôt</Text>
+                        <Text style={styles.stockHelperTextWeb}>
+                          {userDepotCode
+                            ? `Le stock sera ajusté pour le dépôt ${userDepotCode}.`
+                            : "Code dépôt de l'utilisateur introuvable."}
+                        </Text>
+                      </View>
+                    )}
+
                     <View style={styles.stockFormRowWeb}>
                       <View style={styles.stockFormGroupWeb}>
                         <Text style={styles.stockFormLabelWeb}>Quantité *</Text>
@@ -3188,6 +3251,54 @@ const historyModal = (
 
                 {stockManagementTab === 'adjust' ? (
                   <>
+                    {isAdmin ? (
+                      <View style={styles.formFieldMobile}>
+                        <Text style={styles.formLabelMobile}>Dépôt *</Text>
+                        {depotCodesLoading ? (
+                          <View style={styles.depotLoadingContainerMobile}>
+                            <ActivityIndicator size="small" color="#3B82F6" />
+                            <Text style={styles.depotLoadingTextMobile}>Chargement...</Text>
+                          </View>
+                        ) : depotOptions.length > 0 ? (
+                          <View style={styles.depotChipsContainerMobile}>
+                            {depotOptions.map((code) => (
+                              <TouchableOpacity
+                                key={code}
+                                style={[
+                                  styles.depotChipMobile,
+                                  stockDepotCode === code && styles.depotChipActiveMobile
+                                ]}
+                                onPress={() => setStockDepotCode(code)}
+                              >
+                                <Text
+                                  style={[
+                                    styles.depotChipTextMobile,
+                                    stockDepotCode === code && styles.depotChipTextActiveMobile
+                                  ]}
+                                >
+                                  {code}
+                                </Text>
+                              </TouchableOpacity>
+                            ))}
+                          </View>
+                        ) : (
+                          <Text style={styles.stockInfoTextMobile}>Aucun dépôt disponible.</Text>
+                        )}
+                        {depotCodesError && (
+                          <Text style={styles.stockErrorTextMobile}>{depotCodesError}</Text>
+                        )}
+                      </View>
+                    ) : (
+                      <View style={styles.formFieldMobile}>
+                        <Text style={styles.formLabelMobile}>Dépôt</Text>
+                        <Text style={styles.stockInfoTextMobile}>
+                          {userDepotCode
+                            ? `Le stock sera ajusté pour le dépôt ${userDepotCode}.`
+                            : "Code dépôt de l'utilisateur introuvable."}
+                        </Text>
+                      </View>
+                    )}
+
                     <View style={styles.formFieldMobile}>
                       <Text style={styles.formLabelMobile}>Quantité *</Text>
                       <TextInput
