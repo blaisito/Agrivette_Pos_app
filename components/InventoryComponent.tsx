@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Alert, Dimensions, FlatList, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { createCategory, deleteCategory, getCategories, updateCategory } from '../api/categoryApi';
 import { createProduct, getProductById, getProducts, updateProduct } from '../api/productApi';
 import { getProductStockHistory, reapprovisionStock, sortieStock, transferStock } from '../api/stockApi';
@@ -9,6 +9,168 @@ import { useApi } from '../hooks/useApi';
 import { useFetch } from '../hooks/useFetch';
 import { getUserData } from '../utils/storage';
 
+// Composant ProductRowWeb mémorisé pour optimiser les performances
+const ProductRowWeb = React.memo(({
+  product,
+  onEdit,
+  onHistory,
+  formatDateTime,
+  isExpiringWithinSixMonths
+}: {
+  product: any;
+  onEdit: (product: any) => void;
+  onHistory: (product: any) => void;
+  formatDateTime: (dateString?: string | null) => string;
+  isExpiringWithinSixMonths: (dateString?: string | null) => boolean;
+}) => {
+  return (
+    <View style={styles.tableRowWeb}>
+      <View style={styles.productCellWeb}>
+        <View style={styles.productIconWeb}>
+          <Ionicons name="cube-outline" size={24} color="#6B7280" />
+        </View>
+        <View>
+          <Text style={styles.productNameWeb}>{product.productName}</Text>
+          <Text style={[styles.productUnitWeb, {flex: 1, maxWidth: '30%'}]}>{product.description || 'Aucune description'}</Text>
+        </View>
+      </View>
+      <Text style={[styles.categoryCellWeb, {flex: 1}]}>{product.category?.categoryName || 'N/A'}</Text>
+      <Text style={styles.priceCellWeb}>${product.priceUsd}</Text>
+      <Text style={styles.priceCellWeb}>{product.priceCdf} CDF</Text>
+      <View style={styles.expirationCellWeb}>
+        <Text style={styles.expirationDateTextWeb}>
+          {formatDateTime(product.expirationDate)}
+        </Text>
+        {isExpiringWithinSixMonths(product.expirationDate) && (
+          <View style={styles.expirationBadgeWeb}>
+            <Text style={styles.expirationBadgeTextWeb}>Expiration</Text>
+          </View>
+        )}
+      </View>
+      <Text style={styles.stockCellWeb}>{product.inStock || 0}</Text>
+      <View style={styles.actionsCellWeb}>
+        <TouchableOpacity
+          style={[styles.actionButtonWeb, styles.historyButtonWeb]}
+          onPress={() => onHistory(product)}
+        >
+          <Ionicons name="time-outline" size={16} color="#2563EB" />
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={styles.actionButtonWeb} 
+          onPress={() => onEdit(product)}
+        >
+          <Ionicons name="create-outline" size={16} color="#3B82F6" />
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.actionButtonWeb, styles.deleteButtonWeb]} 
+          onPress={() => {
+            if (typeof window !== 'undefined' && typeof window.alert === 'function') {
+              window.alert('Fonction de suppression à implémenter');
+            } else {
+              Alert.alert('Info', 'Fonction de suppression à implémenter');
+            }
+          }}
+        >
+          <Ionicons name="trash-outline" size={16} color="#EF4444" />
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}, (prevProps, nextProps) => {
+  return (
+    prevProps.product.id === nextProps.product.id &&
+    prevProps.product.inStock === nextProps.product.inStock &&
+    prevProps.product.productName === nextProps.product.productName &&
+    prevProps.product.expirationDate === nextProps.product.expirationDate
+  );
+});
+
+// Composant ProductItemMobile mémorisé pour optimiser les performances
+const ProductItemMobile = React.memo(({ 
+  product, 
+  onEdit, 
+  onHistory, 
+  formatDateTime, 
+  isExpiringWithinSixMonths 
+}: {
+  product: any;
+  onEdit: (product: any) => void;
+  onHistory: (product: any) => void;
+  formatDateTime: (dateString?: string | null) => string;
+  isExpiringWithinSixMonths: (dateString?: string | null) => boolean;
+}) => {
+  const isExpiringSoon = isExpiringWithinSixMonths(product.expirationDate);
+  
+  return (
+    <View style={styles.productCardMobile}>
+      <View style={styles.productHeaderMobile}>
+        <View style={styles.productIconMobile}>
+          <Ionicons name="cube" size={20} color="#7C3AED" />
+        </View>
+        <View style={styles.productInfoMobile}>
+          <Text style={styles.productNameMobile}>{product.productName}</Text>
+          <Text style={styles.productCategoryMobile}>{product.category?.categoryName || 'N/A'}</Text>
+        </View>
+        <View style={styles.productHeaderActionsMobile}>
+          <TouchableOpacity
+            style={styles.historyIconMobile}
+            onPress={() => onHistory(product)}
+          >
+            <Ionicons name="time-outline" size={22} color="#2563EB" />
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.editIconMobile}
+            onPress={() => onEdit(product)}
+          >
+            <Ionicons name="create" size={24} color="#3B82F6" />
+          </TouchableOpacity>
+        </View>
+      </View>
+      <View style={styles.productDetailsMobile}>
+        <View style={styles.priceRowMobile}>
+          <Text style={styles.priceLabelMobile}>Prix USD:</Text>
+          <Text style={styles.priceValueMobile}>${product.priceUsd}</Text>
+        </View>
+        <View style={styles.priceRowMobile}>
+          <Text style={styles.priceLabelMobile}>Prix CDF:</Text>
+          <Text style={styles.priceValueMobile}>{product.priceCdf} CDF</Text>
+        </View>
+        <View style={styles.stockRowMobile}>
+          <Text style={styles.stockLabelMobile}>Stock:</Text>
+          <Text style={[
+            styles.stockValueMobile,
+            (product.inStock || 0) === 0 && styles.stockEmptyMobile,
+            (product.inStock || 0) <= (product.minimalStock || 5) && (product.inStock || 0) > 0 && styles.stockLowMobile
+          ]}>
+            {product.inStock || 0} unités
+          </Text>
+        </View>
+        <View style={styles.expirationRowMobile}>
+          <Text style={styles.expirationLabelMobile}>Expiration:</Text>
+          <View style={styles.expirationValueWrapperMobile}>
+            <Text style={styles.expirationValueMobile}>
+              {formatDateTime(product.expirationDate)}
+            </Text>
+            {isExpiringSoon && (
+              <View style={styles.expirationBadgeMobile}>
+                <Text style={styles.expirationBadgeTextMobile}>Expiration</Text>
+              </View>
+            )}
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+}, (prevProps, nextProps) => {
+  // Comparaison personnalisée pour éviter les re-renders inutiles
+  return (
+    prevProps.product.id === nextProps.product.id &&
+    prevProps.product.inStock === nextProps.product.inStock &&
+    prevProps.product.productName === nextProps.product.productName &&
+    prevProps.product.expirationDate === nextProps.product.expirationDate
+  );
+});
+
 // Composant Inventaire
 const InventoryComponent = () => {
   const { width } = Dimensions.get('window');
@@ -16,6 +178,7 @@ const InventoryComponent = () => {
   
   const [activeTab, setActiveTab] = useState<'products' | 'categories' | 'product-management'>('products');
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Toutes');
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [userDepotCode, setUserDepotCode] = useState<string | null>(null);
@@ -51,6 +214,30 @@ const InventoryComponent = () => {
   // Types pour éviter les erreurs TypeScript
   const categories = categoriesData || [];
   const products = productsData || [];
+
+  // Debounce pour la recherche (300ms)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Mémoïsation des produits filtrés
+  const filteredProducts: any[] = useMemo(() => {
+    return products.filter((product: any) => {
+      // Filtre par recherche
+      const matchesSearch = debouncedSearchQuery === '' || 
+        product.productName.toLowerCase().includes(debouncedSearchQuery.toLowerCase());
+      
+      // Filtre par catégorie
+      const matchesCategory = selectedCategory === 'Toutes' || 
+        product.category?.categoryName === selectedCategory;
+      
+      return matchesSearch && matchesCategory;
+    });
+  }, [products, debouncedSearchQuery, selectedCategory]);
   
   // État pour le formulaire de catégorie (conforme aux DTOs)
   const [newCategory, setNewCategory] = useState({
@@ -1034,7 +1221,7 @@ const isExpiringWithinSixMonths = (dateString?: string | null) => {
     }
   };
 
-  const selectProductForEdit = (product: any) => {
+  const selectProductForEdit = useCallback((product: any) => {
     setEditingProduct(product);
     setNewProduct({
       productName: product.productName || product.name || '',
@@ -1048,15 +1235,15 @@ const isExpiringWithinSixMonths = (dateString?: string | null) => {
     });
     setActiveTab('product-management');
     setStockFeedback(null);
-  };
+  }, []);
 
-  const openHistoryModal = (product: any) => {
+  const openHistoryModal = useCallback((product: any) => {
     setHistoryProduct(product);
     setHistoryTab('reaprovision');
     setHistoryData({ reaprovision: [], sorties: [] });
     setHistoryError(null);
     setShowHistoryModal(true);
-  };
+  }, []);
 
   const closeHistoryModal = () => {
     setShowHistoryModal(false);
@@ -1989,78 +2176,23 @@ const historyModal = (
                     <Text style={styles.tableHeaderTextWeb}>Actions</Text>
                   </View>
                   
-                  {products.length === 0 ? (
+                  {filteredProducts.length === 0 ? (
                     <View style={styles.emptyStateWeb}>
                       <Ionicons name="cube-outline" size={48} color="#9CA3AF" />
                       <Text style={styles.emptyStateTextWeb}>Aucun produit trouvé</Text>
                       <Text style={styles.emptyStateSubtextWeb}>Commencez par créer un produit</Text>
                     </View>
                   ) : (
-                    products
-                      .filter((product: any) => {
-                        // Filtre par recherche
-                        const matchesSearch = searchQuery === '' || 
-                          product.productName.toLowerCase().includes(searchQuery.toLowerCase());
-                        
-                        // Filtre par catégorie
-                        const matchesCategory = selectedCategory === 'Toutes' || 
-                          product.category?.categoryName === selectedCategory;
-                        
-                        return matchesSearch && matchesCategory;
-                      })
-                      .map((product: any) => (
-                        <View key={product.id} style={styles.tableRowWeb}>
-                          <View style={styles.productCellWeb}>
-                            <View style={styles.productIconWeb}>
-                              <Ionicons name="cube-outline" size={24} color="#6B7280" />
-                            </View>
-                            <View>
-                              <Text style={styles.productNameWeb}>{product.productName}</Text>
-                              <Text style={styles.productUnitWeb}>{product.description || 'Aucune description'}</Text>
-                            </View>
-                          </View>
-                          <Text style={styles.categoryCellWeb}>{product.category?.categoryName || 'N/A'}</Text>
-                          <Text style={styles.priceCellWeb}>${product.priceUsd}</Text>
-                          <Text style={styles.priceCellWeb}>{product.priceCdf} CDF</Text>
-                          <View style={styles.expirationCellWeb}>
-                            <Text style={styles.expirationDateTextWeb}>
-                              {formatDateTime(product.expirationDate)}
-                            </Text>
-                            {isExpiringWithinSixMonths(product.expirationDate) && (
-                              <View style={styles.expirationBadgeWeb}>
-                                <Text style={styles.expirationBadgeTextWeb}>Expiration</Text>
-                              </View>
-                            )}
-                          </View>
-                          <Text style={styles.stockCellWeb}>{product.inStock || 0}</Text>
-                          <View style={styles.actionsCellWeb}>
-                            <TouchableOpacity
-                              style={[styles.actionButtonWeb, styles.historyButtonWeb]}
-                              onPress={() => openHistoryModal(product)}
-                            >
-                              <Ionicons name="time-outline" size={16} color="#2563EB" />
-                            </TouchableOpacity>
-                            <TouchableOpacity 
-                              style={styles.actionButtonWeb} 
-                              onPress={() => selectProductForEdit(product)}
-                            >
-                              <Ionicons name="create-outline" size={16} color="#3B82F6" />
-                            </TouchableOpacity>
-                            <TouchableOpacity 
-                              style={[styles.actionButtonWeb, styles.deleteButtonWeb]} 
-                              onPress={() => {
-                                if (isLargeScreen) {
-                                  window.alert('Fonction de suppression à implémenter');
-                                } else {
-                                  Alert.alert('Info', 'Fonction de suppression à implémenter');
-                                }
-                              }}
-                            >
-                              <Ionicons name="trash-outline" size={16} color="#EF4444" />
-                            </TouchableOpacity>
-                          </View>
-                        </View>
-                      ))
+                    filteredProducts.map((product: any) => (
+                      <ProductRowWeb
+                        key={product.id}
+                        product={product}
+                        onEdit={selectProductForEdit}
+                        onHistory={openHistoryModal}
+                        formatDateTime={formatDateTime}
+                        isExpiringWithinSixMonths={isExpiringWithinSixMonths}
+                      />
+                    ))
                   )}
                 </View>
 
@@ -2861,92 +2993,37 @@ const historyModal = (
                 ))}
               </ScrollView>
 
-              {/* Liste des produits */}
-              <View style={styles.productsListMobile}>
-                {products
-                  .filter((product: any) => {
-                    const matchesSearch = searchQuery === '' || 
-                      product.productName.toLowerCase().includes(searchQuery.toLowerCase());
-                    const matchesCategory = selectedCategory === 'Toutes' || 
-                      product.category?.categoryName === selectedCategory;
-                    return matchesSearch && matchesCategory;
-                  })
-                  .map((product: any) => {
-                    const isExpiringSoon = isExpiringWithinSixMonths(product.expirationDate);
-                    return (
-                      <View key={product.id} style={styles.productCardMobile}>
-                      <View style={styles.productHeaderMobile}>
-                        <View style={styles.productIconMobile}>
-                          <Ionicons name="cube" size={20} color="#7C3AED" />
-                        </View>
-                        <View style={styles.productInfoMobile}>
-                          <Text style={styles.productNameMobile}>{product.productName}</Text>
-                          <Text style={styles.productCategoryMobile}>{product.category?.categoryName || 'N/A'}</Text>
-                        </View>
-                        <View style={styles.productHeaderActionsMobile}>
-                          <TouchableOpacity
-                            style={styles.historyIconMobile}
-                            onPress={() => openHistoryModal(product)}
-                          >
-                            <Ionicons name="time-outline" size={22} color="#2563EB" />
-                          </TouchableOpacity>
-                          <TouchableOpacity 
-                            style={styles.editIconMobile}
-                            onPress={() => selectProductForEdit(product)}
-                          >
-                            <Ionicons name="create" size={24} color="#3B82F6" />
-                          </TouchableOpacity>
-                        </View>
-                      </View>
-                      <View style={styles.productDetailsMobile}>
-                        <View style={styles.priceRowMobile}>
-                          <Text style={styles.priceLabelMobile}>Prix USD:</Text>
-                          <Text style={styles.priceValueMobile}>${product.priceUsd}</Text>
-                        </View>
-                        <View style={styles.priceRowMobile}>
-                          <Text style={styles.priceLabelMobile}>Prix CDF:</Text>
-                          <Text style={styles.priceValueMobile}>{product.priceCdf} CDF</Text>
-                        </View>
-                        <View style={styles.stockRowMobile}>
-                          <Text style={styles.stockLabelMobile}>Stock:</Text>
-                          <Text style={[
-                            styles.stockValueMobile,
-                            (product.inStock || 0) === 0 && styles.stockEmptyMobile,
-                            (product.inStock || 0) <= (product.minimalStock || 5) && (product.inStock || 0) > 0 && styles.stockLowMobile
-                          ]}>
-                            {product.inStock || 0} unités
-                          </Text>
-                        </View>
-                        <View style={styles.expirationRowMobile}>
-                          <Text style={styles.expirationLabelMobile}>Expiration:</Text>
-                          <View style={styles.expirationValueWrapperMobile}>
-                            <Text style={styles.expirationValueMobile}>
-                              {formatDateTime(product.expirationDate)}
-                            </Text>
-                {isExpiringSoon && (
-                              <View style={styles.expirationBadgeMobile}>
-                                <Text style={styles.expirationBadgeTextMobile}>Expiration</Text>
-                              </View>
-                            )}
-                          </View>
-                        </View>
-                      </View>
-                    </View>
-                    );
+              {/* Liste des produits avec FlatList pour virtualisation */}
+              {filteredProducts.length === 0 ? (
+                <View style={styles.emptyStateMobile}>
+                  <Ionicons name="cube-outline" size={48} color="#9CA3AF" />
+                  <Text style={styles.emptyTextMobile}>Aucun produit trouvé</Text>
+                </View>
+              ) : (
+                <FlatList
+                  data={filteredProducts}
+                  keyExtractor={(item: any) => item.id.toString()}
+                  renderItem={({ item }: { item: any }) => (
+                    <ProductItemMobile
+                      product={item}
+                      onEdit={selectProductForEdit}
+                      onHistory={openHistoryModal}
+                      formatDateTime={formatDateTime}
+                      isExpiringWithinSixMonths={isExpiringWithinSixMonths}
+                    />
+                  )}
+                  contentContainerStyle={styles.productsListMobile}
+                  initialNumToRender={10}
+                  maxToRenderPerBatch={10}
+                  windowSize={10}
+                  removeClippedSubviews={true}
+                  getItemLayout={(data, index) => ({
+                    length: 180, // Hauteur approximative d'un item
+                    offset: 180 * index,
+                    index,
                   })}
-                {products.filter((product: any) => {
-                  const matchesSearch = searchQuery === '' || 
-                    product.productName.toLowerCase().includes(searchQuery.toLowerCase());
-                  const matchesCategory = selectedCategory === 'Toutes' || 
-                    product.category?.categoryName === selectedCategory;
-                  return matchesSearch && matchesCategory;
-                }).length === 0 && (
-                  <View style={styles.emptyStateMobile}>
-                    <Ionicons name="cube-outline" size={48} color="#9CA3AF" />
-                    <Text style={styles.emptyTextMobile}>Aucun produit trouvé</Text>
-                  </View>
-                )}
-              </View>
+                />
+              )}
             </>
           )}
         </View>
