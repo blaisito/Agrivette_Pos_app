@@ -352,15 +352,6 @@ const InventoryComponent = () => {
       }
       return;
     }
-    if (!newProduct.priceCdf.trim()) {
-      const isWeb = typeof window !== 'undefined' && typeof window.alert === 'function';
-      if (isWeb) {
-        window.alert('❌ Erreur : Le prix CDF est obligatoire');
-      } else {
-        Alert.alert('Erreur', 'Le prix CDF est obligatoire');
-      }
-      return;
-    }
 
     // Préparer les données pour l'API
     const userData = await getUserData();
@@ -451,15 +442,6 @@ const InventoryComponent = () => {
         window.alert('❌ Erreur : Le prix USD est obligatoire');
       } else {
         Alert.alert('Erreur', 'Le prix USD est obligatoire');
-      }
-      return;
-    }
-    if (!newProduct.priceCdf.trim()) {
-      const isWeb = typeof window !== 'undefined' && typeof window.alert === 'function';
-      if (isWeb) {
-        window.alert('❌ Erreur : Le prix CDF est obligatoire');
-      } else {
-        Alert.alert('Erreur', 'Le prix CDF est obligatoire');
       }
       return;
     }
@@ -2401,7 +2383,7 @@ const historyModal = (
                 </View>
                 
                 <View style={[styles.formGroupWeb, { display: 'none' }]}>
-                   <Text style={styles.formLabelWeb}>Prix (CDF) *</Text>
+                   <Text style={styles.formLabelWeb}>Prix (CDF)</Text>
                   <TextInput
                     style={styles.formInputWeb}
                      value={newProduct.priceCdf}
@@ -3203,7 +3185,7 @@ const historyModal = (
                 />
               </View>
               <View style={[styles.formFieldMobile, { flex: 1, display: 'none' }]}>
-                <Text style={styles.formLabelMobile}>Prix CDF *</Text>
+                <Text style={styles.formLabelMobile}>Prix CDF</Text>
                 <TextInput
                   style={styles.formInputMobile}
                   placeholder="0"
