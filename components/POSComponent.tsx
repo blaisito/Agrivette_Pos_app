@@ -1046,7 +1046,10 @@ ${orderDetails}
                           styles.menuItemWeb,
                           selectedProducts.has(product.productName) && styles.menuItemSelected
                         ]}
-                        onPress={() => addProductToCart(product)}
+                        onPress={() => {
+                          addProductToCart(product);
+                          setSearchTerm("");
+                        }}
                         activeOpacity={0.7}
                       >
                         {selectedProducts.has(product.productName) && !isOutOfStock && (
