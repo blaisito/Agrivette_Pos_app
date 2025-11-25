@@ -355,6 +355,13 @@ const getPriceForCurrency = (item: any, isUsd: boolean, rate: number) => {
   const totalUsdDisplay = adjustedTotalUsd;
   const totalUsdInCdfDisplay = useUsdAmounts ? adjustedTotalUsdInCdf : totalUsdInCdf;
 
+  // Initialiser amountUsd avec totalFinalUsd par défaut quand le panier change
+  useEffect(() => {
+    if (useUsdAmounts && totalFinalUsd > 0) {
+      setAmountUsd(totalFinalUsd.toFixed(2));
+    }
+  }, [orderItems, totalFinalUsd, useUsdAmounts]);
+
   // Ajout d'images pour chaque item du menu
   const menuItems = [
     {

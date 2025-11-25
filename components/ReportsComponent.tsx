@@ -1110,7 +1110,7 @@ const ReportsComponent = () => {
                         styles.depotChipWeb,
                         selectedDepotCode === '' && styles.depotChipWebActive,
                       ]}
-                      onPress={() => setSelectedDepotCode('')}
+                      onPress={() => setSelectedDepotCode(null)}
                     >
                       <Text
                         style={[
