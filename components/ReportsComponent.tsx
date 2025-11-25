@@ -503,10 +503,11 @@ const ReportsComponent = () => {
 
   useEffect(() => {
     if (isAdmin) {
+      // Ne réinitialiser que si selectedDepotCode est null (pas si c'est '' qui représente "Tout")
       if (selectedDepotCode === null && depotCodes.length > 0) {
         setSelectedDepotCode(depotCodes[0]);
       }
-    } else if (userDepotCode && selectedDepotCode !== userDepotCode) {
+    } else if (userDepotCode && selectedDepotCode !== userDepotCode && selectedDepotCode !== '') {
       setSelectedDepotCode(userDepotCode);
     }
   }, [isAdmin, userDepotCode, depotCodes, selectedDepotCode]);
@@ -1105,27 +1106,12 @@ const ReportsComponent = () => {
                   <Text style={styles.depotHelperText}>Aucun dépôt disponible.</Text>
                 ) : (
                   <View style={styles.depotChipsWeb}>
-                    <TouchableOpacity
-                      style={[
-                        styles.depotChipWeb,
-                        selectedDepotCode === '' && styles.depotChipWebActive,
-                      ]}
-                      onPress={() => setSelectedDepotCode(null)}
-                    >
-                      <Text
-                        style={[
-                          styles.depotChipTextWeb,
-                          selectedDepotCode === '' && styles.depotChipTextWebActive,
-                        ]}
-                      >
-                        Tout
-                      </Text>
-                    </TouchableOpacity>
-                    {depotCodes.map((code) => {
+                    {['', ...depotCodes].map((code) => {
                       const isSelected = selectedDepotCode === code;
+                      const displayText = code === '' ? 'Tout' : code;
                       return (
                         <TouchableOpacity
-                          key={code}
+                          key={code === '' ? 'all' : code}
                           style={[
                             styles.depotChipWeb,
                             isSelected && styles.depotChipWebActive,
@@ -1138,7 +1124,7 @@ const ReportsComponent = () => {
                               isSelected && styles.depotChipTextWebActive,
                             ]}
                           >
-                            {code}
+                            {displayText}
                           </Text>
                         </TouchableOpacity>
                       );
