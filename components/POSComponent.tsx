@@ -21,11 +21,11 @@ const showAlert = (title: string, message: string) => {
 };
 
 // Fonction pour formater les données de facture POS en format de reçu
-const formatInvoiceForReceiptPOS = (orderItems: any[], selectedTable: any, customerName: string, customerContact: string, paymentMethod: string, totalCdf: number, totalUsd: number, totalUsdInCdf: number, discount: number, exchangeRate: number, amountCdf: number, amountUsd: number, reductionCdf: number, reductionUsd: number, totalFinalCdf: number, totalFinalUsd: number, username: string = '') => {
+const formatInvoiceForReceiptPOS = (orderItems: any[], selectedTable: any, customerName: string, customerContact: string, paymentMethod: string, totalCdf: number, totalUsd: number, totalUsdInCdf: number, discount: number, exchangeRate: number, amountCdf: number, amountUsd: number, reductionCdf: number, reductionUsd: number, totalFinalCdf: number, totalFinalUsd: number, username: string = '', factureNum: string | number = '', isProforma: boolean = false) => {
   const factureDate = new Date().toISOString();
   
-  // Générer un numéro aléatoire à 6 chiffres pour chaque facture
-  const factureNum = Math.floor(Math.random() * 900000) + 100000;
+  // Utiliser le numéro de facture fourni, ou générer un numéro temporaire si non fourni (pour proforma)
+  const finalFactureNum = factureNum || Math.floor(Math.random() * 900000) + 100000;
   
   // Mapper les orderItems vers items (même structure que FactureComponent)
   const items = orderItems.map((item, index) => ({
@@ -41,10 +41,13 @@ const formatInvoiceForReceiptPOS = (orderItems: any[], selectedTable: any, custo
   // Calculer le total dynamique (reste à payer) : (Montant total) - réduction - montant payé
   const remainingAmountCdf = Math.max(0, totalFinalCdf - reductionCdf - amountCdf);
   const remainingAmountUsd = Math.max(0, totalFinalUsd - reductionUsd - amountUsd);
+
+  // Déterminer le nom de l'organisation selon le type de facture
+  const organisationName = isProforma ? "AGRIVET-CONGO ( PROFORMAT )" : "AGRIVET-CONGO";
   
   return {
     // ENTÊTE RESTAURANT (identique à FactureComponent)
-    organisationName: "AGRIVET-CONGO",
+    organisationName: organisationName,
     adresse1: "Av. Mama Yemo coin Likasi C/Lubumbashi",
     adresse2: "Lubumbashi, RDC",
     phone1: "(+243) 994541568",
@@ -58,7 +61,7 @@ const formatInvoiceForReceiptPOS = (orderItems: any[], selectedTable: any, custo
     //tableName: selectedTable ? (selectedTable.nomination || `Table ${selectedTable.id}`) : "N/A",
     // INFORMATIONS UTILISATEUR
     UserName: username,
-    Num: factureNum,
+    Num: finalFactureNum,
     
     date: factureDate,
     time: factureDate, // Même valeur que date
@@ -779,6 +782,9 @@ const getPriceForCurrency = (item: any, isUsd: boolean, rate: number) => {
       
       if (response.success) {
         
+        // Récupérer le numéro de facture depuis la réponse de l'API
+        const factureNumber = response.data?.id || 'N/A';
+        
         // Préparer les données pour l'impression AVANT de réinitialiser le panier
         const receiptDiscount = useUsdAmounts ? 0 : displayReductionCdf;
         const receiptData = formatInvoiceForReceiptPOS(
@@ -798,7 +804,9 @@ const getPriceForCurrency = (item: any, isUsd: boolean, rate: number) => {
           displayReductionUsd,
           total,
           totalFinalUsd,
-          userData?.username || ''
+          userData?.username || '',
+          factureNumber,
+          false // isProforma = false pour ne pas ajouter "( PROFORMAT )"
         );
         
         // Réinitialiser le panier et les états
@@ -817,7 +825,6 @@ const getPriceForCurrency = (item: any, isUsd: boolean, rate: number) => {
         setSelectedProducts(new Set());
         
         // Message de succès détaillé
-        const factureNumber = response.data?.id || 'N/A';
         const totalAmount = total.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
         
         const successMessage = `✅ FACTURE CRÉÉE AVEC SUCCÈS !
@@ -909,7 +916,9 @@ Vérifiez votre connexion internet et réessayez.`;
         displayReductionUsd,
         total,
         totalFinalUsd,
-        userData?.username || ''
+        userData?.username || '',
+        'PROFORMA', // Numéro temporaire pour les proformas
+        true // isProforma = true pour ajouter "( PROFORMAT )"
       );
       
       // Lancer l'impression du proforma

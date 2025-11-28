@@ -7,6 +7,7 @@ import { addFacturePayment, deleteFacture, deleteFacturePayment, getAllFactures,
 import { getProducts } from '../api/productApi';
 import { getTables } from '../api/tableApi';
 import { useFetch } from '../hooks/useFetch';
+import { hasAdminClaim } from '../utils/permissions';
 import { getUserData } from '../utils/storage';
 import BottomSheetCalendarModal from './ui/BottomSheetCalendarModal';
 import CalendarModal from './ui/CalendarModal';
@@ -265,6 +266,7 @@ const FactureComponent = ({ onInvoiceCountChange }: FactureComponentProps) => {
   const [exchangeRate, setExchangeRate] = useState<number>(2800); // Valeur par défaut
   
   const [userDepotCode, setUserDepotCode] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const productFetchParams = useMemo(
     () => (userDepotCode ? { depotCode: userDepotCode } : null),
     [userDepotCode]
@@ -277,6 +279,9 @@ const FactureComponent = ({ onInvoiceCountChange }: FactureComponentProps) => {
         if (user?.depotCode) {
           setUserDepotCode(user.depotCode);
         }
+        // Vérifier si l'utilisateur est admin
+        const claims: string[] = Array.isArray(user?.claims) ? (user.claims as string[]) : [];
+        setIsAdmin(hasAdminClaim(claims));
       } catch (error) {
         console.error('Erreur lors du chargement du dépôt utilisateur:', error);
       }
@@ -2923,6 +2928,10 @@ Voulez-vous confirmer la modification de cette facture ?`;
             <Text style={styles.statValueWeb}>{filteredInvoices.reduce((sum: number, inv: Invoice) => sum + (inv.amountPaidCdf || 0), 0).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}</Text>
             <Text style={styles.statLabelWeb}>Total CDF</Text>
           </View>
+          <View style={styles.statCardWeb}>
+            <Text style={styles.statValueWeb}>{filteredInvoices.filter((inv: Invoice) => (inv.amountPaidCdf || 0) === 0 || (inv.amountPaidUsd || 0) === 0).length}</Text>
+            <Text style={styles.statLabelWeb}>Dette</Text>
+          </View>
         </View>
 
         {/* Grille des cartes de factures */}
@@ -3392,26 +3401,28 @@ Voulez-vous confirmer la modification de cette facture ?`;
                     <Text style={styles.editButtonTextWeb}>Supprimer facture</Text>
                   </TouchableOpacity>
                   
-                  <TouchableOpacity
-                    style={[
-                      styles.editButtonWeb,
-                      isUpdatingInvoice && styles.editButtonDisabledWeb
-                    ]}
-                    onPress={showUpdateConfirmation}
-                    disabled={isUpdatingInvoice}
-                  >
-                    {isUpdatingInvoice ? (
-                      <>
-                        <Ionicons name="hourglass" size={20} color="#FFFFFF" />
-                        <Text style={styles.editButtonTextWeb}>Modification en cours...</Text>
-                      </>
-                    ) : (
-                      <>
-                        <Ionicons name="save" size={20} color="#FFFFFF" />
-                        <Text style={styles.editButtonTextWeb}>Modifier la facture</Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
+                  {isAdmin && (
+                    <TouchableOpacity
+                      style={[
+                        styles.editButtonWeb,
+                        isUpdatingInvoice && styles.editButtonDisabledWeb
+                      ]}
+                      onPress={showUpdateConfirmation}
+                      disabled={isUpdatingInvoice}
+                    >
+                      {isUpdatingInvoice ? (
+                        <>
+                          <Ionicons name="hourglass" size={20} color="#FFFFFF" />
+                          <Text style={styles.editButtonTextWeb}>Modification en cours...</Text>
+                        </>
+                      ) : (
+                        <>
+                          <Ionicons name="save" size={20} color="#FFFFFF" />
+                          <Text style={styles.editButtonTextWeb}>Modifier la facture</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  )}
                 </View>
                     </View>
                   ) : (
@@ -4777,20 +4788,22 @@ Voulez-vous confirmer la modification de cette facture ?`;
               <Text style={styles.mobileActionButtonText}>Supprimer facture</Text>
             </TouchableOpacity>
             
-            <TouchableOpacity 
-              style={[styles.mobileActionButton, styles.mobileActionButtonPrimary]}
-              onPress={() => {
-                
-                // Appeler la fonction de confirmation comme sur web
-                showUpdateConfirmation();
-              }}
-              disabled={isUpdatingInvoice}
-            >
-              <Ionicons name="save" size={20} color="#FFFFFF" />
-              <Text style={styles.mobileActionButtonText}>
-                {isUpdatingInvoice ? 'Modification...' : 'Modifier'}
-              </Text>
-            </TouchableOpacity>
+            {isAdmin && (
+              <TouchableOpacity 
+                style={[styles.mobileActionButton, styles.mobileActionButtonPrimary]}
+                onPress={() => {
+                  
+                  // Appeler la fonction de confirmation comme sur web
+                  showUpdateConfirmation();
+                }}
+                disabled={isUpdatingInvoice}
+              >
+                <Ionicons name="save" size={20} color="#FFFFFF" />
+                <Text style={styles.mobileActionButtonText}>
+                  {isUpdatingInvoice ? 'Modification...' : 'Modifier'}
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* Bouton Fermer */}
