@@ -21,8 +21,11 @@ const showAlert = (title: string, message: string) => {
 };
 
 // Fonction pour formater les données de facture POS en format de reçu
-const formatInvoiceForReceiptPOS = (orderItems: any[], selectedTable: any, customerName: string, customerContact: string, paymentMethod: string, totalCdf: number, totalUsd: number, totalUsdInCdf: number, discount: number, exchangeRate: number, amountCdf: number, amountUsd: number, reductionCdf: number, reductionUsd: number, totalFinalCdf: number, totalFinalUsd: number) => {
+const formatInvoiceForReceiptPOS = (orderItems: any[], selectedTable: any, customerName: string, customerContact: string, paymentMethod: string, totalCdf: number, totalUsd: number, totalUsdInCdf: number, discount: number, exchangeRate: number, amountCdf: number, amountUsd: number, reductionCdf: number, reductionUsd: number, totalFinalCdf: number, totalFinalUsd: number, username: string = '') => {
   const factureDate = new Date().toISOString();
+  
+  // Générer un numéro aléatoire à 6 chiffres pour chaque facture
+  const factureNum = Math.floor(Math.random() * 900000) + 100000;
   
   // Mapper les orderItems vers items (même structure que FactureComponent)
   const items = orderItems.map((item, index) => ({
@@ -52,7 +55,11 @@ const formatInvoiceForReceiptPOS = (orderItems: any[], selectedTable: any, custo
     logoPath: "images/logo.png",
     
     // INFORMATIONS FACTURE
-    tableName: selectedTable ? (selectedTable.nomination || `Table ${selectedTable.id}`) : "N/A",
+    //tableName: selectedTable ? (selectedTable.nomination || `Table ${selectedTable.id}`) : "N/A",
+    // INFORMATIONS UTILISATEUR
+    UserName: username,
+    Num: factureNum,
+    
     date: factureDate,
     time: factureDate, // Même valeur que date
     
@@ -68,8 +75,8 @@ const formatInvoiceForReceiptPOS = (orderItems: any[], selectedTable: any, custo
     reductionUsd: reductionUsd,
     
     // TOTAL DYNAMIQUE (reste à payer)
-    remainingAmountCdf: remainingAmountCdf,
-    remainingAmountUsd: remainingAmountUsd,
+    PayeeCdf: remainingAmountCdf,
+    PayeeUsd: remainingAmountUsd,
     
     // MESSAGE FINAL
     thanksMessage: "Thank you for your business! Come again soon!"
@@ -171,6 +178,9 @@ const POSComponent = ({ onCartItemCountChange }: POSComponentProps) => {
   
   // État pour le chargement de la création de facture
   const [isCreatingFacture, setIsCreatingFacture] = useState<boolean>(false);
+  
+  // État pour le chargement de l'impression proforma
+  const [isPrintingProforma, setIsPrintingProforma] = useState<boolean>(false);
   
   // État pour afficher un overlay de chargement global
   const [showLoadingOverlay, setShowLoadingOverlay] = useState<boolean>(false);
@@ -787,7 +797,8 @@ const getPriceForCurrency = (item: any, isUsd: boolean, rate: number) => {
           displayReductionCdf,
           displayReductionUsd,
           total,
-          totalFinalUsd
+          totalFinalUsd,
+          userData?.username || ''
         );
         
         // Réinitialiser le panier et les états
@@ -859,6 +870,85 @@ Vérifiez votre connexion internet et réessayez.`;
     }
   };
 
+  // Fonction pour créer et imprimer un proforma (sans enregistrer dans la DB)
+  const createProformaFromOrder = async () => {
+    // Éviter les appels multiples
+    if (isPrintingProforma) {
+      return;
+    }
+    
+    setIsPrintingProforma(true);
+    
+    try {
+      // Vérifier qu'on a une table sélectionnée
+      if (!selectedTable) {
+        showAlert('❌ Erreur', 'Veuillez sélectionner une table avant d\'imprimer le proforma.');
+        setIsPrintingProforma(false);
+        return;
+      }
+
+      // Préparer les données pour l'impression
+      const inputAmountCdf = Number((amountCdf || '0').replace(',', '.'));
+      const inputAmountUsd = Number((amountUsd || '0').replace(',', '.'));
+      const receiptDiscount = useUsdAmounts ? 0 : displayReductionCdf;
+      
+      const receiptData = formatInvoiceForReceiptPOS(
+        orderItems,
+        selectedTable,
+        customerName,
+        customerContact,
+        paymentMethod,
+        totalCdf,
+        totalUsdDisplay,
+        totalUsdInCdfDisplay,
+        receiptDiscount,
+        exchangeRate,
+        inputAmountCdf,
+        inputAmountUsd,
+        displayReductionCdf,
+        displayReductionUsd,
+        total,
+        totalFinalUsd,
+        userData?.username || ''
+      );
+      
+      // Lancer l'impression du proforma
+      try {
+        await handlePrintFacturePOS(receiptData);
+        
+        // Réinitialiser les champs de la section de droite après impression réussie
+        setDiscount('');
+        setAmountCdf('');
+        setAmountUsd('');
+        setUseUsdAmounts(false);
+        setCustomerName('');
+        setCustomerContact('');
+        setPaymentMethod('Cash');
+        setIsDebt(false);
+        setCommandNotice('');
+        
+        showAlert('✅ Proforma imprimé', 'Le proforma a été envoyé à l\'imprimante avec succès.');
+      } catch (printError) {
+        // L'erreur d'impression est déjà gérée dans l'alert de handlePrintFacturePOS
+      }
+    } catch (error) {
+      console.error('💥 Erreur lors de l\'impression du proforma:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
+      
+      const networkErrorMessage = `💥 ERREUR D'IMPRESSION
+
+Impossible d'imprimer le proforma.
+
+Erreur: ${errorMessage}
+
+Vérifiez votre connexion internet et réessayez.`;
+
+      showAlert('💥 Erreur d\'impression', networkErrorMessage);
+    } finally {
+      setIsPrintingProforma(false);
+    }
+  };
+
   // Fonction pour créer un message d'alerte formaté avec les détails de facturation
   const createFormattedInvoiceMessage = () => {
     const finalTotal = total;
@@ -925,6 +1015,27 @@ ${orderDetails}
     Alert.alert('📋 Confirmation & Impression', message, [
       { text: '❌ Annuler', style: 'cancel' },
       { text: '✅ Créer & Imprimer', style: 'default', onPress: () => createFactureFromOrder() }
+    ]);
+  };
+
+  // Web: confirmation pour imprimer un proforma (sans enregistrer dans la DB)
+  const handlePrintProformaWeb = () => {
+    const message = createFormattedInvoiceMessage() + '\n\n📄 Ceci est un PROFORMA - La facture ne sera PAS enregistrée dans la base de données.';
+
+    // Utiliser confirm() sur web si disponible, sinon fallback Alert
+    if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
+      const confirmed = window.confirm(message);
+      if (!confirmed) return;
+
+      // Imprimer le proforma sans créer la facture
+      createProformaFromOrder();
+      return;
+    }
+
+    // Fallback mobile/native
+    Alert.alert('📄 Impression Proforma', message, [
+      { text: '❌ Annuler', style: 'cancel' },
+      { text: '✅ Imprimer Proformat', style: 'default', onPress: () => createProformaFromOrder() }
     ]);
   };
 
@@ -1407,6 +1518,29 @@ ${orderDetails}
                     {isCreatingFacture 
                       ? 'Enregistrement...' 
                       : 'Enregistrer la commande'
+                    }
+                  </Text>
+                </TouchableOpacity>
+
+                {/* Bouton Imprimer Proforma */}
+                <TouchableOpacity 
+                  style={[
+                    styles.orderButton,
+                    styles.proformaButton,
+                    (isPrintingProforma || !isTableSelected) && styles.orderButtonDisabled
+                  ]} 
+                  onPress={handlePrintProformaWeb}
+                  disabled={isPrintingProforma || !isTableSelected}
+                >
+                  {isPrintingProforma ? (
+                    <ActivityIndicator size="small" color="white" />
+                  ) : (
+                    <Ionicons name="print" size={24} color="white" />
+                  )}
+                  <Text style={styles.orderButtonText}>
+                    {isPrintingProforma 
+                      ? 'Impression...' 
+                      : 'Imprimer proformat'
                     }
                   </Text>
                 </TouchableOpacity>
@@ -2381,6 +2515,32 @@ ${orderDetails}
                     {isCreatingFacture ? 'Enregistrement...' : 'Enregistrer la commande'}
                   </Text>
                 </TouchableOpacity>
+
+                {/* Bouton Imprimer Proforma */}
+                <TouchableOpacity
+                  style={{
+                    backgroundColor: isPrintingProforma || !isTableSelected ? '#9CA3AF' : '#F59E0B',
+                    borderRadius: 8,
+                    paddingVertical: 14,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginTop: 8,
+                    gap: 8,
+                    opacity: isPrintingProforma || !isTableSelected ? 0.7 : 1,
+                  }}
+                  onPress={handlePrintProformaWeb}
+                  disabled={isPrintingProforma || !isTableSelected}
+                >
+                  {isPrintingProforma ? (
+                    <ActivityIndicator size="small" color="white" />
+                  ) : (
+                    <Ionicons name="print" size={20} color="white" />
+                  )}
+                  <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>
+                    {isPrintingProforma ? 'Impression...' : 'Imprimer proforma'}
+                  </Text>
+                </TouchableOpacity>
                 {!isTableSelected && (
                   <Text style={styles.noTableText}>Aucun poste trouvé</Text>
                 )}
@@ -3040,6 +3200,10 @@ const styles = StyleSheet.create({
   orderButtonDisabled: {
     backgroundColor: '#6B7280', // Gris pour indiquer l'état désactivé
     opacity: 0.7,
+  },
+  proformaButton: {
+    backgroundColor: '#F59E0B', // Orange pour distinguer du bouton principal
+    marginTop: 8,
   },
   
   // Loading Overlay
