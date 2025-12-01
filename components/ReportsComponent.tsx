@@ -317,7 +317,10 @@ const ReportsComponent = () => {
       setSellingReportError(response.error || 'Erreur lors du chargement du rapport de vente');
       setSellingReportData([]);
     } else {
-      setSellingReportData(response?.data || []);
+      // L'API renvoie maintenant un objet { data: { sellingReports: [...], depenses: [...] }, success, ... }
+      // On lit donc spécifiquement la liste des ventes dans data.sellingReports
+      const apiPayload = response?.data;
+      setSellingReportData(apiPayload?.sellingReports || []);
     }
 
     setSellingReportLoading(false);
