@@ -21,12 +21,12 @@ const showAlert = (title: string, message: string) => {
 };
 
 // Fonction pour formater les données de facture POS en format de reçu
-const formatInvoiceForReceiptPOS = (orderItems: any[], selectedTable: any, customerName: string, customerContact: string, paymentMethod: string, totalCdf: number, totalUsd: number, totalUsdInCdf: number, discount: number, exchangeRate: number, amountCdf: number, amountUsd: number, reductionCdf: number, reductionUsd: number, totalFinalCdf: number, totalFinalUsd: number, username: string = '', factureNum: string | number = '', isProforma: boolean = false) => {
+const formatInvoiceForReceiptPOS = (orderItems: any[], selectedTable: any, customerName: string, customerContact: string, paymentMethod: string, totalCdf: number, totalUsd: number, totalUsdInCdf: number, discount: number, exchangeRate: number, amountCdf: number, amountUsd: number, reductionCdf: number, reductionUsd: number, totalFinalCdf: number, totalFinalUsd: number, username: string = '', factureNum: string | number = '', isProforma: boolean = false, numCode: string = '') => {
   const factureDate = new Date().toISOString();
-  
+
   // Utiliser le numéro de facture fourni, ou générer un numéro temporaire si non fourni (pour proforma)
   const finalFactureNum = factureNum || Math.floor(Math.random() * 900000) + 100000;
-  
+
   // Mapper les orderItems vers items (même structure que FactureComponent)
   const items = orderItems.map((item, index) => ({
     productName: item.name || "Produit",
@@ -34,17 +34,17 @@ const formatInvoiceForReceiptPOS = (orderItems: any[], selectedTable: any, custo
     qte: item.quantity || 1,
     total: (item.price || 0) * (item.quantity || 1) // Total calculé
   }));
-  
+
   // Calculer le total final avec réduction
   const finalTotalCdf = totalCdf + totalUsdInCdf - discount;
-  
+
   // Calculer le total dynamique (reste à payer) : (Montant total) - réduction - montant payé
   const remainingAmountCdf = Math.max(0, totalFinalCdf - reductionCdf - amountCdf);
   const remainingAmountUsd = Math.max(0, totalFinalUsd - reductionUsd - amountUsd);
 
   // Déterminer le nom de l'organisation selon le type de facture
   const organisationName = isProforma ? "AGRIVET-CONGO ( PROFORMAT )" : "AGRIVET-CONGO";
-  
+
   return {
     // ENTÊTE RESTAURANT (identique à FactureComponent)
     organisationName: organisationName,
@@ -56,31 +56,34 @@ const formatInvoiceForReceiptPOS = (orderItems: any[], selectedTable: any, custo
     idOrganisation: "ID.NAT 05-G4701-N13657S",
     numeroImpot: "",
     logoPath: "images/logo.png",
-    
+
     // INFORMATIONS FACTURE
     //tableName: selectedTable ? (selectedTable.nomination || `Table ${selectedTable.id}`) : "N/A",
+    tableName: numCode || "-",
     // INFORMATIONS UTILISATEUR
     UserName: username,
     Num: finalFactureNum,
-    
+    //UserName: "AGRIVET-CONGO",
+    //Num: "2025-12-04",
+
     date: factureDate,
     time: factureDate, // Même valeur que date
-    
+
     // ARTICLES (format identique à FactureComponent)
     items: items,
-    
+
     // TOTAUX (clés identiques)
     total: finalTotalCdf,
     netTotal: totalUsd,
-    
+
     // RÉDUCTION APPLIQUÉE
     reductionCdf: reductionCdf,
     reductionUsd: reductionUsd,
-    
+
     // TOTAL DYNAMIQUE (reste à payer)
     PayeeCdf: remainingAmountCdf,
     PayeeUsd: remainingAmountUsd,
-    
+
     // MESSAGE FINAL
     thanksMessage: "Thank you for your business! Come again soon!"
   };
@@ -106,7 +109,7 @@ interface POSComponentProps {
 const POSComponent = ({ onCartItemCountChange }: POSComponentProps) => {
   const { width } = Dimensions.get('window');
   const isLargeScreen = width > 868; // Tablette = 768px, donc > 768px = desktop/large screen
-  
+
   const [orderItems, setOrderItems] = useState<any[]>([]);
 
   // Notifier le composant parent du nombre d'articles dans le panier
@@ -129,7 +132,7 @@ const POSComponent = ({ onCartItemCountChange }: POSComponentProps) => {
   const { data: categoriesData, loading: categoriesLoading, error: categoriesError, refetch: refetchCategories } = useFetch(getCategories);
   const { data: productsData, loading: productsLoading, error: productsError, refetch: refetchProducts } = useFetch(getProducts, productFetchParams as any);
   const { data: tablesData, loading: tablesLoading, error: tablesError, refetch: refetchTables } = useFetch(getTables);
-  
+
   // Types pour éviter les erreurs TypeScript
   const categories = categoriesData || [];
   const products = productsData || [];
@@ -152,20 +155,20 @@ const POSComponent = ({ onCartItemCountChange }: POSComponentProps) => {
   // États pour la modal de sélection de table
   const [showTableModal, setShowTableModal] = useState(false);
   const [selectedTable, setSelectedTable] = useState<any>(null);
-  
+
 
   // État pour la recherche de produits
   const [searchTerm, setSearchTerm] = useState('');
-  
+
   // État pour la sélection de catégorie
   const [selectedCategory, setSelectedCategory] = useState('Toutes');
-  
+
   // État pour les produits sélectionnés
   const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set());
-  
+
   // État pour le loading du refresh
   const [isRefreshing, setIsRefreshing] = useState(false);
-  
+
   // État pour compter les secondes de chargement
   const [loadingSeconds, setLoadingSeconds] = useState(0);
 
@@ -178,13 +181,13 @@ const POSComponent = ({ onCartItemCountChange }: POSComponentProps) => {
 
   // État pour le taux de change
   const [exchangeRate, setExchangeRate] = useState<number>(2850); // Valeur par défaut
-  
+
   // État pour le chargement de la création de facture
   const [isCreatingFacture, setIsCreatingFacture] = useState<boolean>(false);
-  
+
   // État pour le chargement de l'impression proforma
   const [isPrintingProforma, setIsPrintingProforma] = useState<boolean>(false);
-  
+
   // État pour afficher un overlay de chargement global
   const [showLoadingOverlay, setShowLoadingOverlay] = useState<boolean>(false);
 
@@ -209,23 +212,23 @@ const POSComponent = ({ onCartItemCountChange }: POSComponentProps) => {
     return decimals === 0 ? Math.round(clamped).toString() : clamped.toFixed(decimals);
   };
 
-const getPriceForCurrency = (item: any, isUsd: boolean, rate: number) => {
-  const basePriceUsd =
-    typeof item.basePriceUsd === 'number'
-      ? item.basePriceUsd
-      : typeof item.priceUsd === 'number' && item.priceUsd > 0
-      ? item.priceUsd
-      : (() => {
-          const priceCdf = typeof item.priceCdf === 'number' ? item.priceCdf : 0;
-          return rate > 0 ? priceCdf / rate : 0;
-        })();
+  const getPriceForCurrency = (item: any, isUsd: boolean, rate: number) => {
+    const basePriceUsd =
+      typeof item.basePriceUsd === 'number'
+        ? item.basePriceUsd
+        : typeof item.priceUsd === 'number' && item.priceUsd > 0
+          ? item.priceUsd
+          : (() => {
+            const priceCdf = typeof item.priceCdf === 'number' ? item.priceCdf : 0;
+            return rate > 0 ? priceCdf / rate : 0;
+          })();
 
-  if (isUsd) {
-    return basePriceUsd;
-  }
+    if (isUsd) {
+      return basePriceUsd;
+    }
 
-  return basePriceUsd * (rate || 0);
-};
+    return basePriceUsd * (rate || 0);
+  };
 
   const handleAmountCdfChange = (value: string) => {
     if (useUsdAmounts) {
@@ -311,7 +314,7 @@ const getPriceForCurrency = (item: any, isUsd: boolean, rate: number) => {
   const handleTableSelection = useCallback(async (table: any) => {
     setSelectedTable(table);
     setLoadingTableDetails(true);
-    
+
     try {
       const tableDetails = await getTableById(table.id);
       setSelectedTableDetails(tableDetails.data);
@@ -340,11 +343,11 @@ const getPriceForCurrency = (item: any, isUsd: boolean, rate: number) => {
   const totalCdf = orderItems.reduce((sum, item, index) => {
     return currencyPerItem[index] ? sum : sum + item.total;
   }, 0);
-  
+
   const totalUsd = orderItems.reduce((sum, item, index) => {
     return currencyPerItem[index] ? sum + item.total : sum;
   }, 0);
-  
+
   const totalUsdInCdf = totalUsd * exchangeRate;
   const grossTotalCdf = totalCdf + totalUsdInCdf;
 
@@ -505,29 +508,29 @@ const getPriceForCurrency = (item: any, isUsd: boolean, rate: number) => {
   const handleRefresh = async () => {
     setIsRefreshing(true);
     setLoadingSeconds(0);
-    
+
     // Afficher une liste vide d'abord
     setDisplayedMenuItems([]);
-    
+
     // Démarrer le compteur de secondes
     const interval = setInterval(() => {
       setLoadingSeconds(prev => prev + 1);
     }, 1000);
-    
+
     // Simuler un délai de chargement de 3 secondes (dans une vraie app, ce serait un appel API)
     await new Promise(resolve => setTimeout(resolve, 3000));
-    
+
     // Arrêter le compteur
     clearInterval(interval);
-    
+
     // Réafficher les produits
     setDisplayedMenuItems(menuItems);
-    
+
     // Réinitialiser les filtres et sélections
     setSearchTerm('');
     setSelectedCategory('Toutes');
     setSelectedProducts(new Set());
-    
+
     setIsRefreshing(false);
     setLoadingSeconds(0);
   };
@@ -537,10 +540,10 @@ const getPriceForCurrency = (item: any, isUsd: boolean, rate: number) => {
   const removeItemFromCart = (index: number) => {
     const itemToRemove = orderItems[index];
     setOrderItems(prev => prev.filter((_, i) => i !== index));
-    
+
     // Supprimer aussi la devise correspondante
     setCurrencyPerItem(prev => prev.filter((_, i) => i !== index));
-    
+
     // Désélectionner le produit visuellement
     if (itemToRemove) {
       setSelectedProducts(prev => {
@@ -598,7 +601,7 @@ const getPriceForCurrency = (item: any, isUsd: boolean, rate: number) => {
     const newCurrencyPerItem = [...currencyPerItem];
     newCurrencyPerItem[index] = !newCurrencyPerItem[index];
     setCurrencyPerItem(newCurrencyPerItem);
-    
+
     // Mettre à jour le prix et total de l'item
     const newItems = [...orderItems];
     const isUsd = newCurrencyPerItem[index];
@@ -627,12 +630,12 @@ const getPriceForCurrency = (item: any, isUsd: boolean, rate: number) => {
       total: initialPrice,
       basePriceUsd,
     };
-    
+
     setOrderItems(prev => [...prev, newItem]);
-    
+
     // Initialiser la devise à USD (true) pour le nouvel item
     setCurrencyPerItem(prev => [...prev, initialCurrencyIsUsd]);
-    
+
     // Marquer le produit comme sélectionné
     setSelectedProducts(prev => new Set([...prev, product.productName]));
   };
@@ -664,7 +667,7 @@ const getPriceForCurrency = (item: any, isUsd: boolean, rate: number) => {
       const currency = isUsd ? 'USD' : 'CDF';
       return `• ${item.name} (${item.quantity}x) - ${item.total.toFixed(2)} ${currency}`;
     }).join('\n');
-    
+
     const finalTotal = total;
     const totalCdfAmount = totalCdf;
     const totalUsdAmount = totalUsdDisplay;
@@ -675,9 +678,9 @@ const getPriceForCurrency = (item: any, isUsd: boolean, rate: number) => {
           ? `\nRéduction: -${displayReductionUsd.toFixed(2)} USD`
           : `\nRéduction: -${displayReductionCdf.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')} CDF`
         : '';
-    
+
     const confirmationMessage = `DÉTAILS DE LA FACTURE:\n\nTable: ${selectedTable ? (selectedTable.nomination || `Table ${selectedTable.id}`) : 'Non sélectionnée'}\nTaux: ${exchangeRate}\n\nARTICLES:\n${orderDetails}\n\nTOTAL CDF: ${totalCdfAmount.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')} CDF\nTOTAL USD: ${totalUsdAmount.toFixed(2)} USD\nTOTAL USD en CDF: ${totalUsdInCdfAmount.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')} CDF${discountText}\n\nTOTAL FINAL: ${finalTotal.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')} CDF\nTOTAL FINAL USD: ${totalFinalUsd.toFixed(2)} USD\n\nClient: ${customerName || 'Non spécifié'}\nContact: ${customerContact || 'Non spécifié'}\nPaiement: ${paymentMethod}\n\nVoulez-vous créer cette facture ?`;
-    
+
     Alert.alert(
       'Confirmation de facture',
       confirmationMessage,
@@ -701,10 +704,10 @@ const getPriceForCurrency = (item: any, isUsd: boolean, rate: number) => {
     if (isCreatingFacture) {
       return;
     }
-    
+
     setIsCreatingFacture(true);
     setShowLoadingOverlay(true);
-    
+
     try {
       // Vérifier qu'on a une table sélectionnée
       if (!selectedTable) {
@@ -724,20 +727,20 @@ const getPriceForCurrency = (item: any, isUsd: boolean, rate: number) => {
       const ventes = orderItems.map((item, index) => {
         // Déterminer la devise sélectionnée pour cet item
         const isUsd = currencyPerItem[index] === true;
-        
+
         // Utiliser item.productId ou item.id selon ce qui existe
         const productId = item.productId || item.id;
-        
+
         if (!productId) {
           console.error(`❌ Pas de productId pour l'item ${index}:`, item);
           throw new Error(`Pas de productId pour l'item: ${item.name}`);
         }
-        
+
         // Si la devise est USD, envoyer priceUsd avec la valeur et priceCdf = 0
         // Si la devise est CDF, envoyer priceCdf avec la valeur et priceUsd = 0
         let priceUsd = 0;
         let priceCdf = 0;
-        
+
         const basePriceUsd = Number(item.basePriceUsd ?? item.priceUsd ?? 0);
         if (isUsd) {
           priceUsd = basePriceUsd;
@@ -746,7 +749,7 @@ const getPriceForCurrency = (item: any, isUsd: boolean, rate: number) => {
           priceUsd = 0;
           priceCdf = basePriceUsd * (exchangeRate || 0);
         }
-        
+
         return {
           productId: productId,
           depotCode: depotCode,
@@ -779,12 +782,13 @@ const getPriceForCurrency = (item: any, isUsd: boolean, rate: number) => {
 
       // Appeler l'API pour créer la facture
       const response = await createFacture(factureData);
-      
+
       if (response.success) {
-        
+
         // Récupérer le numéro de facture depuis la réponse de l'API
         const factureNumber = response.data?.id || 'N/A';
-        
+        const factureNumCode = response.data?.numCode || '';
+
         // Préparer les données pour l'impression AVANT de réinitialiser le panier
         const receiptDiscount = useUsdAmounts ? 0 : displayReductionCdf;
         const receiptData = formatInvoiceForReceiptPOS(
@@ -806,9 +810,10 @@ const getPriceForCurrency = (item: any, isUsd: boolean, rate: number) => {
           totalFinalUsd,
           userData?.username || '',
           factureNumber,
-          false // isProforma = false pour ne pas ajouter "( PROFORMAT )"
+          false, // isProforma = false pour ne pas ajouter "( PROFORMAT )"
+          factureNumCode // numCode pour tableName
         );
-        
+
         // Réinitialiser le panier et les états
         setOrderItems([]);
         setCurrencyPerItem([]);
@@ -823,10 +828,10 @@ const getPriceForCurrency = (item: any, isUsd: boolean, rate: number) => {
         setIsDebt(false);
         setCommandNotice('');
         setSelectedProducts(new Set());
-        
+
         // Message de succès détaillé
         const totalAmount = total.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-        
+
         const successMessage = `✅ FACTURE CRÉÉE AVEC SUCCÈS !
 
 Facture #${factureNumber}
@@ -838,7 +843,7 @@ Total: ${totalAmount} CDF
 La facture a été enregistrée dans le système.`;
 
         showAlert('✅ Facture créée avec succès !', successMessage);
-        
+
         // Rafraîchir la liste des produits pour mettre à jour le stock
         refetchProducts();
 
@@ -849,7 +854,7 @@ La facture a été enregistrée dans le système.`;
           // L'erreur d'impression est déjà gérée dans l'alert de handlePrintFacturePOS
         }
       } else {
-        
+
         const errorMessage = `❌ ERREUR LORS DE LA CRÉATION
 
 ${response.message || 'Une erreur est survenue lors de la création de la facture.'}
@@ -861,7 +866,7 @@ Veuillez réessayer.`;
     } catch (error) {
       console.error('💥 Erreur lors de la création de la facture:', error);
       const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
-      
+
       const networkErrorMessage = `💥 ERREUR DE CONNEXION
 
 Impossible de créer la facture.
@@ -883,9 +888,9 @@ Vérifiez votre connexion internet et réessayez.`;
     if (isPrintingProforma) {
       return;
     }
-    
+
     setIsPrintingProforma(true);
-    
+
     try {
       // Vérifier qu'on a une table sélectionnée
       if (!selectedTable) {
@@ -898,7 +903,7 @@ Vérifiez votre connexion internet et réessayez.`;
       const inputAmountCdf = Number((amountCdf || '0').replace(',', '.'));
       const inputAmountUsd = Number((amountUsd || '0').replace(',', '.'));
       const receiptDiscount = useUsdAmounts ? 0 : displayReductionCdf;
-      
+
       const receiptData = formatInvoiceForReceiptPOS(
         orderItems,
         selectedTable,
@@ -918,13 +923,14 @@ Vérifiez votre connexion internet et réessayez.`;
         totalFinalUsd,
         userData?.username || '',
         'PROFORMA', // Numéro temporaire pour les proformas
-        true // isProforma = true pour ajouter "( PROFORMAT )"
+        true, // isProforma = true pour ajouter "( PROFORMAT )"
+        '' // numCode vide pour les proformas (pas de numCode)
       );
-      
+
       // Lancer l'impression du proforma
       try {
         await handlePrintFacturePOS(receiptData);
-        
+
         // Réinitialiser les champs de la section de droite après impression réussie
         setDiscount('');
         setAmountCdf('');
@@ -935,7 +941,7 @@ Vérifiez votre connexion internet et réessayez.`;
         setPaymentMethod('Cash');
         setIsDebt(false);
         setCommandNotice('');
-        
+
         showAlert('✅ Proforma imprimé', 'Le proforma a été envoyé à l\'imprimante avec succès.');
       } catch (printError) {
         // L'erreur d'impression est déjà gérée dans l'alert de handlePrintFacturePOS
@@ -943,7 +949,7 @@ Vérifiez votre connexion internet et réessayez.`;
     } catch (error) {
       console.error('💥 Erreur lors de l\'impression du proforma:', error);
       const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
-      
+
       const networkErrorMessage = `💥 ERREUR D'IMPRESSION
 
 Impossible d'imprimer le proforma.
@@ -970,7 +976,7 @@ Vérifiez votre connexion internet et réessayez.`;
           ? `\n💰 Réduction: -${displayReductionUsd.toFixed(2)} USD`
           : `\n💰 Réduction: -${displayReductionCdf.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')} CDF`
         : '';
-    
+
     // Créer le détail des articles formatté
     const orderDetails = orderItems.map((item, index) => {
       const isUsd = currencyPerItem[index];
@@ -978,7 +984,7 @@ Vérifiez votre connexion internet et réessayez.`;
       const formattedTotal = isUsd ? item.total.toFixed(2) : item.total.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
       return `• ${item.name} (${item.quantity}x) - ${formattedTotal} ${currency}`;
     }).join('\n');
-    
+
     return `AGRIVET-CONGO
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -1077,7 +1083,7 @@ ${orderDetails}
         </View>*/}
 
         <View style={styles.mainContentWeb}>
-          
+
           {/* Panneau droit - Menu des produits */}
           <View style={styles.menuPanelWeb}>
             {/* États de chargement et erreurs */}
@@ -1092,8 +1098,8 @@ ${orderDetails}
               <View style={styles.errorContainer}>
                 <Ionicons name="alert-circle-outline" size={24} color="#EF4444" />
                 <Text style={styles.errorText}>{categoriesError || productsError}</Text>
-                <TouchableOpacity 
-                  style={styles.retryButton} 
+                <TouchableOpacity
+                  style={styles.retryButton}
                   onPress={() => {
                     refetchCategories();
                     refetchProducts();
@@ -1117,90 +1123,90 @@ ${orderDetails}
                       onChangeText={setSearchTerm}
                     />
                   </View>
-              <TouchableOpacity 
-                style={styles.refreshButtonWeb}
-                onPress={handleRefresh}
-                disabled={isRefreshing}
-              >
-                <Ionicons 
-                  name={isRefreshing ? "refresh" : "refresh-outline"} 
-                  size={20} 
-                  color="#FFFFFF" 
-                />
-              </TouchableOpacity>
-            </View>
-            
-            {/* Sélecteur de catégories - Desktop */}
-            <View style={styles.categorySelectorWeb}>
-              <Text style={styles.categoryLabelWeb}>Catégorie:</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View style={styles.categoryButtonsWeb}>
-                  {apiCategories.map((category) => (
-                    <TouchableOpacity
-                      key={category}
-                      style={[
-                        styles.categoryButtonWeb,
-                        selectedCategory === category && styles.categoryButtonActiveWeb
-                      ]}
-                      onPress={() => setSelectedCategory(category)}
-                    >
-                      <Text style={[
-                        styles.categoryButtonTextWeb,
-                        selectedCategory === category && styles.categoryButtonTextActiveWeb
-                      ]}>
-                        {category}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
+                  <TouchableOpacity
+                    style={styles.refreshButtonWeb}
+                    onPress={handleRefresh}
+                    disabled={isRefreshing}
+                  >
+                    <Ionicons
+                      name={isRefreshing ? "refresh" : "refresh-outline"}
+                      size={20}
+                      color="#FFFFFF"
+                    />
+                  </TouchableOpacity>
                 </View>
-              </ScrollView>
-            </View>
-            <ScrollView>
-              {displayedMenuItems.length === 0 && isRefreshing ? (
-                <View style={styles.loadingCard}>
-                  <ActivityIndicator size="large" color="#00436C" />
-                  <Text style={styles.loadingText}>Chargement des produits...</Text>
-                  <Text style={styles.loadingSeconds}>{loadingSeconds}s / 3s</Text>
-                </View>
-              ) : (
-                <View style={styles.menuGrid}>
-                  {filteredMenuItems.map((product: any, index: number) => {
-                    const isOutOfStock = (product.inStock || 0) === 0;
-                    return (
-                      <TouchableOpacity
-                        key={product.id || index}
-                        style={[
-                          styles.menuItemWeb,
-                          selectedProducts.has(product.productName) && styles.menuItemSelected
-                        ]}
-                        onPress={() => {
-                          addProductToCart(product);
-                          setSearchTerm("");
-                        }}
-                        activeOpacity={0.7}
-                      >
-                        {selectedProducts.has(product.productName) && !isOutOfStock && (
-                          <View style={styles.checkIconContainer}>
-                            <Ionicons name="checkmark-circle" size={20} color="#10B981" />
-                          </View>
-                        )}
-                        <View style={styles.menuItemContentWeb}>
-                          <Text numberOfLines={2} style={styles.menuItemNameWeb}>{product.productName}</Text>
-                          <Text style={styles.menuItemCategoryWeb}>{product.category?.categoryName || 'N/A'}</Text>
-                          <Text style={styles.menuItemPriceWeb}>USD {(Number(product.priceUsd || 0)).toFixed(2)}</Text>
-                          <Text style={styles.menuItemPriceCdfWeb}>
-                            CDF {(Number(product.priceUsd || 0) * (exchangeRate || 0)).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}
+
+                {/* Sélecteur de catégories - Desktop */}
+                <View style={styles.categorySelectorWeb}>
+                  <Text style={styles.categoryLabelWeb}>Catégorie:</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    <View style={styles.categoryButtonsWeb}>
+                      {apiCategories.map((category) => (
+                        <TouchableOpacity
+                          key={category}
+                          style={[
+                            styles.categoryButtonWeb,
+                            selectedCategory === category && styles.categoryButtonActiveWeb
+                          ]}
+                          onPress={() => setSelectedCategory(category)}
+                        >
+                          <Text style={[
+                            styles.categoryButtonTextWeb,
+                            selectedCategory === category && styles.categoryButtonTextActiveWeb
+                          ]}>
+                            {category}
                           </Text>
-                          <Text style={[styles.menuItemStockWeb, isOutOfStock && styles.menuItemStockEmpty]}>
-                            Stock: {product.inStock || 0}
-                          </Text>
-                        </View>
-                      </TouchableOpacity>
-                    );
-                  })}
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </ScrollView>
                 </View>
-              )}
-            </ScrollView>
+                <ScrollView>
+                  {displayedMenuItems.length === 0 && isRefreshing ? (
+                    <View style={styles.loadingCard}>
+                      <ActivityIndicator size="large" color="#00436C" />
+                      <Text style={styles.loadingText}>Chargement des produits...</Text>
+                      <Text style={styles.loadingSeconds}>{loadingSeconds}s / 3s</Text>
+                    </View>
+                  ) : (
+                    <View style={styles.menuGrid}>
+                      {filteredMenuItems.map((product: any, index: number) => {
+                        const isOutOfStock = (product.inStock || 0) === 0;
+                        return (
+                          <TouchableOpacity
+                            key={product.id || index}
+                            style={[
+                              styles.menuItemWeb,
+                              selectedProducts.has(product.productName) && styles.menuItemSelected
+                            ]}
+                            onPress={() => {
+                              addProductToCart(product);
+                              setSearchTerm("");
+                            }}
+                            activeOpacity={0.7}
+                          >
+                            {selectedProducts.has(product.productName) && !isOutOfStock && (
+                              <View style={styles.checkIconContainer}>
+                                <Ionicons name="checkmark-circle" size={20} color="#10B981" />
+                              </View>
+                            )}
+                            <View style={styles.menuItemContentWeb}>
+                              <Text numberOfLines={2} style={styles.menuItemNameWeb}>{product.productName}</Text>
+                              <Text style={styles.menuItemCategoryWeb}>{product.category?.categoryName || 'N/A'}</Text>
+                              <Text style={styles.menuItemPriceWeb}>USD {(Number(product.priceUsd || 0)).toFixed(2)}</Text>
+                              <Text style={styles.menuItemPriceCdfWeb}>
+                                CDF {(Number(product.priceUsd || 0) * (exchangeRate || 0)).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}
+                              </Text>
+                              <Text style={[styles.menuItemStockWeb, isOutOfStock && styles.menuItemStockEmpty]}>
+                                Stock: {product.inStock || 0}
+                              </Text>
+                            </View>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  )}
+                </ScrollView>
               </>
             )}
           </View>
@@ -1208,14 +1214,14 @@ ${orderDetails}
           {/* Panneau gauche - Résumé de commande */}
           <View style={styles.orderPanelWeb}>
             <ScrollView style={styles.orderScrollView}>
-            <View style={[styles.posHeaderInfo, { marginTop: 10 }]}>
-            <Text style={styles.posHeaderTitle}>
-              POS - {selectedTable ? (selectedTable.nomination || `Table ${selectedTable.id}`) : 'Table non sélectionnée'} | Taux: {exchangeRate}
-            </Text>
-            <Text style={styles.posHeaderSubtitle}>
-              {selectedTable ? (selectedTable.description || 'Poste disponible') : ''}
-            </Text>
-          </View>
+              <View style={[styles.posHeaderInfo, { marginTop: 10 }]}>
+                <Text style={styles.posHeaderTitle}>
+                  POS - {selectedTable ? (selectedTable.nomination || `Table ${selectedTable.id}`) : 'Table non sélectionnée'} | Taux: {exchangeRate}
+                </Text>
+                <Text style={styles.posHeaderSubtitle}>
+                  {selectedTable ? (selectedTable.description || 'Poste disponible') : ''}
+                </Text>
+              </View>
               {/* Articles de commande */}
               <View style={styles.orderItemsContainer}>
                 {orderItems.map((item, index) => (
@@ -1377,7 +1383,7 @@ ${orderDetails}
                     </View>
                   </View>
 
-                        {/* Réduction */}
+                  {/* Réduction */}
                   <View style={styles.formField}>
                     <Text style={styles.formLabel}>Réduction</Text>
                     <TextInput
@@ -1467,33 +1473,33 @@ ${orderDetails}
 
 
                   {/* Mode de paiement */}
-                <View style={styles.formField}>
-                  <Text style={styles.formLabel}>Mode de paiement</Text>
-                  <View style={styles.paymentMethodContainerMobile}>
-                    {['Cash','TMB', 'EquityBCDC', 'Ecobank', 'Orange-Money', 'M-Pesa', 'Airtel-Money'].map((method) => (
-                      <TouchableOpacity
-                        key={method}
-                        style={[
-                          styles.paymentMethodButtonMobile,
-                          paymentMethod === method && styles.paymentMethodButtonActiveMobile
-                        ]}
-                        onPress={() => setPaymentMethod(method)}
-                      >
-                        {paymentMethod === method && (
-                          <View style={styles.paymentCheckIconContainer}>
-                            <Ionicons name="checkmark-circle" size={14} color="#10B981" />
-                          </View>
-                        )}
-                        <Text style={[
-                          styles.paymentMethodTextMobile,
-                          paymentMethod === method && styles.paymentMethodTextActiveMobile
-                        ]}>
-                          {method}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
+                  <View style={styles.formField}>
+                    <Text style={styles.formLabel}>Mode de paiement</Text>
+                    <View style={styles.paymentMethodContainerMobile}>
+                      {['Cash', 'TMB', 'EquityBCDC', 'Ecobank', 'Orange-Money', 'M-Pesa', 'Airtel-Money'].map((method) => (
+                        <TouchableOpacity
+                          key={method}
+                          style={[
+                            styles.paymentMethodButtonMobile,
+                            paymentMethod === method && styles.paymentMethodButtonActiveMobile
+                          ]}
+                          onPress={() => setPaymentMethod(method)}
+                        >
+                          {paymentMethod === method && (
+                            <View style={styles.paymentCheckIconContainer}>
+                              <Ionicons name="checkmark-circle" size={14} color="#10B981" />
+                            </View>
+                          )}
+                          <Text style={[
+                            styles.paymentMethodTextMobile,
+                            paymentMethod === method && styles.paymentMethodTextActiveMobile
+                          ]}>
+                            {method}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
                   </View>
-                </View>
 
                 </View>
 
@@ -1510,11 +1516,11 @@ ${orderDetails}
                 </TouchableOpacity>*/}
 
                 {/* Bouton Commande */}
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={[
                     styles.orderButton,
                     (isCreatingFacture || !isTableSelected) && styles.orderButtonDisabled
-                  ]} 
+                  ]}
                   onPress={handleConfirmPaymentWeb}
                   disabled={isCreatingFacture || !isTableSelected}
                 >
@@ -1524,20 +1530,20 @@ ${orderDetails}
                     <Ionicons name="calculator" size={24} color="white" />
                   )}
                   <Text style={styles.orderButtonText}>
-                    {isCreatingFacture 
-                      ? 'Enregistrement...' 
+                    {isCreatingFacture
+                      ? 'Enregistrement...'
                       : 'Enregistrer la commande'
                     }
                   </Text>
                 </TouchableOpacity>
 
                 {/* Bouton Imprimer Proforma */}
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={[
                     styles.orderButton,
                     styles.proformaButton,
                     (isPrintingProforma || !isTableSelected) && styles.orderButtonDisabled
-                  ]} 
+                  ]}
                   onPress={handlePrintProformaWeb}
                   disabled={isPrintingProforma || !isTableSelected}
                 >
@@ -1547,8 +1553,8 @@ ${orderDetails}
                     <Ionicons name="print" size={24} color="white" />
                   )}
                   <Text style={styles.orderButtonText}>
-                    {isPrintingProforma 
-                      ? 'Impression...' 
+                    {isPrintingProforma
+                      ? 'Impression...'
                       : 'Imprimer proformat'
                     }
                   </Text>
@@ -1588,11 +1594,11 @@ ${orderDetails}
                     // Trier par nomination si disponible, sinon par id
                     const aValue = a.nomination || a.id;
                     const bValue = b.nomination || b.id;
-                    
+
                     // Extraire les nombres des nominations (ex: "Table 1" -> 1)
                     const aNum = parseInt(aValue.toString().replace(/\D/g, '')) || aValue;
                     const bNum = parseInt(bValue.toString().replace(/\D/g, '')) || bValue;
-                    
+
                     return aNum - bNum;
                   }).map((table: any) => (
                     <TouchableOpacity
@@ -1643,7 +1649,7 @@ ${orderDetails}
     <View style={styles.containerMobile}>
       {/* Header avec bouton retour */}
       <View style={styles.headerMobile}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.backToTableButtonMobile}
           onPress={() => setShowTableModal(true)}
         >
@@ -1659,7 +1665,7 @@ ${orderDetails}
           </Text>
         </View>
       </View>
-      
+
       {/* Header de recherche */}
       <View style={styles.searchHeaderMobile}>
         <View style={styles.searchBarMobile}>
@@ -1807,68 +1813,68 @@ ${orderDetails}
             {/* Formulaire de commande */}
             <View style={styles.actionsContainer}>
               <View style={styles.formContainer}>
-                  <View style={styles.amountToggleRow}>
-                    <Text style={styles.formLabel}>Montant en</Text>
-                    <View style={styles.amountToggleSwitch}>
-                      <Text
-                        style={[
-                          styles.amountToggleOption,
-                          !useUsdAmounts && styles.amountToggleOptionActive
-                        ]}
-                      >
-                        CDF
-                      </Text>
-                      <Switch
-                        value={useUsdAmounts}
-                        onValueChange={setUseUsdAmounts}
-                        trackColor={{ false: '#E5E7EB', true: '#34D399' }}
-                        thumbColor={useUsdAmounts ? '#059669' : '#FFFFFF'}
-                      />
-                      <Text
-                        style={[
-                          styles.amountToggleOption,
-                          useUsdAmounts && styles.amountToggleOptionActive
-                        ]}
-                      >
-                        USD
-                      </Text>
-                    </View>
+                <View style={styles.amountToggleRow}>
+                  <Text style={styles.formLabel}>Montant en</Text>
+                  <View style={styles.amountToggleSwitch}>
+                    <Text
+                      style={[
+                        styles.amountToggleOption,
+                        !useUsdAmounts && styles.amountToggleOptionActive
+                      ]}
+                    >
+                      CDF
+                    </Text>
+                    <Switch
+                      value={useUsdAmounts}
+                      onValueChange={setUseUsdAmounts}
+                      trackColor={{ false: '#E5E7EB', true: '#34D399' }}
+                      thumbColor={useUsdAmounts ? '#059669' : '#FFFFFF'}
+                    />
+                    <Text
+                      style={[
+                        styles.amountToggleOption,
+                        useUsdAmounts && styles.amountToggleOptionActive
+                      ]}
+                    >
+                      USD
+                    </Text>
                   </View>
+                </View>
 
-                  <View style={styles.amountRowMobile}>
-                    <View style={styles.amountFieldMobile}>
-                      <Text style={styles.formLabel}>Montant CDF</Text>
-                      <TextInput
-                        style={[
-                          styles.formInput,
-                          useUsdAmounts && styles.disabledInput
-                        ]}
-                        placeholder="0"
-                        placeholderTextColor="#9CA3AF"
-                        keyboardType="numeric"
-                        value={amountCdf}
-                        onChangeText={handleAmountCdfChange}
-                        editable={!useUsdAmounts}
-                        selectTextOnFocus={!useUsdAmounts}
-                      />
-                    </View>
-                    <View style={styles.amountFieldMobile}>
-                      <Text style={styles.formLabel}>Montant USD</Text>
-                      <TextInput
-                        style={[
-                          styles.formInput,
-                          !useUsdAmounts && styles.disabledInput
-                        ]}
-                        placeholder="0.00"
-                        placeholderTextColor="#9CA3AF"
-                        keyboardType="numeric"
-                        value={amountUsd}
-                        onChangeText={handleAmountUsdChange}
-                        editable={useUsdAmounts}
-                        selectTextOnFocus={useUsdAmounts}
-                      />
-                    </View>
+                <View style={styles.amountRowMobile}>
+                  <View style={styles.amountFieldMobile}>
+                    <Text style={styles.formLabel}>Montant CDF</Text>
+                    <TextInput
+                      style={[
+                        styles.formInput,
+                        useUsdAmounts && styles.disabledInput
+                      ]}
+                      placeholder="0"
+                      placeholderTextColor="#9CA3AF"
+                      keyboardType="numeric"
+                      value={amountCdf}
+                      onChangeText={handleAmountCdfChange}
+                      editable={!useUsdAmounts}
+                      selectTextOnFocus={!useUsdAmounts}
+                    />
                   </View>
+                  <View style={styles.amountFieldMobile}>
+                    <Text style={styles.formLabel}>Montant USD</Text>
+                    <TextInput
+                      style={[
+                        styles.formInput,
+                        !useUsdAmounts && styles.disabledInput
+                      ]}
+                      placeholder="0.00"
+                      placeholderTextColor="#9CA3AF"
+                      keyboardType="numeric"
+                      value={amountUsd}
+                      onChangeText={handleAmountUsdChange}
+                      editable={useUsdAmounts}
+                      selectTextOnFocus={useUsdAmounts}
+                    />
+                  </View>
+                </View>
 
                 {/* Nom du client */}
                 <View style={styles.formField}>
@@ -1995,7 +2001,7 @@ ${orderDetails}
               )}
             </View>
           </ScrollView>
-        </View>):(<></>)}
+        </View>) : (<></>)}
 
         {/* Panneau droit - Menu des produits */}
         <View style={styles.menuPanelMobile}>
@@ -2005,7 +2011,7 @@ ${orderDetails}
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               <View style={styles.categoryButtonsMobile}>
                 {apiCategories.map((category) => (
-                <TouchableOpacity
+                  <TouchableOpacity
                     key={category}
                     style={[
                       styles.categoryButtonMobile,
@@ -2019,69 +2025,69 @@ ${orderDetails}
                     ]}>
                       {category}
                     </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </ScrollView>
-      </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </ScrollView>
+          </View>
 
-                  <ScrollView
-                    refreshControl={
-                      <RefreshControl
-                        refreshing={isRefreshing}
-                        onRefresh={handleRefresh}
-                        colors={['#00436C']}
-                        tintColor="#00436C"
-                      />
-                    }
-                  >
-                    {displayedMenuItems.length === 0 && isRefreshing ? (
-                      <View style={styles.loadingCardMobile}>
-                        <ActivityIndicator size="large" color="#00436C" />
-                        <Text style={styles.loadingTextMobile}>Chargement des produits...</Text>
-                        <Text style={styles.loadingSecondsMobile}>{loadingSeconds}s / 3s</Text>
+          <ScrollView
+            refreshControl={
+              <RefreshControl
+                refreshing={isRefreshing}
+                onRefresh={handleRefresh}
+                colors={['#00436C']}
+                tintColor="#00436C"
+              />
+            }
+          >
+            {displayedMenuItems.length === 0 && isRefreshing ? (
+              <View style={styles.loadingCardMobile}>
+                <ActivityIndicator size="large" color="#00436C" />
+                <Text style={styles.loadingTextMobile}>Chargement des produits...</Text>
+                <Text style={styles.loadingSecondsMobile}>{loadingSeconds}s / 3s</Text>
+              </View>
+            ) : (
+              <View style={styles.menuGrid}>
+                {filteredMenuItems.map((product: any, index: number) => {
+                  const isOutOfStock = (product.inStock || 0) === 0;
+                  return (
+                    <TouchableOpacity
+                      key={product.id || index}
+                      style={[
+                        styles.menuItemMobile,
+                        selectedProducts.has(product.productName) && styles.menuItemSelected
+                      ]}
+                      onPress={() => addProductToCart(product)}
+                      activeOpacity={0.7}
+                    >
+                      {selectedProducts.has(product.productName) && !isOutOfStock && (
+                        <View style={styles.checkIconContainer}>
+                          <Ionicons name="checkmark-circle" size={20} color="#10B981" />
+                        </View>
+                      )}
+                      <View style={styles.menuItemContentMobile}>
+                        <Text numberOfLines={2} style={styles.menuItemNameMobile}>{product.productName}</Text>
+                        <Text style={styles.menuItemCategoryMobile}>{product.category?.categoryName || 'N/A'}</Text>
+                        <Text style={styles.menuItemPriceMobile}>USD {(Number(product.priceUsd || 0)).toFixed(2)}</Text>
+                        <Text style={styles.menuItemPriceCdfMobile}>
+                          CDF {(Number(product.priceUsd || 0) * (exchangeRate || 0)).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}
+                        </Text>
+                        <Text style={[
+                          styles.menuItemStockMobile,
+                          isOutOfStock && styles.menuItemStockEmptyMobile
+                        ]}>
+                          Stock: {product.inStock || 0}
+                        </Text>
                       </View>
-                    ) : (
-                      <View style={styles.menuGrid}>
-                        {filteredMenuItems.map((product: any, index: number) => {
-                          const isOutOfStock = (product.inStock || 0) === 0;
-                          return (
-                            <TouchableOpacity
-                              key={product.id || index}
-                              style={[
-                                styles.menuItemMobile,
-                                selectedProducts.has(product.productName) && styles.menuItemSelected
-                              ]}
-                              onPress={() => addProductToCart(product)}
-                              activeOpacity={0.7}
-                            >
-                              {selectedProducts.has(product.productName) && !isOutOfStock && (
-                                <View style={styles.checkIconContainer}>
-                                  <Ionicons name="checkmark-circle" size={20} color="#10B981" />
-                                </View>
-                              )}
-                              <View style={styles.menuItemContentMobile}>
-                                <Text numberOfLines={2} style={styles.menuItemNameMobile}>{product.productName}</Text>
-                                <Text style={styles.menuItemCategoryMobile}>{product.category?.categoryName || 'N/A'}</Text>
-                                <Text style={styles.menuItemPriceMobile}>USD {(Number(product.priceUsd || 0)).toFixed(2)}</Text>
-                                <Text style={styles.menuItemPriceCdfMobile}>
-                                  CDF {(Number(product.priceUsd || 0) * (exchangeRate || 0)).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}
-                                </Text>
-                                <Text style={[
-                                  styles.menuItemStockMobile,
-                                  isOutOfStock && styles.menuItemStockEmptyMobile
-                                ]}>
-                                  Stock: {product.inStock || 0}
-                                </Text>
-                              </View>
-                            </TouchableOpacity>
-                          );
-                        })}
-                            </View>
-                    )}
-                  </ScrollView>
-                  </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
+          </ScrollView>
         </View>
+      </View>
 
 
       {/* Bouton flottant panier avec badge en bas à droite */}
@@ -2186,373 +2192,373 @@ ${orderDetails}
             {/* Contenu du panier */}
             <>
               <ScrollView style={{ marginBottom: 12 }}>
-                  {orderItems.length === 0 ? (
-                    <Text style={{ color: '#888', textAlign: 'center', marginVertical: 24 }}>Votre panier est vide.</Text>
-                  ) : (
-                    orderItems.map((item, idx) => (
-                      <View key={idx} style={{ 
-                        borderWidth: 1,
-                        borderColor: '#E5E7EB',
-                        borderRadius: 8,
-                        padding: 12,
-                        marginBottom: 12,
-                        backgroundColor: '#F9FAFB'
-                      }}>
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-                          <View style={{ flex: 1 }}>
-                            <Text style={{ fontWeight: '600', color: '#222', fontSize: 15 }}>{item.name}</Text>
-                            <Text style={{ color: '#666', fontSize: 13, marginTop: 2 }}>
-                              {item.quantity} x {currencyPerItem[idx] ? 'USD' : 'CDF'} {item.price.toFixed(2)}
-                            </Text>
-                          </View>
-                          <View style={{ alignItems: 'flex-end' }}>
-                            <Text style={{ fontWeight: '600', color: '#222', fontSize: 15 }}>
-                              {currencyPerItem[idx] ? 'USD' : 'CDF'} {item.total.toFixed(2)}
-                            </Text>
-                          </View>
+                {orderItems.length === 0 ? (
+                  <Text style={{ color: '#888', textAlign: 'center', marginVertical: 24 }}>Votre panier est vide.</Text>
+                ) : (
+                  orderItems.map((item, idx) => (
+                    <View key={idx} style={{
+                      borderWidth: 1,
+                      borderColor: '#E5E7EB',
+                      borderRadius: 8,
+                      padding: 12,
+                      marginBottom: 12,
+                      backgroundColor: '#F9FAFB'
+                    }}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ fontWeight: '600', color: '#222', fontSize: 15 }}>{item.name}</Text>
+                          <Text style={{ color: '#666', fontSize: 13, marginTop: 2 }}>
+                            {item.quantity} x {currencyPerItem[idx] ? 'USD' : 'CDF'} {item.price.toFixed(2)}
+                          </Text>
                         </View>
-                        
-                        {/* Contrôles de quantité */}
-                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 6, padding: 4 }}>
-                            <TouchableOpacity
-                              onPress={() => decreaseQuantity(idx)}
-                              style={{ padding: 6, backgroundColor: '#F3F4F6', borderRadius: 4 }}
-                            >
-                              <Ionicons name="remove" size={16} color="#6B7280" />
-                            </TouchableOpacity>
+                        <View style={{ alignItems: 'flex-end' }}>
+                          <Text style={{ fontWeight: '600', color: '#222', fontSize: 15 }}>
+                            {currencyPerItem[idx] ? 'USD' : 'CDF'} {item.total.toFixed(2)}
+                          </Text>
+                        </View>
+                      </View>
+
+                      {/* Contrôles de quantité */}
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 6, padding: 4 }}>
+                          <TouchableOpacity
+                            onPress={() => decreaseQuantity(idx)}
+                            style={{ padding: 6, backgroundColor: '#F3F4F6', borderRadius: 4 }}
+                          >
+                            <Ionicons name="remove" size={16} color="#6B7280" />
+                          </TouchableOpacity>
                           <TextInput
                             style={styles.quantityInputModal}
                             keyboardType="numeric"
                             value={String(item.quantity)}
                             onChangeText={(text) => handleQuantityInputChange(idx, text)}
                           />
-                            <TouchableOpacity
-                              onPress={() => increaseQuantity(idx)}
-                              style={{ padding: 6, backgroundColor: '#F3F4F6', borderRadius: 4 }}
-                            >
-                              <Ionicons name="add" size={16} color="#6B7280" />
-                            </TouchableOpacity>
-                          </View>
-                          
                           <TouchableOpacity
-                            onPress={() => removeItemFromCart(idx)}
-                            style={{ padding: 6 }}
+                            onPress={() => increaseQuantity(idx)}
+                            style={{ padding: 6, backgroundColor: '#F3F4F6', borderRadius: 4 }}
                           >
-                            <Ionicons name="trash" size={20} color="#DC2626" />
+                            <Ionicons name="add" size={16} color="#6B7280" />
                           </TouchableOpacity>
                         </View>
 
-                        {/* Switch USD/CDF */}
-                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <Text style={{ fontSize: 13, color: '#6B7280' }}>Devise:</Text>
-                          <View style={{ flexDirection: 'row', backgroundColor: '#E5E7EB', borderRadius: 6, padding: 2 }}>
-                            <TouchableOpacity
-                              style={{
-                                paddingVertical: 4,
-                                paddingHorizontal: 12,
-                                borderRadius: 4,
-                                backgroundColor: !currencyPerItem[idx] ? '#7C3AED' : 'transparent'
-                              }}
-                              onPress={() => !currencyPerItem[idx] || toggleCurrency(idx)}
-                            >
-                              <Text style={{
-                                fontSize: 13,
-                                fontWeight: '500',
-                                color: !currencyPerItem[idx] ? '#FFFFFF' : '#6B7280'
-                              }}>
-                                CDF
-                              </Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                              style={{
-                                paddingVertical: 4,
-                                paddingHorizontal: 12,
-                                borderRadius: 4,
-                                backgroundColor: currencyPerItem[idx] ? '#7C3AED' : 'transparent'
-                              }}
-                              onPress={() => currencyPerItem[idx] || toggleCurrency(idx)}
-                            >
-                              <Text style={{
-                                fontSize: 13,
-                                fontWeight: '500',
-                                color: currencyPerItem[idx] ? '#FFFFFF' : '#6B7280'
-                              }}>
-                                USD
-                              </Text>
-                            </TouchableOpacity>
-                          </View>
-                        </View>
-
-                        {item.note && (
-                          <View style={{ marginTop: 8, padding: 8, backgroundColor: '#FFFFFF', borderRadius: 4 }}>
-                            <Text style={{ color: '#9CA3AF', fontSize: 12, fontStyle: 'italic' }}>{item.note}</Text>
-                          </View>
-                        )}
+                        <TouchableOpacity
+                          onPress={() => removeItemFromCart(idx)}
+                          style={{ padding: 6 }}
+                        >
+                          <Ionicons name="trash" size={20} color="#DC2626" />
+                        </TouchableOpacity>
                       </View>
-                    ))
-                  )}
-                </ScrollView>
-                <View style={{ borderTopWidth: 1, borderTopColor: '#E5E7EB', paddingTop: 12, marginBottom: 12, backgroundColor: '#F9FAFB', padding: 12, borderRadius: 8 }}>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
-                    <Text style={{ color: '#6B7280', fontSize: 14 }}>Total CDF:</Text>
-                    <Text style={{ color: '#374151', fontWeight: '600', fontSize: 14 }}>
-                      CDF {totalCdf.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}
-                    </Text>
-                  </View>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
-                    <Text style={{ color: '#6B7280', fontSize: 14 }}>Total USD:</Text>
-                    <Text style={{ color: '#374151', fontWeight: '600', fontSize: 14 }}>USD {totalUsdDisplay.toFixed(2)}</Text>
-                  </View>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
-                    <Text style={{ color: '#6B7280', fontSize: 14 }}>Sous-total:</Text>
-                    <Text style={{ color: '#374151', fontWeight: '600', fontSize: 14 }}>
-                      CDF {subtotal.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}
-                    </Text>
-                  </View>
-                  {(displayReductionCdf > 0 || displayReductionUsd > 0) && (
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
-                      <Text style={{ color: '#6B7280', fontSize: 14 }}>Réduction:</Text>
-                      <Text style={{ color: '#374151', fontWeight: '600', fontSize: 14 }}>
-                        {useUsdAmounts
-                          ? `USD ${displayReductionUsd.toFixed(2)}`
-                          : `CDF ${displayReductionCdf.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}`}
-                      </Text>
+
+                      {/* Switch USD/CDF */}
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <Text style={{ fontSize: 13, color: '#6B7280' }}>Devise:</Text>
+                        <View style={{ flexDirection: 'row', backgroundColor: '#E5E7EB', borderRadius: 6, padding: 2 }}>
+                          <TouchableOpacity
+                            style={{
+                              paddingVertical: 4,
+                              paddingHorizontal: 12,
+                              borderRadius: 4,
+                              backgroundColor: !currencyPerItem[idx] ? '#7C3AED' : 'transparent'
+                            }}
+                            onPress={() => !currencyPerItem[idx] || toggleCurrency(idx)}
+                          >
+                            <Text style={{
+                              fontSize: 13,
+                              fontWeight: '500',
+                              color: !currencyPerItem[idx] ? '#FFFFFF' : '#6B7280'
+                            }}>
+                              CDF
+                            </Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={{
+                              paddingVertical: 4,
+                              paddingHorizontal: 12,
+                              borderRadius: 4,
+                              backgroundColor: currencyPerItem[idx] ? '#7C3AED' : 'transparent'
+                            }}
+                            onPress={() => currencyPerItem[idx] || toggleCurrency(idx)}
+                          >
+                            <Text style={{
+                              fontSize: 13,
+                              fontWeight: '500',
+                              color: currencyPerItem[idx] ? '#FFFFFF' : '#6B7280'
+                            }}>
+                              USD
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+
+                      {item.note && (
+                        <View style={{ marginTop: 8, padding: 8, backgroundColor: '#FFFFFF', borderRadius: 4 }}>
+                          <Text style={{ color: '#9CA3AF', fontSize: 12, fontStyle: 'italic' }}>{item.note}</Text>
+                        </View>
+                      )}
                     </View>
-                  )}
-                  <View style={{ height: 1, backgroundColor: '#E5E7EB', marginVertical: 8 }} />
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
-                    <Text style={{ fontWeight: 'bold', color: '#111827', fontSize: 16 }}>TOTAL FINAL:</Text>
-                    <Text style={{ fontWeight: 'bold', color: '#7C3AED', fontSize: 16 }}>
-                      CDF {total.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}
+                  ))
+                )}
+              </ScrollView>
+              <View style={{ borderTopWidth: 1, borderTopColor: '#E5E7EB', paddingTop: 12, marginBottom: 12, backgroundColor: '#F9FAFB', padding: 12, borderRadius: 8 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <Text style={{ color: '#6B7280', fontSize: 14 }}>Total CDF:</Text>
+                  <Text style={{ color: '#374151', fontWeight: '600', fontSize: 14 }}>
+                    CDF {totalCdf.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}
+                  </Text>
+                </View>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <Text style={{ color: '#6B7280', fontSize: 14 }}>Total USD:</Text>
+                  <Text style={{ color: '#374151', fontWeight: '600', fontSize: 14 }}>USD {totalUsdDisplay.toFixed(2)}</Text>
+                </View>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <Text style={{ color: '#6B7280', fontSize: 14 }}>Sous-total:</Text>
+                  <Text style={{ color: '#374151', fontWeight: '600', fontSize: 14 }}>
+                    CDF {subtotal.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}
+                  </Text>
+                </View>
+                {(displayReductionCdf > 0 || displayReductionUsd > 0) && (
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <Text style={{ color: '#6B7280', fontSize: 14 }}>Réduction:</Text>
+                    <Text style={{ color: '#374151', fontWeight: '600', fontSize: 14 }}>
+                      {useUsdAmounts
+                        ? `USD ${displayReductionUsd.toFixed(2)}`
+                        : `CDF ${displayReductionCdf.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}`}
                     </Text>
                   </View>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                    <Text style={{ color: '#6B7280', fontSize: 14 }}>TOTAL FINAL USD:</Text>
-                    <Text style={{ color: '#374151', fontWeight: '600', fontSize: 14 }}>USD {totalFinalUsd.toFixed(2)}</Text>
-                  </View>
-                </View>
-                {/* Montants */}
-                <View style={{ marginBottom: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <Text style={{ color: '#374151', fontWeight: '500' }}>Montant en</Text>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <Text style={{ color: useUsdAmounts ? '#6B7280' : '#1F2937', fontWeight: !useUsdAmounts ? '600' : '500' }}>CDF</Text>
-                    <Switch
-                      value={useUsdAmounts}
-                      onValueChange={setUseUsdAmounts}
-                      trackColor={{ false: '#E5E7EB', true: '#34D399' }}
-                      thumbColor={useUsdAmounts ? '#059669' : '#FFFFFF'}
-                    />
-                    <Text style={{ color: useUsdAmounts ? '#1F2937' : '#6B7280', fontWeight: useUsdAmounts ? '600' : '500' }}>USD</Text>
-                  </View>
-                </View>
-                <View style={{ marginBottom: 10 }}>
-                  <Text style={{ color: '#374151', marginBottom: 4, fontWeight: '500' }}>Montant CDF</Text>
-                  <TextInput
-                    value={amountCdf}
-                    onChangeText={setAmountCdf}
-                    placeholder="0"
-                    placeholderTextColor="#9CA3AF"
-                    keyboardType="numeric"
-                    editable={!useUsdAmounts}
-                    selectTextOnFocus={!useUsdAmounts}
-                    style={{
-                      borderWidth: 1,
-                      borderColor: '#E5E7EB',
-                      borderRadius: 6,
-                      padding: 10,
-                      fontSize: 15,
-                      color: useUsdAmounts ? '#9CA3AF' : '#222',
-                      backgroundColor: useUsdAmounts ? '#F3F4F6' : '#FFFFFF',
-                    }}
-                  />
-                </View>
-                <View style={{ marginBottom: 10 }}>
-                  <Text style={{ color: '#374151', marginBottom: 4, fontWeight: '500' }}>Montant USD</Text>
-                  <TextInput
-                    value={amountUsd}
-                    onChangeText={setAmountUsd}
-                    placeholder="0.00"
-                    placeholderTextColor="#9CA3AF"
-                    keyboardType="numeric"
-                    editable={useUsdAmounts}
-                    selectTextOnFocus={useUsdAmounts}
-                    style={{
-                      borderWidth: 1,
-                      borderColor: '#E5E7EB',
-                      borderRadius: 6,
-                      padding: 10,
-                      fontSize: 15,
-                      color: useUsdAmounts ? '#222' : '#9CA3AF',
-                      backgroundColor: useUsdAmounts ? '#FFFFFF' : '#F3F4F6',
-                    }}
-                  />
-                </View>
-
-                {/* Champ nom du client */}
-                <View style={{ marginBottom: 10 }}>
-                  <Text style={{ color: '#374151', marginBottom: 4, fontWeight: '500' }}>Nom du client</Text>
-                  <TextInput
-                    value={customerName}
-                    onChangeText={setCustomerName}
-                    placeholder="Entrez le nom du client"
-                    placeholderTextColor="#9CA3AF"
-                    style={{
-                      borderWidth: 1,
-                      borderColor: '#E5E7EB',
-                      borderRadius: 6,
-                      padding: 10,
-                      fontSize: 15,
-                      color: '#222',
-                      backgroundColor: '#FFFFFF',
-                    }}
-                  />
-                </View>
-
-                {/* Champ contact */}
-                <View style={{ marginBottom: 10 }}>
-                  <Text style={{ color: '#374151', marginBottom: 4, fontWeight: '500' }}>Contact</Text>
-                  <TextInput
-                    value={customerContact}
-                    onChangeText={setCustomerContact}
-                    placeholder="Téléphone ou email"
-                    placeholderTextColor="#9CA3AF"
-                    keyboardType="phone-pad"
-                    style={{
-                      borderWidth: 1,
-                      borderColor: '#E5E7EB',
-                      borderRadius: 6,
-                      padding: 10,
-                      fontSize: 15,
-                      color: '#222',
-                      backgroundColor: '#FFFFFF',
-                    }}
-                  />
-                </View>
-
-                {/* Notice de commande */}
-                <View style={{ marginBottom: 12 }}>
-                  <Text style={{ color: '#374151', marginBottom: 4, fontWeight: '500' }}>Notice</Text>
-                  <TextInput
-                    value={commandNotice}
-                    onChangeText={setCommandNotice}
-                    placeholder="Instructions spéciales..."
-                    placeholderTextColor="#9CA3AF"
-                    style={{
-                      borderWidth: 1,
-                      borderColor: '#E5E7EB',
-                      borderRadius: 6,
-                      padding: 10,
-                      fontSize: 15,
-                      color: '#222',
-                      backgroundColor: '#FFFFFF',
-                      textAlignVertical: 'top',
-                      minHeight: 80,
-                    }}
-                    multiline
-                    numberOfLines={3}
-                  />
-                </View>
-
-                {/* Dette */}
-                <View style={{ marginBottom: 12, backgroundColor: '#F9FAFB', borderRadius: 10, padding: 12, borderWidth: 1, borderColor: '#E5E7EB', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <View>
-                    <Text style={{ color: '#374151', fontWeight: '600', fontSize: 14 }}>Dette ?</Text>
-                    <Text style={{ color: '#6B7280', fontSize: 12 }}>Activer si la facture est à crédit</Text>
-                  </View>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <Text style={{ fontWeight: '600', color: isDebt ? '#047857' : '#6B7280' }}>{isDebt ? 'Oui' : 'Non'}</Text>
-                    <Switch
-                      value={isDebt}
-                      onValueChange={setIsDebt}
-                      trackColor={{ false: '#E5E7EB', true: '#34D399' }}
-                      thumbColor={isDebt ? '#059669' : '#FFFFFF'}
-                    />
-                  </View>
-                </View>
-
-                {/* Mode de paiement */}
-                <View style={{ marginBottom: 16 }}>
-                  <Text style={{ color: '#374151', marginBottom: 6, fontWeight: '500' }}>Mode de paiement</Text>
-                  <View style={styles.paymentMethodContainerMobile}>
-                    {['Cash', 'QquityBCDC', '(Autre)Carte bancaire', 'Mobile Money'].map((method) => (
-                      <TouchableOpacity
-                        key={method}
-                        style={[
-                          styles.paymentMethodButtonMobile,
-                          paymentMethod === method && styles.paymentMethodButtonActiveMobile
-                        ]}
-                        onPress={() => setPaymentMethod(method)}
-                      >
-                        {paymentMethod === method && (
-                          <View style={styles.paymentCheckIconContainer}>
-                            <Ionicons name="checkmark-circle" size={14} color="#10B981" />
-                          </View>
-                        )}
-                        <Text style={[
-                          styles.paymentMethodTextMobile,
-                          paymentMethod === method && styles.paymentMethodTextActiveMobile
-                        ]}>
-                          {method}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
-                
-                <TouchableOpacity
-                  style={{
-                    backgroundColor: isCreatingFacture || !isTableSelected ? '#9CA3AF' : '#00436C',
-                    borderRadius: 8,
-                    paddingVertical: 14,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    marginTop: 8,
-                    gap: 8,
-                    opacity: isCreatingFacture || !isTableSelected ? 0.7 : 1,
-                  }}
-                  onPress={handleConfirmPaymentWeb}
-                  disabled={isCreatingFacture || !isTableSelected}
-                >
-                  {isCreatingFacture ? (
-                    <ActivityIndicator size="small" color="white" />
-                  ) : (
-                    <Ionicons name="calculator" size={20} color="white" />
-                  )}
-                  <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>
-                    {isCreatingFacture ? 'Enregistrement...' : 'Enregistrer la commande'}
-                  </Text>
-                </TouchableOpacity>
-
-                {/* Bouton Imprimer Proforma */}
-                <TouchableOpacity
-                  style={{
-                    backgroundColor: isPrintingProforma || !isTableSelected ? '#9CA3AF' : '#F59E0B',
-                    borderRadius: 8,
-                    paddingVertical: 14,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    marginTop: 8,
-                    gap: 8,
-                    opacity: isPrintingProforma || !isTableSelected ? 0.7 : 1,
-                  }}
-                  onPress={handlePrintProformaWeb}
-                  disabled={isPrintingProforma || !isTableSelected}
-                >
-                  {isPrintingProforma ? (
-                    <ActivityIndicator size="small" color="white" />
-                  ) : (
-                    <Ionicons name="print" size={20} color="white" />
-                  )}
-                  <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>
-                    {isPrintingProforma ? 'Impression...' : 'Imprimer proforma'}
-                  </Text>
-                </TouchableOpacity>
-                {!isTableSelected && (
-                  <Text style={styles.noTableText}>Aucun poste trouvé</Text>
                 )}
+                <View style={{ height: 1, backgroundColor: '#E5E7EB', marginVertical: 8 }} />
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <Text style={{ fontWeight: 'bold', color: '#111827', fontSize: 16 }}>TOTAL FINAL:</Text>
+                  <Text style={{ fontWeight: 'bold', color: '#7C3AED', fontSize: 16 }}>
+                    CDF {total.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}
+                  </Text>
+                </View>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                  <Text style={{ color: '#6B7280', fontSize: 14 }}>TOTAL FINAL USD:</Text>
+                  <Text style={{ color: '#374151', fontWeight: '600', fontSize: 14 }}>USD {totalFinalUsd.toFixed(2)}</Text>
+                </View>
+              </View>
+              {/* Montants */}
+              <View style={{ marginBottom: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Text style={{ color: '#374151', fontWeight: '500' }}>Montant en</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Text style={{ color: useUsdAmounts ? '#6B7280' : '#1F2937', fontWeight: !useUsdAmounts ? '600' : '500' }}>CDF</Text>
+                  <Switch
+                    value={useUsdAmounts}
+                    onValueChange={setUseUsdAmounts}
+                    trackColor={{ false: '#E5E7EB', true: '#34D399' }}
+                    thumbColor={useUsdAmounts ? '#059669' : '#FFFFFF'}
+                  />
+                  <Text style={{ color: useUsdAmounts ? '#1F2937' : '#6B7280', fontWeight: useUsdAmounts ? '600' : '500' }}>USD</Text>
+                </View>
+              </View>
+              <View style={{ marginBottom: 10 }}>
+                <Text style={{ color: '#374151', marginBottom: 4, fontWeight: '500' }}>Montant CDF</Text>
+                <TextInput
+                  value={amountCdf}
+                  onChangeText={setAmountCdf}
+                  placeholder="0"
+                  placeholderTextColor="#9CA3AF"
+                  keyboardType="numeric"
+                  editable={!useUsdAmounts}
+                  selectTextOnFocus={!useUsdAmounts}
+                  style={{
+                    borderWidth: 1,
+                    borderColor: '#E5E7EB',
+                    borderRadius: 6,
+                    padding: 10,
+                    fontSize: 15,
+                    color: useUsdAmounts ? '#9CA3AF' : '#222',
+                    backgroundColor: useUsdAmounts ? '#F3F4F6' : '#FFFFFF',
+                  }}
+                />
+              </View>
+              <View style={{ marginBottom: 10 }}>
+                <Text style={{ color: '#374151', marginBottom: 4, fontWeight: '500' }}>Montant USD</Text>
+                <TextInput
+                  value={amountUsd}
+                  onChangeText={setAmountUsd}
+                  placeholder="0.00"
+                  placeholderTextColor="#9CA3AF"
+                  keyboardType="numeric"
+                  editable={useUsdAmounts}
+                  selectTextOnFocus={useUsdAmounts}
+                  style={{
+                    borderWidth: 1,
+                    borderColor: '#E5E7EB',
+                    borderRadius: 6,
+                    padding: 10,
+                    fontSize: 15,
+                    color: useUsdAmounts ? '#222' : '#9CA3AF',
+                    backgroundColor: useUsdAmounts ? '#FFFFFF' : '#F3F4F6',
+                  }}
+                />
+              </View>
+
+              {/* Champ nom du client */}
+              <View style={{ marginBottom: 10 }}>
+                <Text style={{ color: '#374151', marginBottom: 4, fontWeight: '500' }}>Nom du client</Text>
+                <TextInput
+                  value={customerName}
+                  onChangeText={setCustomerName}
+                  placeholder="Entrez le nom du client"
+                  placeholderTextColor="#9CA3AF"
+                  style={{
+                    borderWidth: 1,
+                    borderColor: '#E5E7EB',
+                    borderRadius: 6,
+                    padding: 10,
+                    fontSize: 15,
+                    color: '#222',
+                    backgroundColor: '#FFFFFF',
+                  }}
+                />
+              </View>
+
+              {/* Champ contact */}
+              <View style={{ marginBottom: 10 }}>
+                <Text style={{ color: '#374151', marginBottom: 4, fontWeight: '500' }}>Contact</Text>
+                <TextInput
+                  value={customerContact}
+                  onChangeText={setCustomerContact}
+                  placeholder="Téléphone ou email"
+                  placeholderTextColor="#9CA3AF"
+                  keyboardType="phone-pad"
+                  style={{
+                    borderWidth: 1,
+                    borderColor: '#E5E7EB',
+                    borderRadius: 6,
+                    padding: 10,
+                    fontSize: 15,
+                    color: '#222',
+                    backgroundColor: '#FFFFFF',
+                  }}
+                />
+              </View>
+
+              {/* Notice de commande */}
+              <View style={{ marginBottom: 12 }}>
+                <Text style={{ color: '#374151', marginBottom: 4, fontWeight: '500' }}>Notice</Text>
+                <TextInput
+                  value={commandNotice}
+                  onChangeText={setCommandNotice}
+                  placeholder="Instructions spéciales..."
+                  placeholderTextColor="#9CA3AF"
+                  style={{
+                    borderWidth: 1,
+                    borderColor: '#E5E7EB',
+                    borderRadius: 6,
+                    padding: 10,
+                    fontSize: 15,
+                    color: '#222',
+                    backgroundColor: '#FFFFFF',
+                    textAlignVertical: 'top',
+                    minHeight: 80,
+                  }}
+                  multiline
+                  numberOfLines={3}
+                />
+              </View>
+
+              {/* Dette */}
+              <View style={{ marginBottom: 12, backgroundColor: '#F9FAFB', borderRadius: 10, padding: 12, borderWidth: 1, borderColor: '#E5E7EB', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <View>
+                  <Text style={{ color: '#374151', fontWeight: '600', fontSize: 14 }}>Dette ?</Text>
+                  <Text style={{ color: '#6B7280', fontSize: 12 }}>Activer si la facture est à crédit</Text>
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Text style={{ fontWeight: '600', color: isDebt ? '#047857' : '#6B7280' }}>{isDebt ? 'Oui' : 'Non'}</Text>
+                  <Switch
+                    value={isDebt}
+                    onValueChange={setIsDebt}
+                    trackColor={{ false: '#E5E7EB', true: '#34D399' }}
+                    thumbColor={isDebt ? '#059669' : '#FFFFFF'}
+                  />
+                </View>
+              </View>
+
+              {/* Mode de paiement */}
+              <View style={{ marginBottom: 16 }}>
+                <Text style={{ color: '#374151', marginBottom: 6, fontWeight: '500' }}>Mode de paiement</Text>
+                <View style={styles.paymentMethodContainerMobile}>
+                  {['Cash', 'QquityBCDC', '(Autre)Carte bancaire', 'Mobile Money'].map((method) => (
+                    <TouchableOpacity
+                      key={method}
+                      style={[
+                        styles.paymentMethodButtonMobile,
+                        paymentMethod === method && styles.paymentMethodButtonActiveMobile
+                      ]}
+                      onPress={() => setPaymentMethod(method)}
+                    >
+                      {paymentMethod === method && (
+                        <View style={styles.paymentCheckIconContainer}>
+                          <Ionicons name="checkmark-circle" size={14} color="#10B981" />
+                        </View>
+                      )}
+                      <Text style={[
+                        styles.paymentMethodTextMobile,
+                        paymentMethod === method && styles.paymentMethodTextActiveMobile
+                      ]}>
+                        {method}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              <TouchableOpacity
+                style={{
+                  backgroundColor: isCreatingFacture || !isTableSelected ? '#9CA3AF' : '#00436C',
+                  borderRadius: 8,
+                  paddingVertical: 14,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginTop: 8,
+                  gap: 8,
+                  opacity: isCreatingFacture || !isTableSelected ? 0.7 : 1,
+                }}
+                onPress={handleConfirmPaymentWeb}
+                disabled={isCreatingFacture || !isTableSelected}
+              >
+                {isCreatingFacture ? (
+                  <ActivityIndicator size="small" color="white" />
+                ) : (
+                  <Ionicons name="calculator" size={20} color="white" />
+                )}
+                <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>
+                  {isCreatingFacture ? 'Enregistrement...' : 'Enregistrer la commande'}
+                </Text>
+              </TouchableOpacity>
+
+              {/* Bouton Imprimer Proforma */}
+              <TouchableOpacity
+                style={{
+                  backgroundColor: isPrintingProforma || !isTableSelected ? '#9CA3AF' : '#F59E0B',
+                  borderRadius: 8,
+                  paddingVertical: 14,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginTop: 8,
+                  gap: 8,
+                  opacity: isPrintingProforma || !isTableSelected ? 0.7 : 1,
+                }}
+                onPress={handlePrintProformaWeb}
+                disabled={isPrintingProforma || !isTableSelected}
+              >
+                {isPrintingProforma ? (
+                  <ActivityIndicator size="small" color="white" />
+                ) : (
+                  <Ionicons name="print" size={20} color="white" />
+                )}
+                <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>
+                  {isPrintingProforma ? 'Impression...' : 'Imprimer proforma'}
+                </Text>
+              </TouchableOpacity>
+              {!isTableSelected && (
+                <Text style={styles.noTableText}>Aucun poste trouvé</Text>
+              )}
             </>
 
           </ScrollView>
@@ -2584,11 +2590,11 @@ ${orderDetails}
                   // Trier par nomination si disponible, sinon par id
                   const aValue = a.nomination || a.id;
                   const bValue = b.nomination || b.id;
-                  
+
                   // Extraire les nombres des nominations (ex: "Table 1" -> 1)
                   const aNum = parseInt(aValue.toString().replace(/\D/g, '')) || aValue;
                   const bNum = parseInt(bValue.toString().replace(/\D/g, '')) || bValue;
-                  
+
                   return aNum - bNum;
                 }).map((table: any) => (
                   <TouchableOpacity
@@ -2652,7 +2658,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F9FAFB',
     position: 'relative',
   },
-  
+
   // États de chargement et erreurs
   loadingContainer: {
     flex: 1,
@@ -2843,7 +2849,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: '#FEF2F2',
   },
-  
+
   // Contrôles de quantité
   quantityControls: {
     flexDirection: 'row',
@@ -2891,13 +2897,13 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     paddingHorizontal: 6,
   },
-  
+
   // Sélection de produit
   menuItemSelected: {
     borderColor: '#10B981',
     borderWidth: 2,
   },
-  
+
   // Icône de validation
   checkIconContainer: {
     position: 'absolute',
@@ -2905,7 +2911,7 @@ const styles = StyleSheet.create({
     right: 8,
     zIndex: 1,
   },
-  
+
   // Icône de validation pour les modes de paiement
   paymentCheckIconContainer: {
     // Pas de position absolue, juste un conteneur pour l'icône
@@ -3214,7 +3220,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F59E0B', // Orange pour distinguer du bouton principal
     marginTop: 8,
   },
-  
+
   // Loading Overlay
   loadingOverlay: {
     position: 'absolute',
@@ -3872,7 +3878,7 @@ const styles = StyleSheet.create({
     color: '#10B981',
     fontWeight: '600',
   },
-  
+
   // Sélecteur de catégories - Desktop
   categorySelectorWeb: {
     marginBottom: 16,
@@ -3909,7 +3915,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '600',
   },
-  
+
   // Sélecteur de catégories - Mobile
   categorySelectorMobile: {
     marginBottom: 12,

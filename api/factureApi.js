@@ -115,9 +115,9 @@ export const getFacturesByDateRange = async (startDate, endDate) => {
 
     const formattedStartDate = formatDateForApi(startDate);
     const formattedEndDate = formatDateForApi(endDate);
-    
+
     const endpoint = `/api/v1.0/Facture/get-by-date-range?startDate=${encodeURIComponent(formattedStartDate)}&endDate=${encodeURIComponent(formattedEndDate)}`;
-    
+
     const response = await apiClient.get(endpoint);
     return response;
   } catch (error) {
@@ -128,9 +128,10 @@ export const getFacturesByDateRange = async (startDate, endDate) => {
 
 // Imprimer une facture
 export const printFacture = async (receiptData) => {
+  console.log(receiptData);
   try {
     const printUrl = 'http://localhost:8080/';
-    
+
     const response = await fetch(printUrl, {
       method: 'POST',
       headers: {
@@ -142,12 +143,12 @@ export const printFacture = async (receiptData) => {
         receipt: receiptData
       }),
     });
-    
+
     if (!response.ok) {
       const errorText = await response.text();
       throw new Error(`HTTP ${response.status}: ${errorText}`);
     }
-    
+
     const result = await response.json();
     return result;
   } catch (error) {

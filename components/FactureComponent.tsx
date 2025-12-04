@@ -52,25 +52,25 @@ const parseInvoiceDate = (rawDate?: string) => {
 // Fonction pour formater les données de facture en format de reçu
 const formatInvoiceForReceipt = (invoice: any) => {
   const factureDate = parseInvoiceDate(invoice.date).toISOString();
-  
+
   // Récupérer les valeurs de réduction
   const reductionCdf = invoice.reductionCdf || 0;
   const reductionUsd = invoice.reductionUsd || 0;
-  
+
   // Récupérer les montants payés
   const amountPaidCdf = invoice.amountPaidCdf || 0;
   const amountPaidUsd = invoice.amountPaidUsd || 0;
-  
+
   // Calculer le total après réduction
   const totalCdf = invoice.totalCdf || 0;
   const totalUsd = invoice.totalUsd || 0;
-  const totalAfterReductionCdf = (invoice.totalAfterReductionCdf !== undefined) 
-    ? invoice.totalAfterReductionCdf 
+  const totalAfterReductionCdf = (invoice.totalAfterReductionCdf !== undefined)
+    ? invoice.totalAfterReductionCdf
     : totalCdf - reductionCdf;
-  const totalAfterReductionUsd = (invoice.totalAfterReductionUsd !== undefined) 
-    ? invoice.totalAfterReductionUsd 
+  const totalAfterReductionUsd = (invoice.totalAfterReductionUsd !== undefined)
+    ? invoice.totalAfterReductionUsd
     : totalUsd - reductionUsd;
-  
+
   // Calculer le total dynamique (reste à payer) : (Montant total après réduction) - montant payé
   const remainingAmountCdf = invoice.remainingAmountCdf !== undefined
     ? invoice.remainingAmountCdf
@@ -78,7 +78,7 @@ const formatInvoiceForReceipt = (invoice: any) => {
   const remainingAmountUsd = invoice.remainingAmountUsd !== undefined
     ? invoice.remainingAmountUsd
     : Math.max(0, totalAfterReductionUsd - amountPaidUsd);
-  
+
   return {
     organisationName: "AGRIVET-CONGO intrants Agricoles et Vétérinaires",
     adresse1: "Av. Mama Yemo coin Likasi C/Lubumbashi",
@@ -89,7 +89,7 @@ const formatInvoiceForReceipt = (invoice: any) => {
     idOrganisation: "ID.NAT 05-G4701-N13657S",
     numeroImpot: "",
     logoPath: "images/logo.png",
-    tableName: invoice.tableNomination || "N/A",
+    tableName: invoice.numCode || "-",
     date: factureDate,
     time: factureDate,
     items: invoice.items?.map((item: any) => ({
@@ -100,15 +100,21 @@ const formatInvoiceForReceipt = (invoice: any) => {
     })) || [],
     total: invoice.amountPaidCdf || 0,
     netTotal: invoice.amountPaidUsd || 0,
-    
+
+    // INFORMATIONS UTILISATEURS
+    UserName: invoice.userName || "-",
+    Num: factureDate,
+
     // RÉDUCTION APPLIQUÉE
     reductionCdf: reductionCdf,
     reductionUsd: reductionUsd,
-    
+
     // TOTAL DYNAMIQUE (reste à payer)
     remainingAmountCdf: remainingAmountCdf,
     remainingAmountUsd: remainingAmountUsd,
-    
+
+
+
     thanksMessage: "Thank you for your business! Come again soon!"
   };
 };
@@ -126,7 +132,7 @@ const FactureComponent = ({ onInvoiceCountChange }: FactureComponentProps) => {
   // États pour les filtres
   const [selectedStatus, setSelectedStatus] = useState('Toutes');
   const [searchTerm, setSearchTerm] = useState('');
-  
+
   // États pour le filtrage par date
   const [startDate, setStartDate] = useState<Date>(() => {
     // Date d'aujourd'hui à 00:00:00
@@ -142,17 +148,17 @@ const FactureComponent = ({ onInvoiceCountChange }: FactureComponentProps) => {
   });
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [customDateRange, setCustomDateRange] = useState(false);
-  
+
   // States for direct date/time editing
   const [startDateText, setStartDateText] = useState('');
   const [endDateText, setEndDateText] = useState('');
   const [isEditingStartDate, setIsEditingStartDate] = useState(false);
   const [isEditingEndDate, setIsEditingEndDate] = useState(false);
-  
+
   // États pour les modals de calendrier (web uniquement)
   const [showStartDateModal, setShowStartDateModal] = useState(false);
   const [showEndDateModal, setShowEndDateModal] = useState(false);
-  
+
   // États pour les modals de calendrier mobile (bottom sheet)
   const [showMobileStartDateModal, setShowMobileStartDateModal] = useState(false);
   const [showMobileEndDateModal, setShowMobileEndDateModal] = useState(false);
@@ -162,20 +168,20 @@ const FactureComponent = ({ onInvoiceCountChange }: FactureComponentProps) => {
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
   const [isPrinting, setIsPrinting] = useState(false);
   const [activeModalTab, setActiveModalTab] = useState('details');
-  
+
   // États pour la modal mobile étendue
   const [activeMobileModalTab, setActiveMobileModalTab] = useState('details');
   const [selectedInvoiceForMobileEdit, setSelectedInvoiceForMobileEdit] = useState<any>(null);
-  
+
   // États pour la section droite (Web uniquement)
   const [selectedInvoiceForDetails, setSelectedInvoiceForDetails] = useState<any>(null);
   const [activeDetailsTab, setActiveDetailsTab] = useState('edit');
   const [invoiceDetailsLoading, setInvoiceDetailsLoading] = useState(false);
   const [invoiceDetailsError, setInvoiceDetailsError] = useState<string | null>(null);
-  
+
   // État pour le loading du bouton modifier facture
   const [isUpdatingInvoice, setIsUpdatingInvoice] = useState(false);
-  
+
   // État pour la modal d'impression
   const [showPrintModal, setShowPrintModal] = useState(false);
 
@@ -261,10 +267,10 @@ const FactureComponent = ({ onInvoiceCountChange }: FactureComponentProps) => {
       minute: '2-digit',
     });
   };
-  
+
   // États pour le taux de change
   const [exchangeRate, setExchangeRate] = useState<number>(2800); // Valeur par défaut
-  
+
   const [userDepotCode, setUserDepotCode] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const productFetchParams = useMemo(
@@ -298,18 +304,18 @@ const FactureComponent = ({ onInvoiceCountChange }: FactureComponentProps) => {
   const [products, setProducts] = useState<any[]>([]);
   const [tables, setTables] = useState<any[]>([]);
   const [selectedTable, setSelectedTable] = useState('Toutes');
-  
+
   // États pour la sélection de produits
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [productQuantity, setProductQuantity] = useState(1);
   const [selectedProductCategory, setSelectedProductCategory] = useState('Toutes');
-  
+
   // État pour l'onglet actif dans la section mobile
   const [activeMobileTab, setActiveMobileTab] = useState<'details' | 'products'>('details');
-  
+
   // État pour les articles modifiables dans l'onglet Détails
   const [editableItems, setEditableItems] = useState<any[]>([]);
-  
+
   // États pour l'ajout de produits dans l'onglet Produits
   const [selectedProductForAddition, setSelectedProductForAddition] = useState<any>(null);
   const [quantityForAddition, setQuantityForAddition] = useState<string>('1');
@@ -330,7 +336,7 @@ const FactureComponent = ({ onInvoiceCountChange }: FactureComponentProps) => {
         subTotalCdf: item.subTotalCdf || (item.priceCdf || 0) * (item.qte || item.quantity || 1),
         taux: item.taux || exchangeRate
       }));
-      
+
       setEditableItems(formattedItems);
     }
   }, [selectedInvoice, exchangeRate]);
@@ -355,6 +361,7 @@ const FactureComponent = ({ onInvoiceCountChange }: FactureComponentProps) => {
     tableNomination?: string;
     userId?: string;
     userName?: string;
+    numCode?: string;
     createdAt?: string;
     updatedAt?: string;
     typePaiement?: string | null;
@@ -394,8 +401,8 @@ const FactureComponent = ({ onInvoiceCountChange }: FactureComponentProps) => {
       const itemsSource = Array.isArray(invoice.ventes)
         ? invoice.ventes
         : Array.isArray(invoice.items)
-        ? invoice.items
-        : [];
+          ? invoice.items
+          : [];
       const normalizedItems = itemsSource.map((item: any, index: number) => {
         const quantity = Number(item.qte ?? item.quantity ?? 1);
         const priceCdf = Number(item.priceCdf ?? 0);
@@ -441,6 +448,7 @@ const FactureComponent = ({ onInvoiceCountChange }: FactureComponentProps) => {
         tableNomination: invoice.tableNomination,
         userId: invoice.userId,
         userName: invoice.userName,
+        numCode: invoice.numCode,
         createdAt:
           invoice.createdAt || invoice.created || invoice.dateCreated || invoice.creationDate,
         updatedAt:
@@ -462,16 +470,17 @@ const FactureComponent = ({ onInvoiceCountChange }: FactureComponentProps) => {
     try {
       setInvoicesLoading(true);
       setInvoicesError(null);
-      
+
       let response;
       try {
         // Try the date range API first
         response = await getFacturesByDateRange(start, end);
+        console.log('response', response);
       } catch (dateRangeError) {
         // Fallback to getAllFactures if date range API fails
         response = await getAllFactures();
       }
-      
+
       // Handle the API response structure - it might be wrapped in a data property
       let invoicesData = response;
       if (response && response.data && Array.isArray(response.data)) {
@@ -482,18 +491,18 @@ const FactureComponent = ({ onInvoiceCountChange }: FactureComponentProps) => {
         setInvoices([]);
         return response;
       }
-      
+
       // Transform the API response to match our Invoice interface
       if (invoicesData && Array.isArray(invoicesData)) {
         const transformedInvoices: Invoice[] = invoicesData.map((invoice: any) =>
           normalizeInvoiceData(invoice)
         );
-        
+
         setInvoices(transformedInvoices);
       } else {
         setInvoices([]);
       }
-      
+
       return response;
     } catch (error) {
       console.error('🔍 Error in fetchInvoicesByDateRange:', error);
@@ -566,7 +575,7 @@ const FactureComponent = ({ onInvoiceCountChange }: FactureComponentProps) => {
         console.error('Error loading invoices:', error);
       }
     };
-    
+
     loadInvoices();
   }, [startDate, endDate]);
 
@@ -624,7 +633,7 @@ const FactureComponent = ({ onInvoiceCountChange }: FactureComponentProps) => {
         const match = dateText.match(format);
         if (match) {
           let day, month, year, hours = 0, minutes = 0;
-          
+
           if (format.source.includes('YYYY')) {
             // YYYY-MM-DD format
             year = parseInt(match[1]);
@@ -651,13 +660,13 @@ const FactureComponent = ({ onInvoiceCountChange }: FactureComponentProps) => {
           }
         }
       }
-      
+
       // Try parsing as ISO string
       const isoDate = new Date(dateText);
       if (!isNaN(isoDate.getTime())) {
         return isoDate;
       }
-      
+
       return null;
     } catch (error) {
       console.error('Error parsing date:', error);
@@ -753,7 +762,7 @@ const FactureComponent = ({ onInvoiceCountChange }: FactureComponentProps) => {
       // Debug: Log the first invoice to see the actual structure
       if (invoices && invoices.length > 0) {
       }
-      
+
       // Notifier le composant parent du nombre de factures
       if (onInvoiceCountChange) {
         onInvoiceCountChange(invoices.length);
@@ -926,7 +935,7 @@ const FactureComponent = ({ onInvoiceCountChange }: FactureComponentProps) => {
 
   // Catégories disponibles (depuis l'API + "Toutes")
   const productCategories = ['Toutes', ...categories.map((cat: any) => cat.name)];
-  
+
   const buildInvoiceReportStats = (invoicesToAnalyse: Invoice[]) => {
     return invoicesToAnalyse.reduce(
       (acc, invoice) => {
@@ -992,14 +1001,14 @@ const FactureComponent = ({ onInvoiceCountChange }: FactureComponentProps) => {
                 item.priceCdf != null
                   ? Number(item.priceCdf)
                   : quantity > 0
-                  ? Number(item.subTotalCdf ?? 0) / quantity
-                  : 0;
+                    ? Number(item.subTotalCdf ?? 0) / quantity
+                    : 0;
               const unitPriceUsd =
                 item.priceUsd != null
                   ? Number(item.priceUsd)
                   : quantity > 0
-                  ? Number(item.subTotalUsd ?? 0) / quantity
-                  : 0;
+                    ? Number(item.subTotalUsd ?? 0) / quantity
+                    : 0;
               const totalItemCdf =
                 item.subTotalCdf != null
                   ? Number(item.subTotalCdf)
@@ -1013,9 +1022,9 @@ const FactureComponent = ({ onInvoiceCountChange }: FactureComponentProps) => {
               const createdDate = createdRaw ? new Date(createdRaw) : null;
               const createdLabel = createdDate
                 ? `${createdDate.toLocaleDateString('fr-FR')} ${createdDate.toLocaleTimeString('fr-FR', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}`
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}`
                 : '—';
 
               return `
@@ -1328,8 +1337,8 @@ const FactureComponent = ({ onInvoiceCountChange }: FactureComponentProps) => {
         />
         <View style={styles.invoiceReportModalContainer}>
           <View style={styles.invoiceReportHeader}>
-          <View style={styles.invoiceReportHeaderActions}>
-          <TouchableOpacity style={styles.closeButton} onPress={closeInvoiceReportModal}>
+            <View style={styles.invoiceReportHeaderActions}>
+              <TouchableOpacity style={styles.closeButton} onPress={closeInvoiceReportModal}>
                 <Ionicons name="close" size={22} color="#6B7280" />
               </TouchableOpacity>
               {Platform.OS === 'web' && invoiceReportHtml !== '' && (
@@ -1341,7 +1350,7 @@ const FactureComponent = ({ onInvoiceCountChange }: FactureComponentProps) => {
                   <Text style={styles.invoiceReportPrintButtonText}>Imprimer</Text>
                 </TouchableOpacity>
               )}
-              
+
             </View>
             <View>
               <Text style={styles.invoiceReportTitle}>{invoiceReportTitle}</Text>
@@ -1349,7 +1358,7 @@ const FactureComponent = ({ onInvoiceCountChange }: FactureComponentProps) => {
                 Période : {formatDateForDisplay(startDate)} ➜ {formatDateForDisplay(endDate)}
               </Text>
             </View>
-            
+
           </View>
           <View style={styles.invoiceReportBody}>
             {Platform.OS === 'web' ? (
@@ -1414,8 +1423,8 @@ const FactureComponent = ({ onInvoiceCountChange }: FactureComponentProps) => {
                         );
                         const totalUsd = Number(
                           invoice.amountPaidUsd ??
-                            invoice.totalUsd ??
-                            (exchangeRate ? totalCdf / exchangeRate : 0),
+                          invoice.totalUsd ??
+                          (exchangeRate ? totalCdf / exchangeRate : 0),
                         );
                         const rawDate = invoice.createdAt || invoice.updatedAt || invoice.date;
                         const parsedDate = rawDate ? new Date(rawDate) : new Date();
@@ -1613,7 +1622,7 @@ const FactureComponent = ({ onInvoiceCountChange }: FactureComponentProps) => {
   // Fonction pour imprimer une facture
   const handlePrintFacture = async () => {
     if (!selectedInvoiceForDetails) return;
-    
+
     setIsPrinting(true);
     console.log('selectedInvoiceForDetails', selectedInvoiceForDetails);
     try {
@@ -1623,10 +1632,10 @@ const FactureComponent = ({ onInvoiceCountChange }: FactureComponentProps) => {
       setShowPrintModal(false);
     } catch (error) {
       console.error('Erreur lors de l\'impression:', error);
-      
+
       // Gestion des erreurs spécifiques
       let errorMessage = 'Impossible d\'imprimer la facture.';
-      
+
       Alert.alert('Erreur d\'impression', errorMessage);
     } finally {
       setIsPrinting(false);
@@ -1641,7 +1650,7 @@ const FactureComponent = ({ onInvoiceCountChange }: FactureComponentProps) => {
     // Sur mobile, utiliser editableItems pour les calculs, sinon utiliser selectedInvoiceForDetails.items
     const itemsForCalculation = !isLargeScreen && editableItems.length > 0 ? editableItems : selectedInvoiceForDetails.items;
     const totalItems = itemsForCalculation.length;
-    const totalCdf = itemsForCalculation.reduce((sum: number, item: any) => 
+    const totalCdf = itemsForCalculation.reduce((sum: number, item: any) =>
       sum + (item.subTotalCdf || item.priceCdf * (item.qte || item.quantity) || 0), 0
     );
     const totalUsd = totalCdf / exchangeRate;
@@ -1649,7 +1658,7 @@ const FactureComponent = ({ onInvoiceCountChange }: FactureComponentProps) => {
     const totalAfterReductionUsd = totalUsd - (selectedInvoiceForDetails.reductionUsd || 0);
 
     // Ajouter des informations sur les modifications si on est sur mobile
-    const modificationInfo = !isLargeScreen && editableItems.length > 0 ? 
+    const modificationInfo = !isLargeScreen && editableItems.length > 0 ?
       `\n📱 MODIFICATIONS APPORTÉES :
 🛒 Articles modifiés: ${editableItems.length} article(s)
 💰 Nouveau total CDF: ${totalCdf.toFixed(0)} CDF
@@ -1699,30 +1708,30 @@ Voulez-vous confirmer l'impression de cette facture ?`;
 
   const handleMobilePrintFacture = async () => {
     if (!selectedInvoiceForDetails) return;
-    
+
     setIsPrinting(true);
     try {
       // Créer un objet facture avec les modifications
-      const totalCdf = editableItems.reduce((sum: number, item: any) => 
+      const totalCdf = editableItems.reduce((sum: number, item: any) =>
         sum + (item.subTotalCdf || item.priceCdf * (item.qte || item.quantity) || 0), 0);
-      const totalUsd = editableItems.reduce((sum: number, item: any) => 
+      const totalUsd = editableItems.reduce((sum: number, item: any) =>
         sum + (item.subTotalUsd || item.priceUsd * (item.qte || item.quantity) || 0), 0);
-      
+
       const reductionCdf = selectedInvoiceForDetails.reductionCdf || 0;
       const reductionUsd = selectedInvoiceForDetails.reductionUsd || 0;
-      
+
       // Calculer le total après réduction
       const totalAfterReductionCdf = totalCdf - reductionCdf;
       const totalAfterReductionUsd = totalUsd - reductionUsd;
-      
+
       // Récupérer les montants payés (ou utiliser le total après réduction par défaut)
       const amountPaidCdf = selectedInvoiceForDetails.amountPaidCdf ?? totalAfterReductionCdf;
       const amountPaidUsd = selectedInvoiceForDetails.amountPaidUsd ?? totalAfterReductionUsd;
-      
+
       // Calculer le total dynamique (reste à payer) : (Montant total après réduction) - montant payé
       const remainingAmountCdf = Math.max(0, totalAfterReductionCdf - amountPaidCdf);
       const remainingAmountUsd = Math.max(0, totalAfterReductionUsd - amountPaidUsd);
-      
+
       const modifiedInvoice = {
         ...selectedInvoiceForDetails,
         items: editableItems, // Utiliser les articles modifiés
@@ -1738,8 +1747,8 @@ Voulez-vous confirmer l'impression de cette facture ?`;
         remainingAmountCdf: remainingAmountCdf,
         remainingAmountUsd: remainingAmountUsd
       };
-      
-      
+
+
       const receiptData = formatInvoiceForReceipt(modifiedInvoice);
       await printFacture(receiptData);
       Alert.alert('Succès', 'Facture modifiée envoyée à l\'imprimante avec succès!');
@@ -1878,7 +1887,7 @@ Voulez-vous confirmer l'impression de cette facture ?`;
 
   const resetPaymentForm = () => {
     setPaymentAmount('');
-  setPaymentDevise(1);
+    setPaymentDevise(1);
     setPaymentObservation('');
   };
 
@@ -1965,7 +1974,7 @@ Voulez-vous confirmer l'impression de cette facture ?`;
     const currentStatus = selectedInvoiceForDetails.status;
     let newStatus: number;
     let actionText: string;
-    
+
     // Gérer les statuts numériques de l'API
     if (typeof currentStatus === 'number') {
       if (currentStatus === 0) {
@@ -1991,9 +2000,9 @@ Voulez-vous confirmer l'impression de cette facture ?`;
         actionText = 'continuer';
       }
     }
-    
+
     const confirmMessage = `Êtes-vous sûr de vouloir ${actionText} la facture ${selectedInvoiceForDetails.id} ?`;
-    
+
     // Fonction pour exécuter le changement de statut
     const executeStatusChange = () => {
       const updatedInvoices: Invoice[] = invoices.map((invoice: Invoice) => {
@@ -2008,10 +2017,10 @@ Voulez-vous confirmer l'impression de cette facture ?`;
       if (updatedInvoice) {
         setSelectedInvoiceForDetails(updatedInvoice);
       }
-      
+
       // Afficher un message de succès
       const successMessage = `Facture ${selectedInvoiceForDetails.id} ${actionText}ée avec succès !`;
-      
+
       // Utiliser window.confirm sur Web, Alert.alert sur mobile
       if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
         window.alert(successMessage);
@@ -2072,7 +2081,7 @@ Voulez-vous confirmer l'impression de cette facture ?`;
         const unitUsd = Number(item.priceUsd ?? item.price ?? 0);
         const unitCdf = Number(
           item.priceCdf ??
-            (unitUsd > 0 ? unitUsd * exchangeRate : 0),
+          (unitUsd > 0 ? unitUsd * exchangeRate : 0),
         );
         const subtotalUsd = Number(
           item.subTotalUsd ?? unitUsd * qty,
@@ -2102,13 +2111,13 @@ Voulez-vous confirmer l'impression de cette facture ?`;
           const updatedItems = invoice.items.map((item: any) =>
             item.id === product.id
               ? {
-                  ...item,
-                  quantity: item.quantity + quantity,
-                  qte: (item.qte ?? item.quantity ?? 0) + quantity,
-                  total: (item.quantity + quantity) * item.price,
-                  subTotalUsd: (item.subTotalUsd ?? item.price ?? 0) + (product.price * quantity),
-                  subTotalCdf: (item.subTotalCdf ?? item.priceCdf ?? (item.price ?? 0) * exchangeRate) + ((item.priceCdf ?? product.price * exchangeRate) * quantity),
-                }
+                ...item,
+                quantity: item.quantity + quantity,
+                qte: (item.qte ?? item.quantity ?? 0) + quantity,
+                total: (item.quantity + quantity) * item.price,
+                subTotalUsd: (item.subTotalUsd ?? item.price ?? 0) + (product.price * quantity),
+                subTotalCdf: (item.subTotalCdf ?? item.priceCdf ?? (item.price ?? 0) * exchangeRate) + ((item.priceCdf ?? product.price * exchangeRate) * quantity),
+              }
               : item
           );
           const { amountPaidCdf, amountPaidUsd } = computePaidTotals(
@@ -2149,7 +2158,7 @@ Voulez-vous confirmer l'impression de cette facture ?`;
       if (selectedInvoice) setSelectedInvoice(updatedInvoice);
       if (selectedInvoiceForDetails) setSelectedInvoiceForDetails(updatedInvoice);
     }
-    
+
     // Reset selection after adding and switch to details tab
     setSelectedProduct(null);
     // Ne pas réinitialiser la quantité automatiquement pour permettre l'ajout répété
@@ -2194,13 +2203,13 @@ Voulez-vous confirmer l'impression de cette facture ?`;
         const updatedItems = invoice.items.map((item: any) =>
           item.id === itemId
             ? {
-                ...item,
-                quantity: newQuantity,
-                qte: newQuantity,
-                total: newQuantity * item.price,
-                subTotalUsd: (item.priceUsd ?? item.price ?? 0) * newQuantity,
-                subTotalCdf: (item.priceCdf ?? (item.priceUsd ?? item.price ?? 0) * exchangeRate) * newQuantity,
-              }
+              ...item,
+              quantity: newQuantity,
+              qte: newQuantity,
+              total: newQuantity * item.price,
+              subTotalUsd: (item.priceUsd ?? item.price ?? 0) * newQuantity,
+              subTotalCdf: (item.priceCdf ?? (item.priceUsd ?? item.price ?? 0) * exchangeRate) * newQuantity,
+            }
             : item
         );
         const { amountPaidCdf, amountPaidUsd } = computePaidTotals(
@@ -2257,7 +2266,7 @@ Voulez-vous confirmer l'impression de cette facture ?`;
     };
 
     const updatedItems = [...selectedInvoiceForDetails.items, newItem];
-    
+
     // Recalculer les totaux
     const newTotalUsd = updatedItems.reduce((sum: number, item: any) => sum + (item.subTotalUsd || 0), 0);
     const newTotalCdf = updatedItems.reduce((sum: number, item: any) => sum + (item.subTotalCdf || 0), 0);
@@ -2274,7 +2283,7 @@ Voulez-vous confirmer l'impression de cette facture ?`;
     };
 
     setSelectedInvoiceForDetails(updatedInvoice);
-    
+
     // Reset selection
     setSelectedProduct(null);
     // Ne pas réinitialiser la quantité automatiquement pour permettre l'ajout répété
@@ -2325,13 +2334,13 @@ Voulez-vous confirmer l'impression de cette facture ?`;
     if (!updateData) return;
 
     // Afficher l'objet qui sera envoyé à l'API dans la console
-     
+
 
     // Créer le message de confirmation avec les détails de la facture
     // Sur mobile, utiliser editableItems pour les calculs, sinon utiliser selectedInvoiceForDetails.items
     const itemsForCalculation = !isLargeScreen && editableItems.length > 0 ? editableItems : selectedInvoiceForDetails.items;
     const totalItems = itemsForCalculation.length;
-    const totalCdf = itemsForCalculation.reduce((sum: number, item: any) => 
+    const totalCdf = itemsForCalculation.reduce((sum: number, item: any) =>
       sum + (item.subTotalCdf || item.priceCdf * (item.qte || item.quantity) || 0), 0
     );
     const totalUsd = totalCdf / exchangeRate;
@@ -2339,7 +2348,7 @@ Voulez-vous confirmer l'impression de cette facture ?`;
     const totalAfterReductionUsd = totalUsd - (selectedInvoiceForDetails.reductionUsd || 0);
 
     // Ajouter des informations sur les modifications si on est sur mobile
-    const modificationInfo = !isLargeScreen && editableItems.length > 0 ? 
+    const modificationInfo = !isLargeScreen && editableItems.length > 0 ?
       `\n📱 MODIFICATIONS APPORTÉES :
 🛒 Articles modifiés: ${editableItems.length} article(s)
 💰 Nouveau total CDF: ${totalCdf.toFixed(0)} CDF
@@ -2403,19 +2412,19 @@ Voulez-vous confirmer la modification de cette facture ?`;
 
       // Appeler l'API de mise à jour
       const response = await updateFacture(updateData);
-      
+
       if (response.success) {
         // Mettre à jour la liste locale
-        const updatedInvoices = invoices.map(invoice => 
-          invoice.id === selectedInvoiceForDetails.id 
-            ? selectedInvoiceForDetails 
+        const updatedInvoices = invoices.map(invoice =>
+          invoice.id === selectedInvoiceForDetails.id
+            ? selectedInvoiceForDetails
             : invoice
         );
         setInvoices(updatedInvoices);
 
         // Afficher un message de succès
         Alert.alert('Succès', 'Facture mise à jour avec succès !');
-        
+
         // Rafraîchir la liste depuis l'API
         refetchInvoices();
       } else {
@@ -2432,7 +2441,7 @@ Voulez-vous confirmer la modification de cette facture ?`;
   // Fonction pour marquer une facture comme payée
   const handleMarkAsPayed = async (factureId: string) => {
     const confirmMessage = `Êtes-vous sûr de vouloir marquer la facture ${factureId} comme terminée ?`;
-    
+
     // Utiliser window.confirm sur Web, Alert.alert sur mobile
     if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
       const confirmed = window.confirm(confirmMessage);
@@ -2462,10 +2471,10 @@ Voulez-vous confirmer la modification de cette facture ?`;
   const handleMarkAsAborted = async (factureId: string) => {
     const currentStatus = selectedInvoiceForDetails?.status;
     const isCurrentlyPaused = currentStatus === 2;
-    
+
     const actionText = isCurrentlyPaused ? 'annuler définitivement' : 'mettre en pause';
     const confirmMessage = `Êtes-vous sûr de vouloir ${actionText} la facture ${factureId} ?`;
-    
+
     // Utiliser window.confirm sur Web, Alert.alert sur mobile
     if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
       const confirmed = window.confirm(confirmMessage);
@@ -2495,21 +2504,21 @@ Voulez-vous confirmer la modification de cette facture ?`;
   const executeDeleteFacture = async (factureId: string) => {
     try {
       const response = await deleteFacture(factureId);
-      
+
       // Check if the API response indicates success
       if (response && response.success === true) {
         // Supprimer la facture de la liste locale
         const updatedInvoices = invoices.filter(invoice => invoice.id !== factureId);
         setInvoices(updatedInvoices);
-        
+
         // Fermer la modal de détails si c'est la facture sélectionnée
         if (selectedInvoiceForDetails && selectedInvoiceForDetails.id === factureId) {
           setSelectedInvoiceForDetails(null);
         }
-        
+
         // Afficher un message de succès avec le message de l'API
         Alert.alert('Succès', response.message || 'Facture supprimée avec succès !');
-        
+
         // Rafraîchir la liste depuis l'API
         refetchInvoices();
       } else {
@@ -2560,21 +2569,21 @@ Voulez-vous confirmer la modification de cette facture ?`;
     try {
       // Marquer directement la facture comme payée (sans traitement du stock)
       const response = await markFactureAsPayed(factureId);
-      
+
       if (response.success) {
         // Mettre à jour la facture locale
         const updatedInvoice = { ...selectedInvoiceForDetails, status: 1 };
         setSelectedInvoiceForDetails(updatedInvoice);
-        
+
         // Mettre à jour la liste des factures
-        const updatedInvoices = invoices.map(invoice => 
+        const updatedInvoices = invoices.map(invoice =>
           invoice.id === factureId ? updatedInvoice : invoice
         );
         setInvoices(updatedInvoices);
-        
+
         // Afficher un message de succès pour la facture
         Alert.alert('Succès', 'Facture marquée comme terminée avec succès !');
-        
+
         // Rafraîchir la liste depuis l'API
         refetchInvoices();
       } else {
@@ -2591,22 +2600,22 @@ Voulez-vous confirmer la modification de cette facture ?`;
   const executeMarkAsAborted = async (factureId: string) => {
     try {
       const response = await markFactureAsAborted(factureId);
-      
+
       if (response.success) {
         // Mettre à jour la facture locale
         const updatedInvoice = { ...selectedInvoiceForDetails, status: 2 };
         setSelectedInvoiceForDetails(updatedInvoice);
-        
+
         // Mettre à jour la liste des factures
-        const updatedInvoices = invoices.map(invoice => 
+        const updatedInvoices = invoices.map(invoice =>
           invoice.id === factureId ? updatedInvoice : invoice
         );
         setInvoices(updatedInvoices);
-        
+
         // Afficher un message de succès
         const actionText = selectedInvoiceForDetails.status === 2 ? 'annulée' : 'mise en pause';
         Alert.alert('Succès', `Facture ${actionText} avec succès !`);
-        
+
         // Rafraîchir la liste depuis l'API
         refetchInvoices();
       } else {
@@ -2637,407 +2646,407 @@ Voulez-vous confirmer la modification de cette facture ?`;
           <View style={styles.leftSectionWeb}>
             <ScrollView style={styles.leftScrollView}>
               {/* Filtres */}
-        <View style={styles.filtersContainerWeb}>
-          {/* Debug Info */}
-          {/*<DebugInfo />*/}
-          
-          {/* Filtre par date */}
-          <View style={styles.filterGroup}>
-            <Text style={styles.filterLabel}>Période:</Text>
-            <View style={styles.dateFilterContainer}>
-              <View style={styles.dateRangeDisplay}>
-                <Text style={styles.dateRangeText}>
-                  {formatDateForDisplay(startDate)} - {formatDateForDisplay(endDate)}
-                </Text>
-                <TouchableOpacity
-                  style={styles.dateFilterButton}
-                  onPress={() => {
-                    if (Platform.OS === 'web') {
-                      // Actualiser les factures sur web
-                      refetchInvoices();
-                    } else {
-                      // Comportement mobile : ouvrir le date picker
-                      setShowDatePicker(!showDatePicker);
-                    }
-                  }}
-                >
-                  <Ionicons 
-                    name={Platform.OS === 'web' ? "refresh-outline" : "calendar-outline"} 
-                    size={20} 
-                    color="#6B7280" 
-                  />
-                  <Text style={styles.dateFilterButtonText}>
-                    {Platform.OS === 'web' ? 'Actualiser' : 'Modifier'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-              
-              {/* Boutons de sélection de date pour web uniquement */}
-              {Platform.OS === 'web' && (
-                <View style={styles.webDateSelectionContainer}>
-                  <TouchableOpacity
-                    style={styles.webDateButton}
-                    onPress={() => setShowStartDateModal(true)}
-                  >
-                    <Ionicons name="calendar-outline" size={16} color="#007AFF" />
-                    <Text style={styles.webDateButtonText}>Date de début</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.webDateButton}
-                    onPress={() => setShowEndDateModal(true)}
-                  >
-                    <Ionicons name="calendar-outline" size={16} color="#007AFF" />
-                    <Text style={styles.webDateButtonText}>Date de fin</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
+              <View style={styles.filtersContainerWeb}>
+                {/* Debug Info */}
+                {/*<DebugInfo />*/}
 
-              
-              {showDatePicker && (
-                <View style={styles.datePickerContainer}>
-                  <View style={styles.dateInputGroup}>
-                    <Text style={styles.dateInputLabel}>Date de début:</Text>
-                    <View style={styles.dateInputRow}>
-                      <TextInput
-                        style={[styles.dateInput, isEditingStartDate && styles.dateInputEditing]}
-                        value={isEditingStartDate ? startDateText : formatDateForDisplay(startDate)}
-                        placeholder="DD/MM/YYYY HH:MM"
-                        onFocus={() => {
-                          setIsEditingStartDate(true);
-                          setStartDateText(formatDateForDisplay(startDate));
-                        }}
-                        onChangeText={handleStartDateTextChange}
-                        onBlur={handleStartDateTextBlur}
-                        keyboardType="numeric"
-                      />
+                {/* Filtre par date */}
+                <View style={styles.filterGroup}>
+                  <Text style={styles.filterLabel}>Période:</Text>
+                  <View style={styles.dateFilterContainer}>
+                    <View style={styles.dateRangeDisplay}>
+                      <Text style={styles.dateRangeText}>
+                        {formatDateForDisplay(startDate)} - {formatDateForDisplay(endDate)}
+                      </Text>
                       <TouchableOpacity
-                        style={styles.datePickerButton}
+                        style={styles.dateFilterButton}
                         onPress={() => {
-                          const newDate = new Date(startDate);
-                          newDate.setDate(newDate.getDate() - 1);
-                          setStartDate(newDate);
-                          setStartDateText(formatDateForDisplay(newDate));
+                          if (Platform.OS === 'web') {
+                            // Actualiser les factures sur web
+                            refetchInvoices();
+                          } else {
+                            // Comportement mobile : ouvrir le date picker
+                            setShowDatePicker(!showDatePicker);
+                          }
                         }}
                       >
-                        <Ionicons name="chevron-back" size={16} color="#6B7280" />
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.datePickerButton}
-                        onPress={() => {
-                          const newDate = new Date(startDate);
-                          newDate.setDate(newDate.getDate() + 1);
-                          setStartDate(newDate);
-                          setStartDateText(formatDateForDisplay(newDate));
-                        }}
-                      >
-                        <Ionicons name="chevron-forward" size={16} color="#6B7280" />
+                        <Ionicons
+                          name={Platform.OS === 'web' ? "refresh-outline" : "calendar-outline"}
+                          size={20}
+                          color="#6B7280"
+                        />
+                        <Text style={styles.dateFilterButtonText}>
+                          {Platform.OS === 'web' ? 'Actualiser' : 'Modifier'}
+                        </Text>
                       </TouchableOpacity>
                     </View>
-                    <Text style={styles.dateInputHint}>Format: DD/MM/YYYY HH:MM (ex: 15/12/2024 14:30)</Text>
-                  </View>
-                  
-                  <View style={styles.dateInputGroup}>
-                    <Text style={styles.dateInputLabel}>Date de fin:</Text>
-                    <View style={styles.dateInputRow}>
-                      <TextInput
-                        style={[styles.dateInput, isEditingEndDate && styles.dateInputEditing]}
-                        value={isEditingEndDate ? endDateText : formatDateForDisplay(endDate)}
-                        placeholder="DD/MM/YYYY HH:MM"
-                        onFocus={() => {
-                          setIsEditingEndDate(true);
-                          setEndDateText(formatDateForDisplay(endDate));
-                        }}
-                        onChangeText={handleEndDateTextChange}
-                        onBlur={handleEndDateTextBlur}
-                        keyboardType="numeric"
-                      />
-                      <TouchableOpacity
-                        style={styles.datePickerButton}
-                        onPress={() => {
-                          const newDate = new Date(endDate);
-                          newDate.setDate(newDate.getDate() - 1);
-                          setEndDate(newDate);
-                          setEndDateText(formatDateForDisplay(newDate));
-                        }}
-                      >
-                        <Ionicons name="chevron-back" size={16} color="#6B7280" />
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.datePickerButton}
-                        onPress={() => {
-                          const newDate = new Date(endDate);
-                          newDate.setDate(newDate.getDate() + 1);
-                          setEndDate(newDate);
-                          setEndDateText(formatDateForDisplay(newDate));
-                        }}
-                      >
-                        <Ionicons name="chevron-forward" size={16} color="#6B7280" />
-                      </TouchableOpacity>
-                    </View>
-                    <Text style={styles.dateInputHint}>Format: DD/MM/YYYY HH:MM (ex: 16/12/2024 18:00)</Text>
-                  </View>
-                  
-                  <View style={styles.datePickerActions}>
-                    <TouchableOpacity
-                      style={styles.resetDateButton}
-                      onPress={resetToDefaultDateRange}
-                    >
-                      <Text style={styles.resetDateButtonText}>Par défaut</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.applyDateButton}
-                      onPress={() => setShowDatePicker(false)}
-                    >
-                      <Text style={styles.applyDateButtonText}>Appliquer</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              )}
-            </View>
-          </View>
 
-          {/* Filtre par statut */}
-          <View style={styles.filterGroup}>
-            <Text style={styles.filterLabel}>Statut:</Text>
-            <View style={styles.filterButtons}>
-              {['Toutes', 'Payées', 'Non payées'].map((status) => (
-                <TouchableOpacity
-                  key={status}
-                  style={[
-                    styles.filterButton,
-                    selectedStatus === status && styles.filterButtonActive
-                  ]}
-                  onPress={() => setSelectedStatus(status)}
-                >
-                  <Text style={[
-                    styles.filterButtonText,
-                    selectedStatus === status && styles.filterButtonTextActive
-                  ]}>
-                    {status}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
+                    {/* Boutons de sélection de date pour web uniquement */}
+                    {Platform.OS === 'web' && (
+                      <View style={styles.webDateSelectionContainer}>
+                        <TouchableOpacity
+                          style={styles.webDateButton}
+                          onPress={() => setShowStartDateModal(true)}
+                        >
+                          <Ionicons name="calendar-outline" size={16} color="#007AFF" />
+                          <Text style={styles.webDateButtonText}>Date de début</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={styles.webDateButton}
+                          onPress={() => setShowEndDateModal(true)}
+                        >
+                          <Ionicons name="calendar-outline" size={16} color="#007AFF" />
+                          <Text style={styles.webDateButtonText}>Date de fin</Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
 
-          {/* Filtre par table */}
-          <View style={styles.filterGroup}>
-            <Text style={styles.filterLabel}>Poste:</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View style={styles.filterButtons}>
-                <TouchableOpacity
-                  key="Toutes"
-                  style={[
-                    styles.filterButton,
-                    selectedTable === 'Toutes' && styles.filterButtonActive
-                  ]}
-                  onPress={() => setSelectedTable('Toutes')}
-                >
-                  <Text
-                    style={[
-                      styles.filterButtonText,
-                      selectedTable === 'Toutes' && styles.filterButtonTextActive
-                    ]}
-                  >
-                    Toutes
-                  </Text>
-                </TouchableOpacity>
-                {tablesLoading && (
-                  <View style={styles.filterButton}>
-                    <Text style={styles.filterButtonText}>Chargement...</Text>
-                  </View>
-                )}
-                {!tablesLoading && tables.length === 0 && !tablesError && (
-                  <View style={styles.filterButton}>
-                    <Text style={styles.filterButtonText}>Aucune table</Text>
-                  </View>
-                )}
-                {!tablesLoading && tablesError && (
-                  <View style={styles.filterButton}>
-                    <Text style={styles.filterButtonText}>Erreur</Text>
-                  </View>
-                )}
-                {!tablesLoading && tables.map((table: any) => (
-                  <TouchableOpacity
-                    key={table.value}
-                    style={[
-                      styles.filterButton,
-                      selectedTable === table.value && styles.filterButtonActive
-                    ]}
-                    onPress={() => setSelectedTable(table.value)}
-                  >
-                    <Text
-                      style={[
-                        styles.filterButtonText,
-                        selectedTable === table.value && styles.filterButtonTextActive
-                      ]}
-                    >
-                      {table.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </ScrollView>
-          </View>
 
-          {/* Recherche */}
-          <View style={styles.searchContainer}>
-            <Ionicons name="search" size={20} color="#6B7280" />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Rechercher par nom client ou numéro..."
-              placeholderTextColor="#9CA3AF"
-              value={searchTerm}
-              onChangeText={setSearchTerm}
-            />
-          </View>
-          <View style={styles.reportActionsWeb}>
-            <TouchableOpacity
-              style={styles.reportButtonWeb}
-              onPress={() => handleOpenInvoiceReport()}
-            >
-              <Ionicons name="document-text-outline" size={18} color="#FFFFFF" />
-              <Text style={styles.reportButtonTextWeb}>Rapport factures</Text>
-            </TouchableOpacity>
-            {Platform.OS === 'web' && (
-              <TouchableOpacity
-                style={[styles.reportButtonWeb, styles.reportButtonSecondaryWeb]}
-                onPress={() => handleOpenInvoiceReport({ autoPrint: true })}
-              >
-                <Ionicons name="print" size={18} color="#FFFFFF" />
-                <Text style={styles.reportButtonTextWeb}>Imprimer PDF</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
-        {/* Statistiques */}
-        <View style={styles.statsContainerWeb}>
-          <View style={styles.statCardWeb}>
-            <Text style={styles.statValueWeb}>{filteredInvoices.length}</Text>
-            <Text style={styles.statLabelWeb}>Total factures</Text>
-          </View>
-          <View style={styles.statCardWeb}>
-            <Text style={styles.statValueWeb}>{filteredInvoices.filter((inv: Invoice) => inv.status === 0).length}</Text>
-            <Text style={styles.statLabelWeb}>En cours</Text>
-          </View>
-          <View style={styles.statCardWeb}>
-            <Text style={styles.statValueWeb}>{filteredInvoices.filter((inv: Invoice) => inv.status === 1).length}</Text>
-            <Text style={styles.statLabelWeb}>Terminées</Text>
-          </View>
-          <View style={styles.statCardWeb}>
-            <Text style={styles.statValueWeb}>{filteredInvoices.reduce((sum: number, inv: Invoice) => sum + (inv.amountPaidCdf || 0), 0).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}</Text>
-            <Text style={styles.statLabelWeb}>Total CDF</Text>
-          </View>
-          <View style={styles.statCardWeb}>
-            <Text style={styles.statValueWeb}>{filteredInvoices.filter((inv: Invoice) => (inv.amountPaidCdf || 0) === 0 || (inv.amountPaidUsd || 0) === 0).length}</Text>
-            <Text style={styles.statLabelWeb}>Dette</Text>
-          </View>
-        </View>
+                    {showDatePicker && (
+                      <View style={styles.datePickerContainer}>
+                        <View style={styles.dateInputGroup}>
+                          <Text style={styles.dateInputLabel}>Date de début:</Text>
+                          <View style={styles.dateInputRow}>
+                            <TextInput
+                              style={[styles.dateInput, isEditingStartDate && styles.dateInputEditing]}
+                              value={isEditingStartDate ? startDateText : formatDateForDisplay(startDate)}
+                              placeholder="DD/MM/YYYY HH:MM"
+                              onFocus={() => {
+                                setIsEditingStartDate(true);
+                                setStartDateText(formatDateForDisplay(startDate));
+                              }}
+                              onChangeText={handleStartDateTextChange}
+                              onBlur={handleStartDateTextBlur}
+                              keyboardType="numeric"
+                            />
+                            <TouchableOpacity
+                              style={styles.datePickerButton}
+                              onPress={() => {
+                                const newDate = new Date(startDate);
+                                newDate.setDate(newDate.getDate() - 1);
+                                setStartDate(newDate);
+                                setStartDateText(formatDateForDisplay(newDate));
+                              }}
+                            >
+                              <Ionicons name="chevron-back" size={16} color="#6B7280" />
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              style={styles.datePickerButton}
+                              onPress={() => {
+                                const newDate = new Date(startDate);
+                                newDate.setDate(newDate.getDate() + 1);
+                                setStartDate(newDate);
+                                setStartDateText(formatDateForDisplay(newDate));
+                              }}
+                            >
+                              <Ionicons name="chevron-forward" size={16} color="#6B7280" />
+                            </TouchableOpacity>
+                          </View>
+                          <Text style={styles.dateInputHint}>Format: DD/MM/YYYY HH:MM (ex: 15/12/2024 14:30)</Text>
+                        </View>
 
-        {/* Grille des cartes de factures */}
-        <View style={styles.invoicesGridWeb}>
-          {invoicesLoading ? (
-            <LoadingIndicator />
-          ) : invoicesError ? (
-            <ErrorIndicator />
-          ) : filteredInvoices.length === 0 ? (
-            <View style={styles.emptyStateWeb}>
-              <Ionicons name="document-outline" size={64} color="#D1D5DB" />
-              <Text style={styles.emptyStateTitleWeb}>Aucune facture trouvée</Text>
-              <Text style={styles.emptyStateTextWeb}>Aucune facture ne correspond aux critères de recherche</Text>
-            </View>
-          ) : (
-            filteredInvoices.map((invoice: Invoice) => (
-              <TouchableOpacity
-                key={invoice.id}
-                style={[
-                  styles.invoiceCardWeb,
-                  selectedInvoiceForDetails?.id === invoice.id && styles.invoiceCardSelectedWeb
-                ]}
-                onPress={() => selectInvoiceForDetails(invoice)}
-              >
-                {/* Header de la carte */}
-                <View style={styles.invoiceCardHeaderWeb}>
-                  <View style={styles.invoiceCardHeaderLeftWeb}>
-                    <Text style={styles.invoiceCardIdWeb}>{invoice.tableNomination || 'Table'}</Text>
-                    <Text style={styles.invoiceCardDateHeaderWeb}>{invoice.date}</Text>
-                  </View>
-                  <View style={[styles.statusBadge, { backgroundColor: getStatusColor(invoice.status) }]}>
-                    <Text style={styles.statusText}>{getStatusLabel(invoice.status)}</Text>
+                        <View style={styles.dateInputGroup}>
+                          <Text style={styles.dateInputLabel}>Date de fin:</Text>
+                          <View style={styles.dateInputRow}>
+                            <TextInput
+                              style={[styles.dateInput, isEditingEndDate && styles.dateInputEditing]}
+                              value={isEditingEndDate ? endDateText : formatDateForDisplay(endDate)}
+                              placeholder="DD/MM/YYYY HH:MM"
+                              onFocus={() => {
+                                setIsEditingEndDate(true);
+                                setEndDateText(formatDateForDisplay(endDate));
+                              }}
+                              onChangeText={handleEndDateTextChange}
+                              onBlur={handleEndDateTextBlur}
+                              keyboardType="numeric"
+                            />
+                            <TouchableOpacity
+                              style={styles.datePickerButton}
+                              onPress={() => {
+                                const newDate = new Date(endDate);
+                                newDate.setDate(newDate.getDate() - 1);
+                                setEndDate(newDate);
+                                setEndDateText(formatDateForDisplay(newDate));
+                              }}
+                            >
+                              <Ionicons name="chevron-back" size={16} color="#6B7280" />
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              style={styles.datePickerButton}
+                              onPress={() => {
+                                const newDate = new Date(endDate);
+                                newDate.setDate(newDate.getDate() + 1);
+                                setEndDate(newDate);
+                                setEndDateText(formatDateForDisplay(newDate));
+                              }}
+                            >
+                              <Ionicons name="chevron-forward" size={16} color="#6B7280" />
+                            </TouchableOpacity>
+                          </View>
+                          <Text style={styles.dateInputHint}>Format: DD/MM/YYYY HH:MM (ex: 16/12/2024 18:00)</Text>
+                        </View>
+
+                        <View style={styles.datePickerActions}>
+                          <TouchableOpacity
+                            style={styles.resetDateButton}
+                            onPress={resetToDefaultDateRange}
+                          >
+                            <Text style={styles.resetDateButtonText}>Par défaut</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={styles.applyDateButton}
+                            onPress={() => setShowDatePicker(false)}
+                          >
+                            <Text style={styles.applyDateButtonText}>Appliquer</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    )}
                   </View>
                 </View>
 
-                {/* Informations client */}
-                <View style={styles.invoiceCardClientWeb}>
-                  <Text style={styles.invoiceCardCustomerNameWeb}>{invoice.customerName}</Text>
-                  <Text style={styles.invoiceCardCustomerEmailWeb}>{invoice.description}</Text>
-                  <View style={styles.invoicePaymentRowWeb}>
-                    <View style={styles.invoiceBadgeRowWeb}>
-                      <View
+                {/* Filtre par statut */}
+                <View style={styles.filterGroup}>
+                  <Text style={styles.filterLabel}>Statut:</Text>
+                  <View style={styles.filterButtons}>
+                    {['Toutes', 'Payées', 'Non payées'].map((status) => (
+                      <TouchableOpacity
+                        key={status}
                         style={[
-                          styles.invoiceDebtBadgeWeb,
-                          invoice.dette
-                            ? styles.invoiceDebtBadgeDebtWeb
-                            : styles.invoiceDebtBadgePaidWeb,
+                          styles.filterButton,
+                          selectedStatus === status && styles.filterButtonActive
                         ]}
+                        onPress={() => setSelectedStatus(status)}
+                      >
+                        <Text style={[
+                          styles.filterButtonText,
+                          selectedStatus === status && styles.filterButtonTextActive
+                        ]}>
+                          {status}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+                {/* Filtre par table */}
+                <View style={styles.filterGroup}>
+                  <Text style={styles.filterLabel}>Poste:</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    <View style={styles.filterButtons}>
+                      <TouchableOpacity
+                        key="Toutes"
+                        style={[
+                          styles.filterButton,
+                          selectedTable === 'Toutes' && styles.filterButtonActive
+                        ]}
+                        onPress={() => setSelectedTable('Toutes')}
                       >
                         <Text
                           style={[
-                            styles.invoiceDebtBadgeTextWeb,
-                            invoice.dette
-                              ? styles.invoiceDebtBadgeTextDebtWeb
-                              : styles.invoiceDebtBadgeTextPaidWeb,
+                            styles.filterButtonText,
+                            selectedTable === 'Toutes' && styles.filterButtonTextActive
                           ]}
                         >
-                          {invoice.dette ? 'DETTE' : 'PAYÉ'}
+                          Toutes
                         </Text>
-                      </View>
+                      </TouchableOpacity>
+                      {tablesLoading && (
+                        <View style={styles.filterButton}>
+                          <Text style={styles.filterButtonText}>Chargement...</Text>
+                        </View>
+                      )}
+                      {!tablesLoading && tables.length === 0 && !tablesError && (
+                        <View style={styles.filterButton}>
+                          <Text style={styles.filterButtonText}>Aucune table</Text>
+                        </View>
+                      )}
+                      {!tablesLoading && tablesError && (
+                        <View style={styles.filterButton}>
+                          <Text style={styles.filterButtonText}>Erreur</Text>
+                        </View>
+                      )}
+                      {!tablesLoading && tables.map((table: any) => (
+                        <TouchableOpacity
+                          key={table.value}
+                          style={[
+                            styles.filterButton,
+                            selectedTable === table.value && styles.filterButtonActive
+                          ]}
+                          onPress={() => setSelectedTable(table.value)}
+                        >
+                          <Text
+                            style={[
+                              styles.filterButtonText,
+                              selectedTable === table.value && styles.filterButtonTextActive
+                            ]}
+                          >
+                            {table.label}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
                     </View>
-                    <View style={styles.invoicePaymentTypeContainerWeb}>
-                      <Ionicons name="card-outline" size={14} color="#6B7280" />
-                      <Text style={styles.invoicePaymentTypeTextWeb}>
-                        {invoice.typePaiement || 'Type inconnu'}
-                      </Text>
-                    </View>
-                  </View>
+                  </ScrollView>
                 </View>
 
-                {/* Informations facture */}
-                <View style={styles.invoiceCardInfoWeb}>
-                  <View style={styles.invoiceCardInfoRowWeb}>
-                    <Ionicons name="calendar-outline" size={16} color="#6B7280" />
-                    <Text style={styles.invoiceCardDateWeb}>{invoice.date}</Text>
-                  </View>
-                  <View style={styles.invoiceCardInfoRowWeb}>
-                    <Ionicons name="receipt-outline" size={16} color="#6B7280" />
-                    <Text style={styles.invoiceCardItemsWeb}>{invoice.items.length} article(s)</Text>
-                  </View>
-                  {invoice.userName && (
-                    <View style={styles.invoiceCardInfoRowWeb}>
-                      <Ionicons name="person-outline" size={16} color="#6B7280" />
-                      <Text style={styles.invoiceCardItemsWeb}>{invoice.userName}</Text>
-                    </View>
+                {/* Recherche */}
+                <View style={styles.searchContainer}>
+                  <Ionicons name="search" size={20} color="#6B7280" />
+                  <TextInput
+                    style={styles.searchInput}
+                    placeholder="Rechercher par nom client ou numéro..."
+                    placeholderTextColor="#9CA3AF"
+                    value={searchTerm}
+                    onChangeText={setSearchTerm}
+                  />
+                </View>
+                <View style={styles.reportActionsWeb}>
+                  <TouchableOpacity
+                    style={styles.reportButtonWeb}
+                    onPress={() => handleOpenInvoiceReport()}
+                  >
+                    <Ionicons name="document-text-outline" size={18} color="#FFFFFF" />
+                    <Text style={styles.reportButtonTextWeb}>Rapport factures</Text>
+                  </TouchableOpacity>
+                  {Platform.OS === 'web' && (
+                    <TouchableOpacity
+                      style={[styles.reportButtonWeb, styles.reportButtonSecondaryWeb]}
+                      onPress={() => handleOpenInvoiceReport({ autoPrint: true })}
+                    >
+                      <Ionicons name="print" size={18} color="#FFFFFF" />
+                      <Text style={styles.reportButtonTextWeb}>Imprimer PDF</Text>
+                    </TouchableOpacity>
                   )}
                 </View>
-
-                {/* Footer avec total */}
-                <View style={styles.invoiceCardFooterWeb}>
-                  <View style={styles.invoiceCardTotalsWeb}>
-                    <Text style={styles.invoiceCardTotalWeb}>{(invoice.amountPaidCdf || 0).toFixed(0)} CDF</Text>
-                    <Text style={[styles.invoiceCardTotalUsdWeb, { fontSize: 18, marginRight: 40 }]}>${(invoice.amountPaidUsd || 0).toFixed(2)}</Text>
-                  </View>
-                  <TouchableOpacity
-                    style={styles.invoiceCardActionWeb}
-                    onPress={() => selectInvoiceForDetails(invoice)}
-                  >
-                    <Ionicons name="eye" size={18} color="#7C3AED" />
-                  </TouchableOpacity>
+              </View>
+              {/* Statistiques */}
+              <View style={styles.statsContainerWeb}>
+                <View style={styles.statCardWeb}>
+                  <Text style={styles.statValueWeb}>{filteredInvoices.length}</Text>
+                  <Text style={styles.statLabelWeb}>Total factures</Text>
                 </View>
-              </TouchableOpacity>
-            ))
-          )}
-        </View>
-        </ScrollView>
+                <View style={styles.statCardWeb}>
+                  <Text style={styles.statValueWeb}>{filteredInvoices.filter((inv: Invoice) => inv.status === 0).length}</Text>
+                  <Text style={styles.statLabelWeb}>En cours</Text>
+                </View>
+                <View style={styles.statCardWeb}>
+                  <Text style={styles.statValueWeb}>{filteredInvoices.filter((inv: Invoice) => inv.status === 1).length}</Text>
+                  <Text style={styles.statLabelWeb}>Terminées</Text>
+                </View>
+                <View style={styles.statCardWeb}>
+                  <Text style={styles.statValueWeb}>{filteredInvoices.reduce((sum: number, inv: Invoice) => sum + (inv.amountPaidCdf || 0), 0).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}</Text>
+                  <Text style={styles.statLabelWeb}>Total CDF</Text>
+                </View>
+                <View style={styles.statCardWeb}>
+                  <Text style={styles.statValueWeb}>{filteredInvoices.filter((inv: Invoice) => (inv.amountPaidCdf || 0) === 0 || (inv.amountPaidUsd || 0) === 0).length}</Text>
+                  <Text style={styles.statLabelWeb}>Dette</Text>
+                </View>
+              </View>
+
+              {/* Grille des cartes de factures */}
+              <View style={styles.invoicesGridWeb}>
+                {invoicesLoading ? (
+                  <LoadingIndicator />
+                ) : invoicesError ? (
+                  <ErrorIndicator />
+                ) : filteredInvoices.length === 0 ? (
+                  <View style={styles.emptyStateWeb}>
+                    <Ionicons name="document-outline" size={64} color="#D1D5DB" />
+                    <Text style={styles.emptyStateTitleWeb}>Aucune facture trouvée</Text>
+                    <Text style={styles.emptyStateTextWeb}>Aucune facture ne correspond aux critères de recherche</Text>
+                  </View>
+                ) : (
+                  filteredInvoices.map((invoice: Invoice) => (
+                    <TouchableOpacity
+                      key={invoice.id}
+                      style={[
+                        styles.invoiceCardWeb,
+                        selectedInvoiceForDetails?.id === invoice.id && styles.invoiceCardSelectedWeb
+                      ]}
+                      onPress={() => selectInvoiceForDetails(invoice)}
+                    >
+                      {/* Header de la carte */}
+                      <View style={styles.invoiceCardHeaderWeb}>
+                        <View style={styles.invoiceCardHeaderLeftWeb}>
+                          <Text style={styles.invoiceCardIdWeb}>{invoice.numCode || '-'}</Text>
+                          <Text style={styles.invoiceCardDateHeaderWeb}>{invoice.date}</Text>
+                        </View>
+                        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(invoice.status) }]}>
+                          <Text style={styles.statusText}>{getStatusLabel(invoice.status)}</Text>
+                        </View>
+                      </View>
+
+                      {/* Informations client */}
+                      <View style={styles.invoiceCardClientWeb}>
+                        <Text style={styles.invoiceCardCustomerNameWeb}>{invoice.customerName}</Text>
+                        <Text style={styles.invoiceCardCustomerEmailWeb}>{invoice.description}</Text>
+                        <View style={styles.invoicePaymentRowWeb}>
+                          <View style={styles.invoiceBadgeRowWeb}>
+                            <View
+                              style={[
+                                styles.invoiceDebtBadgeWeb,
+                                invoice.dette
+                                  ? styles.invoiceDebtBadgeDebtWeb
+                                  : styles.invoiceDebtBadgePaidWeb,
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  styles.invoiceDebtBadgeTextWeb,
+                                  invoice.dette
+                                    ? styles.invoiceDebtBadgeTextDebtWeb
+                                    : styles.invoiceDebtBadgeTextPaidWeb,
+                                ]}
+                              >
+                                {invoice.dette ? 'DETTE' : 'PAYÉ'}
+                              </Text>
+                            </View>
+                          </View>
+                          <View style={styles.invoicePaymentTypeContainerWeb}>
+                            <Ionicons name="card-outline" size={14} color="#6B7280" />
+                            <Text style={styles.invoicePaymentTypeTextWeb}>
+                              {invoice.typePaiement || 'Type inconnu'}
+                            </Text>
+                          </View>
+                        </View>
+                      </View>
+
+                      {/* Informations facture */}
+                      <View style={styles.invoiceCardInfoWeb}>
+                        <View style={styles.invoiceCardInfoRowWeb}>
+                          <Ionicons name="calendar-outline" size={16} color="#6B7280" />
+                          <Text style={styles.invoiceCardDateWeb}>{invoice.date}</Text>
+                        </View>
+                        <View style={styles.invoiceCardInfoRowWeb}>
+                          <Ionicons name="receipt-outline" size={16} color="#6B7280" />
+                          <Text style={styles.invoiceCardItemsWeb}>{invoice.items.length} article(s)</Text>
+                        </View>
+                        {invoice.userName && (
+                          <View style={styles.invoiceCardInfoRowWeb}>
+                            <Ionicons name="person-outline" size={16} color="#6B7280" />
+                            <Text style={styles.invoiceCardItemsWeb}>{invoice.userName}</Text>
+                          </View>
+                        )}
+                      </View>
+
+                      {/* Footer avec total */}
+                      <View style={styles.invoiceCardFooterWeb}>
+                        <View style={styles.invoiceCardTotalsWeb}>
+                          <Text style={styles.invoiceCardTotalWeb}>{(invoice.amountPaidCdf || 0).toFixed(0)} CDF</Text>
+                          <Text style={[styles.invoiceCardTotalUsdWeb, { fontSize: 18, marginRight: 40 }]}>${(invoice.amountPaidUsd || 0).toFixed(2)}</Text>
+                        </View>
+                        <TouchableOpacity
+                          style={styles.invoiceCardActionWeb}
+                          onPress={() => selectInvoiceForDetails(invoice)}
+                        >
+                          <Ionicons name="eye" size={18} color="#7C3AED" />
+                        </TouchableOpacity>
+                      </View>
+                    </TouchableOpacity>
+                  ))
+                )}
+              </View>
+            </ScrollView>
           </View>
 
           {/* Section droite - Mode édition de la facture */}
@@ -3050,7 +3059,7 @@ Voulez-vous confirmer la modification de cette facture ?`;
                     <Text style={styles.editTitleWeb}>Modifier la facture</Text>
                     <Text style={styles.editRateWeb}>Taux: {exchangeRate} CDF/USD</Text>
                   </View>
-                  <Text style={styles.editSubtitleWeb}>{selectedInvoiceForDetails.tableNomination || 'Table'}</Text>
+                  <Text style={styles.editSubtitleWeb}>{selectedInvoiceForDetails.numCode || '-'}</Text>
                 </View>
 
                 {invoiceDetailsLoading && (
@@ -3074,7 +3083,7 @@ Voulez-vous confirmer la modification de cette facture ?`;
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.editTabWeb, activeDetailsTab === 'products' && styles.editTabActiveWeb, {visibility: 'hidden'}]}
+                    style={[styles.editTabWeb, activeDetailsTab === 'products' && styles.editTabActiveWeb, { visibility: 'hidden' }]}
                     onPress={() => setActiveDetailsTab('products')}
                   >
                     <Text style={[styles.editTabTextWeb, activeDetailsTab === 'products' && styles.editTabTextActiveWeb]}>
@@ -3089,341 +3098,341 @@ Voulez-vous confirmer la modification de cette facture ?`;
                     <View>
 
                       {/* Informations client */}
-                <View style={styles.editSectionWeb}>
-                  <Text style={styles.editSectionTitleWeb}>Informations Client</Text>
-                  <TextInput
-                    style={styles.editInputWeb}
-                    value={selectedInvoiceForDetails.customerName}
-                    onChangeText={(text) => {
-                      const updatedInvoice = { ...selectedInvoiceForDetails, customerName: text };
-                      setSelectedInvoiceForDetails(updatedInvoice);
-                    }}
-                    placeholder="Nom du client"
-                  />
-                  <TextInput
-                    style={styles.editInputWeb}
-                    value={selectedInvoiceForDetails.description}
-                    onChangeText={(text) => {
-                      const updatedInvoice = { ...selectedInvoiceForDetails, description: text };
-                      setSelectedInvoiceForDetails(updatedInvoice);
-                    }}
-                    placeholder="Description"
-                    multiline
-                    numberOfLines={3}
-                  />
-                  <View style={styles.editPaymentContainerWeb}>
-                    <Text style={styles.editSectionSubtitleWeb}>Mode de paiement</Text>
-                    <View style={styles.paymentMethodChipsWeb}>
-                      {paymentMethodOptions.map((method) => {
-                        const isSelected = (selectedInvoiceForDetails.typePaiement || '').toLowerCase() === method.toLowerCase();
-                        return (
-                          <TouchableOpacity
-                            key={method}
-                            style={[
-                              styles.paymentMethodChipWeb,
-                              isSelected && styles.paymentMethodChipActiveWeb,
-                            ]}
-                            onPress={() => {
-                              const updatedInvoice = { ...selectedInvoiceForDetails, typePaiement: method };
-                              setSelectedInvoiceForDetails(updatedInvoice);
-                            }}
-                          >
-                            <Text
-                              style={[
-                                styles.paymentMethodChipTextWeb,
-                                isSelected && styles.paymentMethodChipTextActiveWeb,
-                              ]}
-                            >
-                              {method}
-                            </Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-                  </View>
-                  <View style={styles.debtToggleContainerWeb}>
-                    <Text style={styles.editSectionSubtitleWeb}>Dette</Text>
-                    <View style={styles.debtToggleOptionsWeb}>
-                      {[{ label: 'OUI', value: true }, { label: 'NON', value: false }].map((option) => {
-                        const isSelected = (selectedInvoiceForDetails.dette ?? false) === option.value;
-                        return (
-                          <TouchableOpacity
-                            key={option.label}
-                            style={[
-                              styles.debtToggleButtonWeb,
-                              isSelected && styles.debtToggleButtonActiveWeb,
-                            ]}
-                            onPress={() => {
-                              const updatedInvoice = { ...selectedInvoiceForDetails, dette: option.value };
-                              setSelectedInvoiceForDetails(updatedInvoice);
-                            }}
-                          >
-                            <Text
-                              style={[
-                                styles.debtToggleButtonTextWeb,
-                                isSelected && styles.debtToggleButtonTextActiveWeb,
-                              ]}
-                            >
-                              {option.label}
-                            </Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-                  </View>
+                      <View style={styles.editSectionWeb}>
+                        <Text style={styles.editSectionTitleWeb}>Informations Client</Text>
+                        <TextInput
+                          style={styles.editInputWeb}
+                          value={selectedInvoiceForDetails.customerName}
+                          onChangeText={(text) => {
+                            const updatedInvoice = { ...selectedInvoiceForDetails, customerName: text };
+                            setSelectedInvoiceForDetails(updatedInvoice);
+                          }}
+                          placeholder="Nom du client"
+                        />
+                        <TextInput
+                          style={styles.editInputWeb}
+                          value={selectedInvoiceForDetails.description}
+                          onChangeText={(text) => {
+                            const updatedInvoice = { ...selectedInvoiceForDetails, description: text };
+                            setSelectedInvoiceForDetails(updatedInvoice);
+                          }}
+                          placeholder="Description"
+                          multiline
+                          numberOfLines={3}
+                        />
+                        <View style={styles.editPaymentContainerWeb}>
+                          <Text style={styles.editSectionSubtitleWeb}>Mode de paiement</Text>
+                          <View style={styles.paymentMethodChipsWeb}>
+                            {paymentMethodOptions.map((method) => {
+                              const isSelected = (selectedInvoiceForDetails.typePaiement || '').toLowerCase() === method.toLowerCase();
+                              return (
+                                <TouchableOpacity
+                                  key={method}
+                                  style={[
+                                    styles.paymentMethodChipWeb,
+                                    isSelected && styles.paymentMethodChipActiveWeb,
+                                  ]}
+                                  onPress={() => {
+                                    const updatedInvoice = { ...selectedInvoiceForDetails, typePaiement: method };
+                                    setSelectedInvoiceForDetails(updatedInvoice);
+                                  }}
+                                >
+                                  <Text
+                                    style={[
+                                      styles.paymentMethodChipTextWeb,
+                                      isSelected && styles.paymentMethodChipTextActiveWeb,
+                                    ]}
+                                  >
+                                    {method}
+                                  </Text>
+                                </TouchableOpacity>
+                              );
+                            })}
+                          </View>
+                        </View>
+                        <View style={styles.debtToggleContainerWeb}>
+                          <Text style={styles.editSectionSubtitleWeb}>Dette</Text>
+                          <View style={styles.debtToggleOptionsWeb}>
+                            {[{ label: 'OUI', value: true }, { label: 'NON', value: false }].map((option) => {
+                              const isSelected = (selectedInvoiceForDetails.dette ?? false) === option.value;
+                              return (
+                                <TouchableOpacity
+                                  key={option.label}
+                                  style={[
+                                    styles.debtToggleButtonWeb,
+                                    isSelected && styles.debtToggleButtonActiveWeb,
+                                  ]}
+                                  onPress={() => {
+                                    const updatedInvoice = { ...selectedInvoiceForDetails, dette: option.value };
+                                    setSelectedInvoiceForDetails(updatedInvoice);
+                                  }}
+                                >
+                                  <Text
+                                    style={[
+                                      styles.debtToggleButtonTextWeb,
+                                      isSelected && styles.debtToggleButtonTextActiveWeb,
+                                    ]}
+                                  >
+                                    {option.label}
+                                  </Text>
+                                </TouchableOpacity>
+                              );
+                            })}
+                          </View>
+                        </View>
                       </View>
 
                       {/* Articles de la facture */}
-                <View style={styles.editSectionWeb}>
-                  <Text style={styles.editSectionTitleWeb}>Articles</Text>
-                  {selectedInvoiceForDetails.items.map((item: any, index: number) => {
-                    const handleDecrease = () => {
-                      const newItems = [...selectedInvoiceForDetails.items];
-                      if (newItems[index].qte > 1) {
-                        newItems[index].qte -= 1;
-                        newItems[index].subTotalUsd = newItems[index].qte * newItems[index].priceUsd;
-                        newItems[index].subTotalCdf = newItems[index].qte * newItems[index].priceCdf;
-                        setSelectedInvoiceForDetails({ ...selectedInvoiceForDetails, items: newItems });
-                      }
-                    };
+                      <View style={styles.editSectionWeb}>
+                        <Text style={styles.editSectionTitleWeb}>Articles</Text>
+                        {selectedInvoiceForDetails.items.map((item: any, index: number) => {
+                          const handleDecrease = () => {
+                            const newItems = [...selectedInvoiceForDetails.items];
+                            if (newItems[index].qte > 1) {
+                              newItems[index].qte -= 1;
+                              newItems[index].subTotalUsd = newItems[index].qte * newItems[index].priceUsd;
+                              newItems[index].subTotalCdf = newItems[index].qte * newItems[index].priceCdf;
+                              setSelectedInvoiceForDetails({ ...selectedInvoiceForDetails, items: newItems });
+                            }
+                          };
 
-                    const handleIncrease = () => {
-                      const newItems = [...selectedInvoiceForDetails.items];
-                      newItems[index].qte += 1;
-                      newItems[index].subTotalUsd = newItems[index].qte * newItems[index].priceUsd;
-                      newItems[index].subTotalCdf = newItems[index].qte * newItems[index].priceCdf;
-                      setSelectedInvoiceForDetails({ ...selectedInvoiceForDetails, items: newItems });
-                    };
+                          const handleIncrease = () => {
+                            const newItems = [...selectedInvoiceForDetails.items];
+                            newItems[index].qte += 1;
+                            newItems[index].subTotalUsd = newItems[index].qte * newItems[index].priceUsd;
+                            newItems[index].subTotalCdf = newItems[index].qte * newItems[index].priceCdf;
+                            setSelectedInvoiceForDetails({ ...selectedInvoiceForDetails, items: newItems });
+                          };
 
-                    const handleRemove = () => {
-                      const newItems = selectedInvoiceForDetails.items.filter((_: any, i: number) => i !== index);
-                      setSelectedInvoiceForDetails({ ...selectedInvoiceForDetails, items: newItems });
-                    };
+                          const handleRemove = () => {
+                            const newItems = selectedInvoiceForDetails.items.filter((_: any, i: number) => i !== index);
+                            setSelectedInvoiceForDetails({ ...selectedInvoiceForDetails, items: newItems });
+                          };
 
-                    return (
-                      <View key={index} style={styles.editItemRowWeb}>
-                        <View style={styles.editItemInfoWeb}>
-                          <Text style={styles.editItemNameWeb}>{item.productName || item.name}</Text>
-                          <Text style={styles.editItemPriceWeb}>
-                            ${item.priceUsd?.toFixed(2) || '0.00'} / {item.priceCdf?.toFixed(0) || '0'} CDF
+                          return (
+                            <View key={index} style={styles.editItemRowWeb}>
+                              <View style={styles.editItemInfoWeb}>
+                                <Text style={styles.editItemNameWeb}>{item.productName || item.name}</Text>
+                                <Text style={styles.editItemPriceWeb}>
+                                  ${item.priceUsd?.toFixed(2) || '0.00'} / {item.priceCdf?.toFixed(0) || '0'} CDF
+                                </Text>
+                              </View>
+
+                              <View style={styles.editItemActionsWeb}>
+                                <TouchableOpacity onPress={handleDecrease} style={styles.editQuantityButtonWeb}>
+                                  <Ionicons name="remove" size={16} color="#6B7280" />
+                                </TouchableOpacity>
+
+                                <Text style={styles.editQuantityTextWeb}>{item.qte || item.quantity}</Text>
+
+                                <TouchableOpacity onPress={handleIncrease} style={styles.editQuantityButtonWeb}>
+                                  <Ionicons name="add" size={16} color="#6B7280" />
+                                </TouchableOpacity>
+
+                                <TouchableOpacity onPress={handleRemove} style={styles.editRemoveButtonWeb}>
+                                  <Ionicons name="trash" size={20} color="#EF4444" />
+                                </TouchableOpacity>
+                              </View>
+                            </View>
+                          );
+                        })}
+                      </View>
+
+
+                      <View style={styles.editSectionWeb}>
+                        <Text style={styles.editSectionTitleWeb}>Total panier</Text>
+                        <View style={styles.editTotalRowWeb}>
+                          <Text style={styles.editTotalLabelWeb}>Total CDF:</Text>
+                          <Text style={styles.editTotalValueWeb}>
+                            {invoiceTotals.basketTotalCdf.toFixed(0)} CDF
                           </Text>
                         </View>
-
-                        <View style={styles.editItemActionsWeb}>
-                          <TouchableOpacity onPress={handleDecrease} style={styles.editQuantityButtonWeb}>
-                            <Ionicons name="remove" size={16} color="#6B7280" />
-                          </TouchableOpacity>
-
-                          <Text style={styles.editQuantityTextWeb}>{item.qte || item.quantity}</Text>
-
-                          <TouchableOpacity onPress={handleIncrease} style={styles.editQuantityButtonWeb}>
-                            <Ionicons name="add" size={16} color="#6B7280" />
-                          </TouchableOpacity>
-
-                          <TouchableOpacity onPress={handleRemove} style={styles.editRemoveButtonWeb}>
-                            <Ionicons name="trash" size={20} color="#EF4444" />
-                          </TouchableOpacity>
+                        <View style={styles.editTotalRowWeb}>
+                          <Text style={styles.editTotalLabelWeb}>Total USD:</Text>
+                          <Text style={styles.editTotalValueWeb}>
+                            {invoiceTotals.basketTotalUsd.toFixed(2)} USD
+                          </Text>
                         </View>
                       </View>
-                    );
-                  })}
-                </View>
 
+                      {/* Totaux de la facture */}
+                      <View style={styles.editSectionWeb}>
 
-                <View style={styles.editSectionWeb}>
-                  <Text style={styles.editSectionTitleWeb}>Total panier</Text>
-                  <View style={styles.editTotalRowWeb}>
-                    <Text style={styles.editTotalLabelWeb}>Total CDF:</Text>
-                    <Text style={styles.editTotalValueWeb}>
-                      {invoiceTotals.basketTotalCdf.toFixed(0)} CDF
-                    </Text>
-                  </View>
-                  <View style={styles.editTotalRowWeb}>
-                    <Text style={styles.editTotalLabelWeb}>Total USD:</Text>
-                    <Text style={styles.editTotalValueWeb}>
-                      {invoiceTotals.basketTotalUsd.toFixed(2)} USD
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Totaux de la facture */}
-                <View style={styles.editSectionWeb}>
-                  
-                  <Text style={styles.editSectionTitleWeb}>Total payé</Text>
-                  <View style={styles.editTotalRowWeb}>
-                    <Text style={styles.editTotalLabelWeb}>Total CDF:</Text>
-                    <Text style={styles.editTotalValueWeb}>
-                    {invoiceTotals.paidCdf.toFixed(0)} CDF
-                    </Text>
-                  </View>
-                  <View style={styles.editTotalRowWeb}>
-                    <Text style={styles.editTotalLabelWeb}>Total USD:</Text>
-                    <Text style={styles.editTotalValueWeb}>
-                      {invoiceTotals.paidUsd.toFixed(2)} USD
-                    </Text>
-                  </View>
-                  <View style={styles.editTotalAfterReductionRowWeb}>
-                    <Text style={styles.editTotalAfterReductionLabelWeb}>Montant payé:</Text>
-                    <View style={styles.editTotalAfterReductionValueContainerWeb}>
-                      <>
-                        <Text style={styles.editTotalAfterReductionValueWeb}>
-                          {invoiceTotals.paidCdf.toFixed(0)} CDF
-                        </Text>
-                        <Text style={styles.editReductionDetailWeb}>
-                          MONTANT PAYÉ USD: {invoiceTotals.paidUsd.toFixed(2)}
-                        </Text>
-                        <Text style={styles.editReductionDetailWeb}>
-                          REDUCTION CDF: {invoiceTotals.reductionCdf.toFixed(0)},  REDUCTION USD: {invoiceTotals.reductionUsd.toFixed(2)}
-                        </Text>
-                      </>
-                    </View>
-                  </View>
-                </View>
-
-                <View style={styles.editSectionWeb}>
-                  <Text style={styles.editSectionTitleWeb}>Reste</Text>
-                  <View style={styles.editTotalRowWeb}>
-                    <Text style={styles.editTotalLabelWeb}>Reste CDF:</Text>
-                    <Text style={styles.editTotalValueWeb}>
-                      {invoiceTotals.remainingCdf.toFixed(0)} CDF
-                    </Text>
-                  </View>
-                  <View style={styles.editTotalRowWeb}>
-                    <Text style={styles.editTotalLabelWeb}>Reste USD:</Text>
-                    <Text style={styles.editTotalValueWeb}>
-                      {invoiceTotals.remainingUsd.toFixed(2)} USD
-                    </Text>
-                  </View>
-                </View>
-
-                <View style={[styles.editSectionWeb, styles.paymentSectionWeb]}>
-                  <Text style={styles.editSectionTitleWeb}>Faire un paiement</Text>
-                  <Text style={styles.paymentInfoTextWeb}>
-                    Taux: {exchangeRate} • Reste CDF: {invoiceTotals.remainingCdf.toFixed(0)} • Reste USD: {invoiceTotals.remainingUsd.toFixed(2)}
-                  </Text>
-                  <View style={styles.paymentAmountRowWeb}>
-                    <Text style={styles.paymentLabelWeb}>Montant</Text>
-                    <TextInput
-                      style={styles.editInputWeb}
-                      placeholder="0.00"
-                      placeholderTextColor="#9CA3AF"
-                      keyboardType={paymentDevise === 1 ? 'decimal-pad' : 'numeric'}
-                      value={paymentAmount}
-                      onChangeText={handlePaymentAmountChange}
-                    />
-                  </View>
-                  <View style={styles.paymentDeviseGroupWeb}>
-                    {paymentDeviseOptions.map(option => {
-                      const isSelected = paymentDevise === option.value;
-                      return (
-                        <TouchableOpacity
-                          key={option.value}
-                          style={[
-                            styles.paymentDeviseButtonWeb,
-                            isSelected && styles.paymentDeviseButtonActiveWeb,
-                          ]}
-                          onPress={() => handlePaymentDeviseChange(option.value)}
-                        >
-                          <Text
-                            style={[
-                              styles.paymentDeviseButtonTextWeb,
-                              isSelected && styles.paymentDeviseButtonTextActiveWeb,
-                            ]}
-                          >
-                            {option.label}
+                        <Text style={styles.editSectionTitleWeb}>Total payé</Text>
+                        <View style={styles.editTotalRowWeb}>
+                          <Text style={styles.editTotalLabelWeb}>Total CDF:</Text>
+                          <Text style={styles.editTotalValueWeb}>
+                            {invoiceTotals.paidCdf.toFixed(0)} CDF
                           </Text>
+                        </View>
+                        <View style={styles.editTotalRowWeb}>
+                          <Text style={styles.editTotalLabelWeb}>Total USD:</Text>
+                          <Text style={styles.editTotalValueWeb}>
+                            {invoiceTotals.paidUsd.toFixed(2)} USD
+                          </Text>
+                        </View>
+                        <View style={styles.editTotalAfterReductionRowWeb}>
+                          <Text style={styles.editTotalAfterReductionLabelWeb}>Montant payé:</Text>
+                          <View style={styles.editTotalAfterReductionValueContainerWeb}>
+                            <>
+                              <Text style={styles.editTotalAfterReductionValueWeb}>
+                                {invoiceTotals.paidCdf.toFixed(0)} CDF
+                              </Text>
+                              <Text style={styles.editReductionDetailWeb}>
+                                MONTANT PAYÉ USD: {invoiceTotals.paidUsd.toFixed(2)}
+                              </Text>
+                              <Text style={styles.editReductionDetailWeb}>
+                                REDUCTION CDF: {invoiceTotals.reductionCdf.toFixed(0)},  REDUCTION USD: {invoiceTotals.reductionUsd.toFixed(2)}
+                              </Text>
+                            </>
+                          </View>
+                        </View>
+                      </View>
+
+                      <View style={styles.editSectionWeb}>
+                        <Text style={styles.editSectionTitleWeb}>Reste</Text>
+                        <View style={styles.editTotalRowWeb}>
+                          <Text style={styles.editTotalLabelWeb}>Reste CDF:</Text>
+                          <Text style={styles.editTotalValueWeb}>
+                            {invoiceTotals.remainingCdf.toFixed(0)} CDF
+                          </Text>
+                        </View>
+                        <View style={styles.editTotalRowWeb}>
+                          <Text style={styles.editTotalLabelWeb}>Reste USD:</Text>
+                          <Text style={styles.editTotalValueWeb}>
+                            {invoiceTotals.remainingUsd.toFixed(2)} USD
+                          </Text>
+                        </View>
+                      </View>
+
+                      <View style={[styles.editSectionWeb, styles.paymentSectionWeb]}>
+                        <Text style={styles.editSectionTitleWeb}>Faire un paiement</Text>
+                        <Text style={styles.paymentInfoTextWeb}>
+                          Taux: {exchangeRate} • Reste CDF: {invoiceTotals.remainingCdf.toFixed(0)} • Reste USD: {invoiceTotals.remainingUsd.toFixed(2)}
+                        </Text>
+                        <View style={styles.paymentAmountRowWeb}>
+                          <Text style={styles.paymentLabelWeb}>Montant</Text>
+                          <TextInput
+                            style={styles.editInputWeb}
+                            placeholder="0.00"
+                            placeholderTextColor="#9CA3AF"
+                            keyboardType={paymentDevise === 1 ? 'decimal-pad' : 'numeric'}
+                            value={paymentAmount}
+                            onChangeText={handlePaymentAmountChange}
+                          />
+                        </View>
+                        <View style={styles.paymentDeviseGroupWeb}>
+                          {paymentDeviseOptions.map(option => {
+                            const isSelected = paymentDevise === option.value;
+                            return (
+                              <TouchableOpacity
+                                key={option.value}
+                                style={[
+                                  styles.paymentDeviseButtonWeb,
+                                  isSelected && styles.paymentDeviseButtonActiveWeb,
+                                ]}
+                                onPress={() => handlePaymentDeviseChange(option.value)}
+                              >
+                                <Text
+                                  style={[
+                                    styles.paymentDeviseButtonTextWeb,
+                                    isSelected && styles.paymentDeviseButtonTextActiveWeb,
+                                  ]}
+                                >
+                                  {option.label}
+                                </Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+                        <TextInput
+                          style={[styles.editInputWeb, styles.paymentObservationInputWeb]}
+                          placeholder="Observation (optionnelle)"
+                          placeholderTextColor="#9CA3AF"
+                          value={paymentObservation}
+                          onChangeText={setPaymentObservation}
+                          multiline
+                          numberOfLines={3}
+                        />
+                        <TouchableOpacity
+                          style={[
+                            styles.paymentSubmitButtonWeb,
+                            (isSubmittingPayment || !isPaymentAmountPositive || paymentLimit <= 0) && styles.paymentSubmitButtonDisabledWeb,
+                          ]}
+                          onPress={handleAddPayment}
+                          disabled={isSubmittingPayment || !isPaymentAmountPositive || paymentLimit <= 0}
+                        >
+                          {isSubmittingPayment ? (
+                            <>
+                              <Ionicons name="hourglass" size={18} color="#FFFFFF" />
+                              <Text style={styles.paymentSubmitButtonTextWeb}>Enregistrement...</Text>
+                            </>
+                          ) : (
+                            <>
+                              <Ionicons name="cash-outline" size={18} color="#FFFFFF" />
+                              <Text style={styles.paymentSubmitButtonTextWeb}>Enregistrer le paiement</Text>
+                            </>
+                          )}
                         </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                  <TextInput
-                    style={[styles.editInputWeb, styles.paymentObservationInputWeb]}
-                    placeholder="Observation (optionnelle)"
-                    placeholderTextColor="#9CA3AF"
-                    value={paymentObservation}
-                    onChangeText={setPaymentObservation}
-                    multiline
-                    numberOfLines={3}
-                  />
-                  <TouchableOpacity
-                    style={[
-                      styles.paymentSubmitButtonWeb,
-                      (isSubmittingPayment || !isPaymentAmountPositive || paymentLimit <= 0) && styles.paymentSubmitButtonDisabledWeb,
-                    ]}
-                    onPress={handleAddPayment}
-                    disabled={isSubmittingPayment || !isPaymentAmountPositive || paymentLimit <= 0}
-                  >
-                    {isSubmittingPayment ? (
-                      <>
-                        <Ionicons name="hourglass" size={18} color="#FFFFFF" />
-                        <Text style={styles.paymentSubmitButtonTextWeb}>Enregistrement...</Text>
-                      </>
-                    ) : (
-                      <>
-                        <Ionicons name="cash-outline" size={18} color="#FFFFFF" />
-                        <Text style={styles.paymentSubmitButtonTextWeb}>Enregistrer le paiement</Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.paymentHistoryButtonWeb}
-                    onPress={handleOpenPaymentsModal}
-                  >
-                    <Ionicons name="time-outline" size={18} color="#1F2937" />
-                    <Text style={styles.paymentHistoryButtonTextWeb}>Historique des paiements</Text>
-                  </TouchableOpacity>
-                </View>
-                      
-                
-                      
-                {/* Boutons d'action */}
-                <View style={[styles.editButtonContainerWeb, { marginBottom: -10 }]}>
-                  <TouchableOpacity
-                    style={styles.printButtonWeb}
-                    onPress={() => setShowPrintModal(true)}
-                  >
-                    <Ionicons name="print" size={20} color="#FFFFFF" />
-                    <Text style={styles.printButtonTextWeb}>Imprimer facture</Text>
-                  </TouchableOpacity>
-                  
-                  <TouchableOpacity
-                    style={[styles.editButtonWeb, { backgroundColor: '#EF4444',marginTop: -2 }]}
-                    onPress={() => {
-                      if (selectedInvoiceForDetails?.id) {
-                        handleDeleteFacture(selectedInvoiceForDetails.id);
-                      } else {
-                        console.error('❌ No facture selected for deletion');
-                        Alert.alert('Erreur', 'Aucune facture sélectionnée pour la suppression');
-                      }
-                    }}
-                  >
-                    <Ionicons name="trash" size={20} color="#FFFFFF" />
-                    <Text style={styles.editButtonTextWeb}>Supprimer facture</Text>
-                  </TouchableOpacity>
-                  
-                  {isAdmin && (
-                    <TouchableOpacity
-                      style={[
-                        styles.editButtonWeb,
-                        isUpdatingInvoice && styles.editButtonDisabledWeb
-                      ]}
-                      onPress={showUpdateConfirmation}
-                      disabled={isUpdatingInvoice}
-                    >
-                      {isUpdatingInvoice ? (
-                        <>
-                          <Ionicons name="hourglass" size={20} color="#FFFFFF" />
-                          <Text style={styles.editButtonTextWeb}>Modification en cours...</Text>
-                        </>
-                      ) : (
-                        <>
-                          <Ionicons name="save" size={20} color="#FFFFFF" />
-                          <Text style={styles.editButtonTextWeb}>Modifier la facture</Text>
-                        </>
-                      )}
-                    </TouchableOpacity>
-                  )}
-                </View>
+                        <TouchableOpacity
+                          style={styles.paymentHistoryButtonWeb}
+                          onPress={handleOpenPaymentsModal}
+                        >
+                          <Ionicons name="time-outline" size={18} color="#1F2937" />
+                          <Text style={styles.paymentHistoryButtonTextWeb}>Historique des paiements</Text>
+                        </TouchableOpacity>
+                      </View>
+
+
+
+                      {/* Boutons d'action */}
+                      <View style={[styles.editButtonContainerWeb, { marginBottom: -10 }]}>
+                        <TouchableOpacity
+                          style={styles.printButtonWeb}
+                          onPress={() => setShowPrintModal(true)}
+                        >
+                          <Ionicons name="print" size={20} color="#FFFFFF" />
+                          <Text style={styles.printButtonTextWeb}>Imprimer facture</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={[styles.editButtonWeb, { backgroundColor: '#EF4444', marginTop: -2 }]}
+                          onPress={() => {
+                            if (selectedInvoiceForDetails?.id) {
+                              handleDeleteFacture(selectedInvoiceForDetails.id);
+                            } else {
+                              console.error('❌ No facture selected for deletion');
+                              Alert.alert('Erreur', 'Aucune facture sélectionnée pour la suppression');
+                            }
+                          }}
+                        >
+                          <Ionicons name="trash" size={20} color="#FFFFFF" />
+                          <Text style={styles.editButtonTextWeb}>Supprimer facture</Text>
+                        </TouchableOpacity>
+
+                        {isAdmin && (
+                          <TouchableOpacity
+                            style={[
+                              styles.editButtonWeb,
+                              isUpdatingInvoice && styles.editButtonDisabledWeb
+                            ]}
+                            onPress={showUpdateConfirmation}
+                            disabled={isUpdatingInvoice}
+                          >
+                            {isUpdatingInvoice ? (
+                              <>
+                                <Ionicons name="hourglass" size={20} color="#FFFFFF" />
+                                <Text style={styles.editButtonTextWeb}>Modification en cours...</Text>
+                              </>
+                            ) : (
+                              <>
+                                <Ionicons name="save" size={20} color="#FFFFFF" />
+                                <Text style={styles.editButtonTextWeb}>Modifier la facture</Text>
+                              </>
+                            )}
+                          </TouchableOpacity>
+                        )}
+                      </View>
                     </View>
                   ) : (
                     <View>
@@ -3433,145 +3442,145 @@ Voulez-vous confirmer la modification de cette facture ?`;
                           <Text style={styles.loadingTextWeb}>Chargement des produits...</Text>
                         </View>
                       )}
-                      
+
                       {/* Erreurs */}
                       {(categoriesError || productsError) && (
                         <View style={styles.errorContainerWeb}>
                           <Text style={styles.errorTextWeb}>Erreur lors du chargement des produits</Text>
                         </View>
                       )}
-                      
+
                       {/* Contenu principal */}
                       {!categoriesLoading && !productsLoading && !categoriesError && !productsError && (
                         <>
-                      {/* En-tête avec quantité et bouton */}
-                      <View style={styles.productHeaderWeb}>
-                        <View style={styles.quantityInputContainerWeb}>
-                          <Text style={styles.quantityLabelWeb}>Quantité:</Text>
-                          <TextInput
-                            style={styles.quantityInputWeb}
-                            value={productQuantity.toString()}
-                            onChangeText={(text) => {
-                              const value = parseInt(text);
-                              setProductQuantity(isNaN(value) ? 0 : value);
-                            }}
-                            keyboardType="numeric"
-                            placeholder="1"
-                          />
-                          <TouchableOpacity
-                            style={{
-                              width: 32,
-                              height: 32,
-                              borderRadius: 6,
-                              backgroundColor: '#F3F4F6',
-                              borderWidth: 1,
-                              borderColor: '#D1D5DB',
-                              justifyContent: 'center',
-                              alignItems: 'center',
-                            }}
-                            onPress={() => setProductQuantity(1)}
-                          >
-                            <Ionicons name="refresh" size={16} color="#6B7280" />
-                          </TouchableOpacity>
-                        </View>
-                        <TouchableOpacity
-                          style={[
-                            styles.addToInvoiceButtonWeb,
-                            (!selectedProduct || productQuantity <= 0) && styles.addToInvoiceButtonDisabledWeb
-                          ]}
-                              onPress={() => selectedProduct && productQuantity > 0 && addProductToEditingInvoice(selectedProduct, productQuantity)}
-                          disabled={!selectedProduct || productQuantity <= 0}
-                        >
-                          <Ionicons name="add" size={20} color="white" />
-                          <Text style={styles.addToInvoiceButtonTextWeb}>
-                            Ajouter à la facture
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
-                      
-                      {/* Sélecteur de catégories */}
-                      <View style={styles.categorySelectorWeb}>
-                        <Text style={styles.categoryLabelWeb}>Catégorie:</Text>
-                        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                          <View style={styles.categoryButtonsWeb}>
-                            {productCategories.map((category) => (
+                          {/* En-tête avec quantité et bouton */}
+                          <View style={styles.productHeaderWeb}>
+                            <View style={styles.quantityInputContainerWeb}>
+                              <Text style={styles.quantityLabelWeb}>Quantité:</Text>
+                              <TextInput
+                                style={styles.quantityInputWeb}
+                                value={productQuantity.toString()}
+                                onChangeText={(text) => {
+                                  const value = parseInt(text);
+                                  setProductQuantity(isNaN(value) ? 0 : value);
+                                }}
+                                keyboardType="numeric"
+                                placeholder="1"
+                              />
                               <TouchableOpacity
-                                key={category}
-                                style={[
-                                  styles.categoryButtonWeb,
-                                  selectedProductCategory === category && styles.categoryButtonActiveWeb
-                                ]}
-                                onPress={() => setSelectedProductCategory(category)}
+                                style={{
+                                  width: 32,
+                                  height: 32,
+                                  borderRadius: 6,
+                                  backgroundColor: '#F3F4F6',
+                                  borderWidth: 1,
+                                  borderColor: '#D1D5DB',
+                                  justifyContent: 'center',
+                                  alignItems: 'center',
+                                }}
+                                onPress={() => setProductQuantity(1)}
                               >
-                                <Text style={[
-                                  styles.categoryButtonTextWeb,
-                                  selectedProductCategory === category && styles.categoryButtonTextActiveWeb
-                                ]}>
-                                  {category}
-                                </Text>
+                                <Ionicons name="refresh" size={16} color="#6B7280" />
                               </TouchableOpacity>
-                            ))}
-                          </View>
-                        </ScrollView>
-                      </View>
-                      
-                      {/* Grille de produits */}
-                      <View style={styles.productsGridWeb}>
-                        {filteredProducts.length > 0 ? (
-                          filteredProducts.map((product: any) => (
+                            </View>
                             <TouchableOpacity
-                              key={product.id}
                               style={[
-                                styles.productCardWeb,
-                                selectedProduct?.id === product.id && styles.productCardSelectedWeb,
-                                (product.stock === 0 || product.stock < 1) && styles.productCardOutOfStockWeb,
+                                styles.addToInvoiceButtonWeb,
+                                (!selectedProduct || productQuantity <= 0) && styles.addToInvoiceButtonDisabledWeb
                               ]}
-                              onPress={() => setSelectedProduct(product)}
+                              onPress={() => selectedProduct && productQuantity > 0 && addProductToEditingInvoice(selectedProduct, productQuantity)}
+                              disabled={!selectedProduct || productQuantity <= 0}
                             >
-                              {selectedProduct?.id === product.id && (
-                                <View style={styles.checkIconContainerWeb}>
-                                  <Ionicons name="checkmark-circle" size={20} color="#10B981" />
-                                </View>
-                              )}
+                              <Ionicons name="add" size={20} color="white" />
+                              <Text style={styles.addToInvoiceButtonTextWeb}>
+                                Ajouter à la facture
+                              </Text>
+                            </TouchableOpacity>
+                          </View>
 
-                              <View style={styles.productCardContentWeb}>
-                                <Text numberOfLines={2} style={styles.productNameWeb}>
-                                  {product.name}
-                                </Text>
-                                <Text style={styles.productCategoryWeb}>{product.category}</Text>
+                          {/* Sélecteur de catégories */}
+                          <View style={styles.categorySelectorWeb}>
+                            <Text style={styles.categoryLabelWeb}>Catégorie:</Text>
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                              <View style={styles.categoryButtonsWeb}>
+                                {productCategories.map((category) => (
+                                  <TouchableOpacity
+                                    key={category}
+                                    style={[
+                                      styles.categoryButtonWeb,
+                                      selectedProductCategory === category && styles.categoryButtonActiveWeb
+                                    ]}
+                                    onPress={() => setSelectedProductCategory(category)}
+                                  >
+                                    <Text style={[
+                                      styles.categoryButtonTextWeb,
+                                      selectedProductCategory === category && styles.categoryButtonTextActiveWeb
+                                    ]}>
+                                      {category}
+                                    </Text>
+                                  </TouchableOpacity>
+                                ))}
+                              </View>
+                            </ScrollView>
+                          </View>
 
-                                <View style={styles.productPriceContainerWeb}>
-                                  <Text style={styles.productPriceWeb}>${(product.price || 0).toFixed(2)}</Text>
-                                  <Text style={styles.productPriceCdfWeb}>
-                                    {(product.priceCdf || 0).toFixed(0)} CDF
-                                  </Text>
-                                </View>
-
-                                <Text
+                          {/* Grille de produits */}
+                          <View style={styles.productsGridWeb}>
+                            {filteredProducts.length > 0 ? (
+                              filteredProducts.map((product: any) => (
+                                <TouchableOpacity
+                                  key={product.id}
                                   style={[
-                                    styles.productStockWeb,
-                                    (product.stock === 0 || product.stock < 1) &&
-                                      styles.productStockOutOfStockWeb,
+                                    styles.productCardWeb,
+                                    selectedProduct?.id === product.id && styles.productCardSelectedWeb,
+                                    (product.stock === 0 || product.stock < 1) && styles.productCardOutOfStockWeb,
                                   ]}
+                                  onPress={() => setSelectedProduct(product)}
                                 >
-                                  Stock: {product.stock || 0}
-                                  {(product.stock === 0 || product.stock < 1) && ' (Rupture)'}
+                                  {selectedProduct?.id === product.id && (
+                                    <View style={styles.checkIconContainerWeb}>
+                                      <Ionicons name="checkmark-circle" size={20} color="#10B981" />
+                                    </View>
+                                  )}
+
+                                  <View style={styles.productCardContentWeb}>
+                                    <Text numberOfLines={2} style={styles.productNameWeb}>
+                                      {product.name}
+                                    </Text>
+                                    <Text style={styles.productCategoryWeb}>{product.category}</Text>
+
+                                    <View style={styles.productPriceContainerWeb}>
+                                      <Text style={styles.productPriceWeb}>${(product.price || 0).toFixed(2)}</Text>
+                                      <Text style={styles.productPriceCdfWeb}>
+                                        {(product.priceCdf || 0).toFixed(0)} CDF
+                                      </Text>
+                                    </View>
+
+                                    <Text
+                                      style={[
+                                        styles.productStockWeb,
+                                        (product.stock === 0 || product.stock < 1) &&
+                                        styles.productStockOutOfStockWeb,
+                                      ]}
+                                    >
+                                      Stock: {product.stock || 0}
+                                      {(product.stock === 0 || product.stock < 1) && ' (Rupture)'}
+                                    </Text>
+                                  </View>
+                                </TouchableOpacity>
+                              ))
+                            ) : (
+                              <View style={styles.emptyProductsWeb}>
+                                <Ionicons name="cube-outline" size={48} color="#D1D5DB" />
+                                <Text style={styles.emptyProductsTextWeb}>Aucun produit trouvé</Text>
+                                <Text style={styles.emptyProductsSubtextWeb}>
+                                  {selectedProductCategory === 'Toutes'
+                                    ? 'Aucun produit disponible'
+                                    : `Aucun produit dans la catégorie "${selectedProductCategory}"`}
                                 </Text>
                               </View>
-                            </TouchableOpacity>
-                          ))
-                        ) : (
-                          <View style={styles.emptyProductsWeb}>
-                            <Ionicons name="cube-outline" size={48} color="#D1D5DB" />
-                            <Text style={styles.emptyProductsTextWeb}>Aucun produit trouvé</Text>
-                            <Text style={styles.emptyProductsSubtextWeb}>
-                              {selectedProductCategory === 'Toutes'
-                                ? 'Aucun produit disponible'
-                                : `Aucun produit dans la catégorie "${selectedProductCategory}"`}
-                            </Text>
+                            )}
                           </View>
-                        )}
-                      </View>
                         </>
                       )}
                     </View>
@@ -3593,9 +3602,9 @@ Voulez-vous confirmer la modification de cette facture ?`;
         {/* Modal d'impression */}
         {showPrintModal && selectedInvoiceForDetails && (
           <View style={styles.modalOverlay}>
-            <TouchableOpacity 
-              style={styles.modalBackdrop} 
-              activeOpacity={1} 
+            <TouchableOpacity
+              style={styles.modalBackdrop}
+              activeOpacity={1}
               onPress={() => setShowPrintModal(false)}
             />
             <View style={styles.printModalContainer}>
@@ -3625,21 +3634,21 @@ Voulez-vous confirmer la modification de cette facture ?`;
                   <View style={styles.printInfoRow}>
                     <Text style={styles.printInfoLabel}>Créé le:</Text>
                     <Text style={styles.printInfoValue}>
-                      {selectedInvoiceForDetails.createdAt 
+                      {selectedInvoiceForDetails.createdAt
                         ? new Date(selectedInvoiceForDetails.createdAt).toLocaleDateString('fr-FR', {
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })
                         : new Date().toLocaleDateString('fr-FR', {
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })
                       }
                     </Text>
                   </View>
@@ -3682,7 +3691,7 @@ Voulez-vous confirmer la modification de cette facture ?`;
                   <View style={styles.printTotalRow}>
                     <Text style={styles.printTotalLabel}>Total CDF:</Text>
                     <Text style={styles.printTotalValue}>
-                      {(selectedInvoiceForDetails.items?.reduce((sum: number, item: any) => 
+                      {(selectedInvoiceForDetails.items?.reduce((sum: number, item: any) =>
                         sum + (item.subTotalCdf || item.priceCdf * (item.qte || item.quantity) || 0), 0
                       ) || 0).toFixed(0)} CDF
                     </Text>
@@ -3690,7 +3699,7 @@ Voulez-vous confirmer la modification de cette facture ?`;
                   <View style={styles.printTotalRow}>
                     <Text style={styles.printTotalLabel}>Total USD:</Text>
                     <Text style={styles.printTotalValue}>
-                      ${((selectedInvoiceForDetails.items?.reduce((sum: number, item: any) => 
+                      ${((selectedInvoiceForDetails.items?.reduce((sum: number, item: any) =>
                         sum + (item.subTotalCdf || item.priceCdf * (item.qte || item.quantity) || 0), 0
                       ) || 0) / exchangeRate).toFixed(2)} USD
                     </Text>
@@ -3760,7 +3769,7 @@ Voulez-vous confirmer la modification de cette facture ?`;
             </View>
           </View>
         )}
-        
+
         {showPaymentsModal && (
           <View style={styles.modalOverlay}>
             <TouchableOpacity
@@ -3865,51 +3874,51 @@ Voulez-vous confirmer la modification de cette facture ?`;
   // Version Mobile
   return (
     <>
-    <ScrollView style={styles.containerMobile}>
-      <Text style={styles.titleMobile}>Gestion des Factures</Text>
-      
-      {/* Filtres */}
-      <View style={styles.filtersContainerMobile}>
-        {/* Filtre par date */}
-        <View style={styles.filterGroup}>
-          <Text style={styles.filterLabel}>Période:</Text>
-          <View style={styles.dateFilterContainer}>
-            <View style={styles.dateRangeDisplay}>
-              <Text style={styles.dateRangeText}>
-                {formatDateForDisplay(startDate)} - {formatDateForDisplay(endDate)}
-              </Text>
-              <TouchableOpacity
-                style={styles.dateFilterButton}
-                onPress={() => setShowDatePicker(!showDatePicker)}
-              >
-                <Ionicons name="calendar-outline" size={20} color="#6B7280" />
-                <Text style={styles.dateFilterButtonText}>Modifier</Text>
-              </TouchableOpacity>
-            </View>
-            
-            {/* Boutons de sélection de date pour mobile */}
-            <View style={styles.mobileDateSelectionContainer}>
-              <TouchableOpacity
-                style={[styles.mobileDateButton, { backgroundColor: '#E3F2FD' }]}
-                onPress={() => {
-                  setShowMobileStartDateModal(true);
-                }}
-              >
-                <Ionicons name="calendar-outline" size={16} color="#007AFF" />
-                <Text style={styles.mobileDateButtonText}>Date de début</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.mobileDateButton, { backgroundColor: '#E3F2FD' }]}
-                onPress={() => {
-                  setShowMobileEndDateModal(true);
-                }}
-              >
-                <Ionicons name="calendar-outline" size={16} color="#007AFF" />
-                <Text style={styles.mobileDateButtonText}>Date de fin</Text>
-              </TouchableOpacity>
-            </View>
-            
-            {showDatePicker && (
+      <ScrollView style={styles.containerMobile}>
+        <Text style={styles.titleMobile}>Gestion des Factures</Text>
+
+        {/* Filtres */}
+        <View style={styles.filtersContainerMobile}>
+          {/* Filtre par date */}
+          <View style={styles.filterGroup}>
+            <Text style={styles.filterLabel}>Période:</Text>
+            <View style={styles.dateFilterContainer}>
+              <View style={styles.dateRangeDisplay}>
+                <Text style={styles.dateRangeText}>
+                  {formatDateForDisplay(startDate)} - {formatDateForDisplay(endDate)}
+                </Text>
+                <TouchableOpacity
+                  style={styles.dateFilterButton}
+                  onPress={() => setShowDatePicker(!showDatePicker)}
+                >
+                  <Ionicons name="calendar-outline" size={20} color="#6B7280" />
+                  <Text style={styles.dateFilterButtonText}>Modifier</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Boutons de sélection de date pour mobile */}
+              <View style={styles.mobileDateSelectionContainer}>
+                <TouchableOpacity
+                  style={[styles.mobileDateButton, { backgroundColor: '#E3F2FD' }]}
+                  onPress={() => {
+                    setShowMobileStartDateModal(true);
+                  }}
+                >
+                  <Ionicons name="calendar-outline" size={16} color="#007AFF" />
+                  <Text style={styles.mobileDateButtonText}>Date de début</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.mobileDateButton, { backgroundColor: '#E3F2FD' }]}
+                  onPress={() => {
+                    setShowMobileEndDateModal(true);
+                  }}
+                >
+                  <Ionicons name="calendar-outline" size={16} color="#007AFF" />
+                  <Text style={styles.mobileDateButtonText}>Date de fin</Text>
+                </TouchableOpacity>
+              </View>
+
+              {showDatePicker && (
                 <View style={styles.datePickerContainer}>
                   <View style={styles.dateInputGroup}>
                     <Text style={styles.dateInputLabel}>Date de début:</Text>
@@ -3951,977 +3960,977 @@ Voulez-vous confirmer la modification de cette facture ?`;
                     </View>
                     <Text style={styles.dateInputHint}>Format: DD/MM/YYYY HH:MM</Text>
                   </View>
-                
-                <View style={styles.dateInputGroup}>
-                  <Text style={styles.dateInputLabel}>Date de fin:</Text>
-                  <View style={styles.dateInputRow}>
-                    <TextInput
-                      style={[styles.dateInput, isEditingEndDate && styles.dateInputEditing]}
-                      value={isEditingEndDate ? endDateText : formatDateForDisplay(endDate)}
-                      placeholder="DD/MM/YYYY HH:MM"
-                      onFocus={() => {
-                        setIsEditingEndDate(true);
-                        setEndDateText(formatDateForDisplay(endDate));
-                      }}
-                      onChangeText={handleEndDateTextChange}
-                      onBlur={handleEndDateTextBlur}
-                      keyboardType="numeric"
-                    />
+
+                  <View style={styles.dateInputGroup}>
+                    <Text style={styles.dateInputLabel}>Date de fin:</Text>
+                    <View style={styles.dateInputRow}>
+                      <TextInput
+                        style={[styles.dateInput, isEditingEndDate && styles.dateInputEditing]}
+                        value={isEditingEndDate ? endDateText : formatDateForDisplay(endDate)}
+                        placeholder="DD/MM/YYYY HH:MM"
+                        onFocus={() => {
+                          setIsEditingEndDate(true);
+                          setEndDateText(formatDateForDisplay(endDate));
+                        }}
+                        onChangeText={handleEndDateTextChange}
+                        onBlur={handleEndDateTextBlur}
+                        keyboardType="numeric"
+                      />
+                      <TouchableOpacity
+                        style={styles.datePickerButton}
+                        onPress={() => {
+                          const newDate = new Date(endDate);
+                          newDate.setDate(newDate.getDate() - 1);
+                          setEndDate(newDate);
+                          setEndDateText(formatDateForDisplay(newDate));
+                        }}
+                      >
+                        <Ionicons name="chevron-back" size={16} color="#6B7280" />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.datePickerButton}
+                        onPress={() => {
+                          const newDate = new Date(endDate);
+                          newDate.setDate(newDate.getDate() + 1);
+                          setEndDate(newDate);
+                          setEndDateText(formatDateForDisplay(newDate));
+                        }}
+                      >
+                        <Ionicons name="chevron-forward" size={16} color="#6B7280" />
+                      </TouchableOpacity>
+                    </View>
+                    <Text style={styles.dateInputHint}>Format: DD/MM/YYYY HH:MM</Text>
+                  </View>
+
+                  <View style={styles.datePickerActions}>
                     <TouchableOpacity
-                      style={styles.datePickerButton}
-                      onPress={() => {
-                        const newDate = new Date(endDate);
-                        newDate.setDate(newDate.getDate() - 1);
-                        setEndDate(newDate);
-                        setEndDateText(formatDateForDisplay(newDate));
-                      }}
+                      style={styles.resetDateButton}
+                      onPress={resetToDefaultDateRange}
                     >
-                      <Ionicons name="chevron-back" size={16} color="#6B7280" />
+                      <Text style={styles.resetDateButtonText}>Par défaut</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
-                      style={styles.datePickerButton}
-                      onPress={() => {
-                        const newDate = new Date(endDate);
-                        newDate.setDate(newDate.getDate() + 1);
-                        setEndDate(newDate);
-                        setEndDateText(formatDateForDisplay(newDate));
-                      }}
+                      style={styles.applyDateButton}
+                      onPress={() => setShowDatePicker(false)}
                     >
-                      <Ionicons name="chevron-forward" size={16} color="#6B7280" />
+                      <Text style={styles.applyDateButtonText}>Appliquer</Text>
                     </TouchableOpacity>
                   </View>
-                  <Text style={styles.dateInputHint}>Format: DD/MM/YYYY HH:MM</Text>
                 </View>
-                
-                <View style={styles.datePickerActions}>
-                  <TouchableOpacity
-                    style={styles.resetDateButton}
-                    onPress={resetToDefaultDateRange}
-                  >
-                    <Text style={styles.resetDateButtonText}>Par défaut</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.applyDateButton}
-                    onPress={() => setShowDatePicker(false)}
-                  >
-                    <Text style={styles.applyDateButtonText}>Appliquer</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
-          </View>
-        </View>
-
-        <View style={styles.filterGroup}>
-          <Text style={styles.filterLabel}>Statut:</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={styles.filterButtons}>
-              {['Toutes', 'Payées', 'Non payées'].map((status) => (
-                <TouchableOpacity
-                  key={status}
-                  style={[
-                    styles.filterButton,
-                    selectedStatus === status && styles.filterButtonActive
-                  ]}
-                  onPress={() => setSelectedStatus(status)}
-                >
-                  <Text style={[
-                    styles.filterButtonText,
-                    selectedStatus === status && styles.filterButtonTextActive
-                  ]}>
-                    {status}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+              )}
             </View>
-          </ScrollView>
-        </View>
+          </View>
 
-        <View style={styles.filterGroup}>
-          <Text style={styles.filterLabel}>Poste:</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={styles.filterButtons}>
-              <TouchableOpacity
-                key="Toutes-mobile"
-                style={[
-                  styles.filterButton,
-                  selectedTable === 'Toutes' && styles.filterButtonActive
-                ]}
-                onPress={() => setSelectedTable('Toutes')}
-              >
-                <Text
-                  style={[
-                    styles.filterButtonText,
-                    selectedTable === 'Toutes' && styles.filterButtonTextActive
-                  ]}
-                >
-                  Toutes
-                </Text>
-              </TouchableOpacity>
-              {tablesLoading && (
-                <View style={styles.filterButton}>
-                  <Text style={styles.filterButtonText}>Chargement...</Text>
-                </View>
-              )}
-              {!tablesLoading && tables.length === 0 && !tablesError && (
-                <View style={styles.filterButton}>
-                  <Text style={styles.filterButtonText}>Aucune table</Text>
-                </View>
-              )}
-              {!tablesLoading && tablesError && (
-                <View style={styles.filterButton}>
-                  <Text style={styles.filterButtonText}>Erreur</Text>
-                </View>
-              )}
-              {!tablesLoading && tables.map((table: any) => (
+          <View style={styles.filterGroup}>
+            <Text style={styles.filterLabel}>Statut:</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View style={styles.filterButtons}>
+                {['Toutes', 'Payées', 'Non payées'].map((status) => (
+                  <TouchableOpacity
+                    key={status}
+                    style={[
+                      styles.filterButton,
+                      selectedStatus === status && styles.filterButtonActive
+                    ]}
+                    onPress={() => setSelectedStatus(status)}
+                  >
+                    <Text style={[
+                      styles.filterButtonText,
+                      selectedStatus === status && styles.filterButtonTextActive
+                    ]}>
+                      {status}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </ScrollView>
+          </View>
+
+          <View style={styles.filterGroup}>
+            <Text style={styles.filterLabel}>Poste:</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View style={styles.filterButtons}>
                 <TouchableOpacity
-                  key={`${table.value}-mobile`}
+                  key="Toutes-mobile"
                   style={[
                     styles.filterButton,
-                    selectedTable === table.value && styles.filterButtonActive
+                    selectedTable === 'Toutes' && styles.filterButtonActive
                   ]}
-                  onPress={() => setSelectedTable(table.value)}
+                  onPress={() => setSelectedTable('Toutes')}
                 >
                   <Text
                     style={[
                       styles.filterButtonText,
-                      selectedTable === table.value && styles.filterButtonTextActive
+                      selectedTable === 'Toutes' && styles.filterButtonTextActive
                     ]}
                   >
-                    {table.label}
+                    Toutes
                   </Text>
                 </TouchableOpacity>
-              ))}
-            </View>
-          </ScrollView>
-        </View>
-
-        <View style={styles.searchContainer}>
-          <Ionicons name="search" size={18} color="#6B7280" />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Rechercher..."
-            placeholderTextColor="#9CA3AF"
-            value={searchTerm}
-            onChangeText={setSearchTerm}
-          />
-        </View>
-      <View style={styles.reportActionsMobile}>
-        <TouchableOpacity
-          style={styles.reportButtonMobile}
-          onPress={() => handleOpenInvoiceReport()}
-        >
-          <Ionicons name="document-text-outline" size={16} color="#FFFFFF" />
-          <Text style={styles.reportButtonMobileText}>Rapport factures</Text>
-        </TouchableOpacity>
-        {Platform.OS === 'web' && (
-          <TouchableOpacity
-            style={[styles.reportButtonMobile, styles.reportButtonMobileSecondary]}
-            onPress={() => handleOpenInvoiceReport({ autoPrint: true })}
-          >
-            <Ionicons name="print" size={16} color="#FFFFFF" />
-            <Text style={styles.reportButtonMobileText}>Imprimer PDF</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-      </View>
-
-      {/* Statistiques */}
-      <View style={styles.statsContainerMobile}>
-        <View style={styles.statCardMobile}>
-          <Text style={styles.statValueMobile}>{filteredInvoices.length}</Text>
-          <Text style={styles.statLabelMobile}>Total</Text>
-        </View>
-        <View style={styles.statCardMobile}>
-          <Text style={styles.statValueMobile}>{filteredInvoices.filter((inv: Invoice) => inv.status === 0).length}</Text>
-          <Text style={styles.statLabelMobile}>En cours</Text>
-        </View>
-        <View style={styles.statCardMobile}>
-          <Text style={styles.statValueMobile}>{filteredInvoices.reduce((sum: number, inv: Invoice) => sum + (inv.amountPaidCdf || 0), 0).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}</Text>
-          <Text style={styles.statLabelMobile}>Total CDF</Text>
-        </View>
-      </View>
-
-      {/* Liste des factures ou Détails */}
-      {!selectedInvoice ? (
-        <View style={styles.invoicesListMobile}>
-          {invoicesLoading ? (
-            <LoadingIndicator />
-          ) : invoicesError ? (
-            <ErrorIndicator />
-          ) : filteredInvoices.length === 0 ? (
-            <View style={styles.emptyStateMobile}>
-              <Ionicons name="document-outline" size={48} color="#D1D5DB" />
-              <Text style={styles.emptyStateTitleMobile}>Aucune facture trouvée</Text>
-              <Text style={styles.emptyStateTextMobile}>Aucune facture ne correspond aux critères de recherche</Text>
-            </View>
-          ) : (
-            filteredInvoices.map((invoice: Invoice) => (
-            <TouchableOpacity
-              key={invoice.id}
-              style={styles.invoiceCardMobile}
-              onPress={() => openInvoiceModal(invoice)}
-            >
-              {/* Header */}
-              <View style={styles.invoiceHeaderMobile}>
-                <View style={styles.invoiceHeaderLeftMobile}>
-                  <Text style={styles.invoiceIdMobile}>{invoice.tableNomination || 'Table'}</Text>
-                  <Text style={styles.invoiceDateHeaderMobile}>{invoice.date}</Text>
-                </View>
-                <View style={[styles.statusBadge, { backgroundColor: getStatusColor(invoice.status) }]}>
-                  <Text style={styles.statusText}>{getStatusLabel(invoice.status)}</Text>
-                </View>
-              </View>
-              
-              {/* Informations client */}
-              <View style={styles.clientSectionMobile}>
-                <Text style={styles.customerNameMobile}>{invoice.customerName}</Text>
-                <Text style={styles.customerEmailMobile}>{invoice.description}</Text>
-              </View>
-
-              {/* Informations supplémentaires */}
-              <View style={styles.invoiceInfosMobile}>
-                <View style={styles.infoItemMobile}>
-                  <Ionicons name="calendar-outline" size={14} color="#6B7280" />
-                  <Text style={styles.infoTextMobile}>{invoice.date}</Text>
-                </View>
-                <View style={styles.infoItemMobile}>
-                  <Ionicons name="time-outline" size={14} color="#6B7280" />
-                  <Text style={styles.infoTextMobile}>
-                    Créé le {invoice.createdAt 
-                      ? new Date(invoice.createdAt).toLocaleDateString('fr-FR', {
-                          day: 'numeric',
-                          month: 'short',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })
-                      : new Date().toLocaleDateString('fr-FR', {
-                          day: 'numeric',
-                          month: 'short',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })
-                    }
-                  </Text>
-                </View>
-                <View style={styles.infoItemMobile}>
-                  <Ionicons name="receipt-outline" size={14} color="#6B7280" />
-                  <Text style={styles.infoTextMobile}>{invoice.items.length} article(s)</Text>
-                </View>
-                {invoice.userName && (
-                  <View style={styles.infoItemMobile}>
-                    <Ionicons name="person-outline" size={14} color="#6B7280" />
-                    <Text style={styles.infoTextMobile}>{invoice.userName}</Text>
+                {tablesLoading && (
+                  <View style={styles.filterButton}>
+                    <Text style={styles.filterButtonText}>Chargement...</Text>
                   </View>
                 )}
-                <View style={styles.infoItemMobile}>
-                  <Ionicons name="card-outline" size={14} color="#6B7280" />
-                  <Text style={styles.infoTextMobile}>
-                    {invoice.typePaiement || 'Type inconnu'}
-                  </Text>
-                </View>
-                <View style={styles.infoItemMobile}>
-                  <View
+                {!tablesLoading && tables.length === 0 && !tablesError && (
+                  <View style={styles.filterButton}>
+                    <Text style={styles.filterButtonText}>Aucune table</Text>
+                  </View>
+                )}
+                {!tablesLoading && tablesError && (
+                  <View style={styles.filterButton}>
+                    <Text style={styles.filterButtonText}>Erreur</Text>
+                  </View>
+                )}
+                {!tablesLoading && tables.map((table: any) => (
+                  <TouchableOpacity
+                    key={`${table.value}-mobile`}
                     style={[
-                      styles.invoiceDebtBadgeMobile,
-                      invoice.dette
-                        ? styles.invoiceDebtBadgeDebtMobile
-                        : styles.invoiceDebtBadgePaidMobile,
+                      styles.filterButton,
+                      selectedTable === table.value && styles.filterButtonActive
                     ]}
+                    onPress={() => setSelectedTable(table.value)}
                   >
                     <Text
                       style={[
-                        styles.invoiceDebtBadgeTextMobile,
-                        invoice.dette
-                          ? styles.invoiceDebtBadgeTextDebtMobile
-                          : styles.invoiceDebtBadgeTextPaidMobile,
+                        styles.filterButtonText,
+                        selectedTable === table.value && styles.filterButtonTextActive
                       ]}
                     >
-                      {invoice.dette ? 'DETTE' : 'PAYÉ'}
+                      {table.label}
                     </Text>
-                  </View>
-                </View>
-              </View>
-
-              {/* Footer avec total */}
-              <View style={styles.invoiceFooterMobile}>
-                <Text style={styles.totalLabelMobile}>Total:</Text>
-                <View style={styles.totalContainerMobile}>
-                  <Text style={styles.invoiceTotalMobile}>
-                    {(invoice.amountPaidCdf || 0).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')} CDF
-                  </Text>
-                  <Text style={styles.invoiceTotalUsdMobile}>
-                    ${(invoice.amountPaidUsd || 0).toFixed(2)}
-                  </Text>
-                </View>
-              </View>
-            </TouchableOpacity>
-            ))
-          )}
-        </View>
-      ) : (
-        /* Détails de la facture sur mobile */
-        <View style={styles.invoiceDetailsMobile}>
-          <View style={styles.detailsHeaderMobile}>
-            <Text style={styles.detailsTitleMobile}>Détail facture</Text>
-          </View>
-
-          {/* Onglets pour mobile */}
-          <View style={styles.mobileTabContainer}>
-            <TouchableOpacity
-              style={[
-                styles.mobileTab,
-                activeMobileTab === 'details' && styles.mobileTabActive
-              ]}
-              onPress={() => setActiveMobileTab('details')}
-            >
-              <Ionicons 
-                name="information-circle-outline" 
-                size={20} 
-                color={activeMobileTab === 'details' ? '#7C3AED' : '#6B7280'} 
-              />
-              <Text style={[
-                styles.mobileTabText,
-                activeMobileTab === 'details' && styles.mobileTabTextActive
-              ]}>
-                Détails
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.mobileTab,
-                activeMobileTab === 'products' && styles.mobileTabActive
-              ]}
-              onPress={() => setActiveMobileTab('products')}
-            >
-              <Ionicons 
-                name="grid-outline" 
-                size={20} 
-                color={activeMobileTab === 'products' ? '#7C3AED' : '#6B7280'} 
-              />
-              <Text style={[
-                styles.mobileTabText,
-                activeMobileTab === 'products' && styles.mobileTabTextActive
-              ]}>
-                Produits
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Contenu conditionnel selon l'onglet */}
-          {activeMobileTab === 'details' ? (
-            <>
-              {/* Informations générales */}
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Informations générales</Text>
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Poste:</Text>
-                  <Text style={styles.infoValue}>{selectedInvoice?.tableNomination || 'N/A'}</Text>
-                </View>
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Date:</Text>
-                  <Text style={styles.infoValue}>{selectedInvoice?.date}</Text>
-                </View>
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Créé le:</Text>
-                  <Text style={styles.infoValue}>
-                    {selectedInvoice?.createdAt 
-                      ? new Date(selectedInvoice.createdAt).toLocaleDateString('fr-FR', {
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })
-                      : new Date().toLocaleDateString('fr-FR', {
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })
-                    }
-                  </Text>
-                </View>
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Statut:</Text>
-                  <View style={[styles.statusBadge, { backgroundColor: getStatusColor(selectedInvoice?.status) }]}>
-                    <Text style={styles.statusText}>{getStatusLabel(selectedInvoice?.status)}</Text>
-                  </View>
-                </View>
-              </View>
-
-              {/* Client */}
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Client</Text>
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Nom:</Text>
-                  <Text style={styles.infoValue}>{selectedInvoice?.customerName || 'N/A'}</Text>
-                </View>
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Description:</Text>
-                  <Text style={styles.infoValue}>{selectedInvoice?.description || 'N/A'}</Text>
-                </View>
-              </View>
-
-              {/* Paiement */}
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Paiement</Text>
-                <Text style={styles.mobileSectionLabel}>Mode de paiement</Text>
-                <View style={styles.mobilePaymentChips}>
-                  {paymentMethodOptions.map((method) => {
-                    const isSelected = (selectedInvoice?.typePaiement || '').toLowerCase() === method.toLowerCase();
-                    return (
-                      <TouchableOpacity
-                        key={method}
-                        style={[
-                          styles.mobilePaymentChip,
-                          isSelected && styles.mobilePaymentChipActive
-                        ]}
-                        onPress={() => handleMobilePaymentMethodChange(method)}
-                      >
-                        <Text
-                          style={[
-                            styles.mobilePaymentChipText,
-                            isSelected && styles.mobilePaymentChipTextActive
-                          ]}
-                        >
-                          {method}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-
-                <Text style={[styles.mobileSectionLabel, { marginTop: 16 }]}>Dette</Text>
-                <View style={styles.mobileDebtToggleRow}>
-                  {[{ label: 'OUI', value: true }, { label: 'NON', value: false }].map((option) => {
-                    const isSelected = (selectedInvoice?.dette ?? false) === option.value;
-                    return (
-                      <TouchableOpacity
-                        key={option.label}
-                        style={[
-                          styles.mobileDebtButton,
-                          option.value ? styles.mobileDebtButtonDebt : styles.mobileDebtButtonPaid,
-                          isSelected && (option.value ? styles.mobileDebtButtonActiveDebt : styles.mobileDebtButtonActivePaid),
-                          option.label === 'OUI' ? styles.mobileDebtButtonSpacing : null
-                        ]}
-                        onPress={() => handleMobileDebtToggle(option.value)}
-                      >
-                        <Text
-                          style={[
-                            styles.mobileDebtButtonText,
-                            isSelected && (option.value ? styles.mobileDebtButtonTextActiveDebt : styles.mobileDebtButtonTextActivePaid)
-                          ]}
-                        >
-                          {option.label}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              </View>
-
-              {/* Articles modifiables */}
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Articles ({editableItems.length})</Text>
-                {editableItems.length > 0 ? (
-                  editableItems.map((item: any, index: number) => (
-                    <View key={item.id || index} style={styles.mobileEditableItemRow}>
-                      <View style={styles.mobileEditableItemInfo}>
-                        <Text style={styles.mobileEditableItemName}>{item.productName || item.name || 'Produit'}</Text>
-                        <Text style={styles.mobileEditableItemPrice}>
-                          ${item.priceUsd?.toFixed(2) || '0.00'} / {item.priceCdf?.toFixed(0) || '0'} CDF
-                        </Text>
-                      </View>
-                      <View style={styles.mobileEditableItemActions}>
-                        <TouchableOpacity
-                          style={styles.mobileQuantityButton}
-                          onPress={() => {
-                            const newItems = [...editableItems];
-                            if (newItems[index].qte > 1) {
-                              newItems[index].qte -= 1;
-                              newItems[index].subTotalUsd = newItems[index].qte * (newItems[index].priceUsd || 0);
-                              newItems[index].subTotalCdf = newItems[index].qte * (newItems[index].priceCdf || 0);
-                              setEditableItems(newItems);
-                            }
-                          }}
-                        >
-                          <Ionicons name="remove" size={16} color="#FFFFFF" />
-                        </TouchableOpacity>
-                        <Text style={styles.mobileQuantityText}>{item.qte || 1}</Text>
-                        <TouchableOpacity
-                          style={styles.mobileQuantityButton}
-                          onPress={() => {
-                            const newItems = [...editableItems];
-                            newItems[index].qte += 1;
-                            newItems[index].subTotalUsd = newItems[index].qte * (newItems[index].priceUsd || 0);
-                            newItems[index].subTotalCdf = newItems[index].qte * (newItems[index].priceCdf || 0);
-                            setEditableItems(newItems);
-                          }}
-                        >
-                          <Ionicons name="add" size={16} color="#FFFFFF" />
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={styles.mobileDeleteItemButton}
-                          onPress={() => {
-                            const newItems = editableItems.filter((_: any, i: number) => i !== index);
-                            setEditableItems(newItems);
-                          }}
-                        >
-                          <Ionicons name="trash" size={16} color="#FFFFFF" />
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  ))
-                ) : (
-                  <Text style={styles.infoValue}>Aucun article</Text>
-                )}
-              </View>
-
-              {/* Totaux dynamiques */}
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Totaux</Text>
-                {(() => {
-                  const totalCdf = editableItems.reduce((sum: number, item: any) => 
-                    sum + (item.subTotalCdf || item.priceCdf * (item.qte || item.quantity) || 0), 0);
-                  const totalUsd = editableItems.reduce((sum: number, item: any) => 
-                    sum + (item.subTotalUsd || item.priceUsd * (item.qte || item.quantity) || 0), 0);
-                  const reductionCdf = selectedInvoice?.reductionCdf || 0;
-                  const reductionUsd = selectedInvoice?.reductionUsd || 0;
-                  const totalAfterReductionCdf = totalCdf - reductionCdf;
-                  const totalAfterReductionUsd = totalUsd - reductionUsd;
-                  const amountPaidCdf = Number(selectedInvoice?.amountPaidCdf ?? totalAfterReductionCdf);
-                  const amountPaidUsd = Number(selectedInvoice?.amountPaidUsd ?? totalAfterReductionUsd);
-                  
-                  return (
-                    <>
-                      <View style={styles.totalRow}>
-                        <Text style={styles.totalLabel}>Total CDF:</Text>
-                        <Text style={styles.totalValue}>{totalCdf.toFixed(0)} CDF</Text>
-                      </View>
-                      <View style={styles.totalRow}>
-                        <Text style={styles.totalLabel}>Total USD:</Text>
-                        <Text style={styles.totalValue}>${totalUsd.toFixed(2)}</Text>
-                      </View>
-                      {(reductionCdf > 0 || reductionUsd > 0) && (
-                        <>
-                          <View style={styles.totalRow}>
-                            <Text style={styles.totalLabel}>Réduction CDF:</Text>
-                            <Text style={[styles.totalValue, { color: '#EF4444' }]}>
-                              -{reductionCdf.toFixed(0)} CDF
-                            </Text>
-                          </View>
-                          <View style={styles.totalRow}>
-                            <Text style={styles.totalLabel}>Réduction USD:</Text>
-                            <Text style={[styles.totalValue, { color: '#EF4444' }]}>
-                              -${reductionUsd.toFixed(2)}
-                            </Text>
-                          </View>
-                        </>
-                      )}
-                      <View style={[styles.totalRow, { borderTopWidth: 1, borderTopColor: '#E5E7EB', paddingTop: 8, marginTop: 8 }]}>
-                        <Text style={[styles.totalLabel, { fontWeight: 'bold', fontSize: 16 }]}>Total à payer:</Text>
-                        <View style={{ alignItems: 'flex-end' }}>
-                          <Text style={[styles.totalValue, { fontWeight: 'bold', fontSize: 18, color: '#7C3AED' }]}>
-                            {amountPaidCdf.toFixed(0)} CDF
-                          </Text>
-                          <Text style={[styles.totalValue, { fontSize: 14, color: '#6B7280' }]}>
-                            ${amountPaidUsd.toFixed(2)}
-                          </Text>
-                          <Text style={{ marginTop: 4, fontSize: 12, color: '#DC2626', fontWeight: '700', textAlign: 'right' }}>
-                            REDUCTION CDF: {(Number(selectedInvoice?.reductionCdf) || 0).toFixed(0)}, REDUCTION USD: {(Number(selectedInvoice?.reductionUsd) || 0).toFixed(2)}
-                          </Text>
-                        </View>
-                      </View>
-                    </>
-                  );
-                })()}
-              </View>
-
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Faire un paiement</Text>
-                <Text style={styles.paymentInfoTextMobile}>
-                  Taux: {exchangeRate}{'\n'}
-                  Reste CDF: {invoiceTotals.remainingCdf.toFixed(0)} • Reste USD: {invoiceTotals.remainingUsd.toFixed(2)}
-                </Text>
-                <Text style={styles.paymentLabelMobile}>Montant</Text>
-                <TextInput
-                  style={styles.paymentInputMobile}
-                  placeholder="0.00"
-                  placeholderTextColor="#9CA3AF"
-                  keyboardType={paymentDevise === 1 ? 'decimal-pad' : 'numeric'}
-                  value={paymentAmount}
-                  onChangeText={handlePaymentAmountChange}
-                />
-                <View style={styles.paymentDeviseRowMobile}>
-                  {paymentDeviseOptions.map(option => {
-                    const isSelected = paymentDevise === option.value;
-                    return (
-                      <TouchableOpacity
-                        key={option.value}
-                        style={[
-                          styles.paymentDeviseButtonMobile,
-                          isSelected && styles.paymentDeviseButtonActiveMobile,
-                        ]}
-                        onPress={() => handlePaymentDeviseChange(option.value)}
-                      >
-                        <Text
-                          style={[
-                            styles.paymentDeviseButtonTextMobile,
-                            isSelected && styles.paymentDeviseButtonTextActiveMobile,
-                          ]}
-                        >
-                          {option.label}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-                <TextInput
-                  style={styles.paymentObservationInputMobile}
-                  placeholder="Observation (optionnelle)"
-                  placeholderTextColor="#9CA3AF"
-                  value={paymentObservation}
-                  onChangeText={setPaymentObservation}
-                  multiline
-                  numberOfLines={3}
-                />
-                <TouchableOpacity
-                  style={[
-                    styles.paymentSubmitButtonMobile,
-                    (isSubmittingPayment || !isPaymentAmountPositive || paymentLimit <= 0) && styles.paymentSubmitButtonDisabledMobile,
-                  ]}
-                  onPress={handleAddPayment}
-                  disabled={isSubmittingPayment || !isPaymentAmountPositive || paymentLimit <= 0}
-                >
-                  {isSubmittingPayment ? (
-                    <>
-                      <Ionicons name="hourglass" size={18} color="#FFFFFF" />
-                      <Text style={styles.paymentSubmitButtonTextMobile}>Enregistrement...</Text>
-                    </>
-                  ) : (
-                    <>
-                      <Ionicons name="cash-outline" size={18} color="#FFFFFF" />
-                      <Text style={styles.paymentSubmitButtonTextMobile}>Enregistrer le paiement</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.paymentHistoryButtonMobile}
-                  onPress={handleOpenPaymentsModal}
-                >
-                  <Ionicons name="time-outline" size={16} color="#1F2937" />
-                  <Text style={styles.paymentHistoryButtonTextMobile}>Historique des paiements</Text>
-                </TouchableOpacity>
-              </View>
-            </>
-          ) : (
-            /* Onglet Produits */
-            <ScrollView style={styles.productsScrollView}>
-              {/* Filtre par catégorie */}
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Filtrer par catégorie</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryFilterContainer}>
-                  {['Toutes', ...categories.map((cat: any) => cat.name)].map((categoryName) => (
-                    <TouchableOpacity
-                      key={categoryName}
-                      style={[
-                        styles.categoryFilterButton,
-                        selectedProductCategory === categoryName && styles.categoryFilterButtonActive
-                      ]}
-                      onPress={() => setSelectedProductCategory(categoryName)}
-                    >
-                      <Text style={[
-                        styles.categoryFilterText,
-                        selectedProductCategory === categoryName && styles.categoryFilterTextActive
-                      ]}>
-                        {categoryName}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-
-              {/* Champ de sélection du produit */}
-              {selectedProductForAddition && (
-                <View style={styles.section}>
-                  <View style={styles.productSelectionContainer}>
-                    <Text style={styles.productSelectionTitle}>
-                      Produit sélectionné: {selectedProductForAddition.name}
-                    </Text>
-                    <View style={styles.quantityInputContainer}>
-                      <Text style={styles.quantityLabel}>Quantité:</Text>
-                      <TextInput
-                        style={[styles.quantityInput, { textAlign: 'center' }]}
-                        value={quantityForAddition}
-                        onChangeText={(text) => {
-                          // Validation: seulement les nombres positifs
-                          const numericValue = text.replace(/[^0-9]/g, '');
-                          if (numericValue === '' || parseInt(numericValue) >= 1) {
-                            setQuantityForAddition(numericValue || '1');
-                          }
-                        }}
-                        placeholder="1"
-                        keyboardType="numeric"
-                      />
-                      <TouchableOpacity
-                        style={styles.addToInvoiceButton}
-                        onPress={() => {
-                          const quantity = parseInt(quantityForAddition) || 1;
-                          
-                          // Vérifier si le produit existe déjà dans la facture
-                          const existingItemIndex = editableItems.findIndex(
-                            item => item.productId === selectedProductForAddition.id
-                          );
-                          
-                          if (existingItemIndex >= 0) {
-                            // Produit existe déjà : augmenter la quantité
-                            const newItems = [...editableItems];
-                            newItems[existingItemIndex].qte += quantity;
-                            newItems[existingItemIndex].subTotalUsd = newItems[existingItemIndex].qte * (newItems[existingItemIndex].priceUsd || 0);
-                            newItems[existingItemIndex].subTotalCdf = newItems[existingItemIndex].qte * (newItems[existingItemIndex].priceCdf || 0);
-                            setEditableItems(newItems);
-                          } else {
-                            // Nouveau produit : l'ajouter à la liste
-                            const newItem = {
-                              id: selectedProductForAddition.id, // Utiliser l'ID du produit
-                              productId: selectedProductForAddition.id, // ID du produit
-                              productName: selectedProductForAddition.name,
-                              name: selectedProductForAddition.name,
-                              priceUsd: selectedProductForAddition.priceUsd || 0,
-                              priceCdf: selectedProductForAddition.priceCdf || 0,
-                              qte: quantity,
-                              quantity: quantity,
-                              subTotalUsd: (selectedProductForAddition.priceUsd || 0) * quantity,
-                              subTotalCdf: (selectedProductForAddition.priceCdf || 0) * quantity,
-                              taux: exchangeRate
-                            };
-                            
-                            setEditableItems([...editableItems, newItem]);
-                          }
-                          
-                          // Réinitialiser la sélection
-                          setSelectedProductForAddition(null);
-                          setQuantityForAddition('1');
-                          
-                          // Basculer vers l'onglet Détails
-                          setActiveMobileTab('details');
-                        }}
-                        disabled={!quantityForAddition || parseInt(quantityForAddition) < 1}
-                      >
-                        <Ionicons name="checkmark" size={20} color="#FFFFFF" />
-                        <Text style={styles.addToInvoiceButtonText}>Ajouter</Text>
-                      </TouchableOpacity>
-                    </View>
-                    <TouchableOpacity
-                      style={styles.cancelSelectionButton}
-                      onPress={() => {
-                        setSelectedProductForAddition(null);
-                        setQuantityForAddition('1');
-                      }}
-                    >
-                      <Ionicons name="close" size={16} color="#6B7280" />
-                      <Text style={styles.cancelSelectionText}>Annuler</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              )}
-
-              {/* Liste des produits */}
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Produits disponibles ({filteredProducts.length})</Text>
-                {filteredProducts.length > 0 ? (
-                  filteredProducts.map((product: any) => (
-                    <View key={product.id} style={styles.mobileProductCard}>
-                      <View style={styles.mobileProductInfo}>
-                        <Text style={styles.mobileProductName}>{product.name}</Text>
-                        <Text style={styles.mobileProductPrice}>
-                          ${product.priceUsd?.toFixed(2) || '0.00'} / {product.priceCdf?.toFixed(0) || '0'} CDF
-                        </Text>
-                        {product.categoryName && (
-                          <Text style={styles.mobileProductCategory}>
-                            Catégorie: {product.categoryName}
-                          </Text>
-                        )}
-                      </View>
-                      <TouchableOpacity
-                        style={styles.mobileAddProductButton}
-                        onPress={() => {
-                          setSelectedProductForAddition(product);
-                          setQuantityForAddition('1');
-                        }}
-                      >
-                        <Ionicons name="add" size={20} color="#FFFFFF" />
-                        <Text style={styles.mobileAddProductButtonText}>Ajouter</Text>
-                      </TouchableOpacity>
-                    </View>
-                  ))
-                ) : (
-                  <Text style={styles.infoValue}>Aucun produit disponible</Text>
-                )}
+                  </TouchableOpacity>
+                ))}
               </View>
             </ScrollView>
-          )}
+          </View>
 
-          {/* Actions de la facture */}
-          <View style={styles.mobileInvoiceActions}>
-            <TouchableOpacity 
-              style={styles.mobileActionButton}
-              onPress={() => {
-                
-                // Appeler la fonction de confirmation comme sur web
-                showMobilePrintConfirmation();
-              }}
+          <View style={styles.searchContainer}>
+            <Ionicons name="search" size={18} color="#6B7280" />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Rechercher..."
+              placeholderTextColor="#9CA3AF"
+              value={searchTerm}
+              onChangeText={setSearchTerm}
+            />
+          </View>
+          <View style={styles.reportActionsMobile}>
+            <TouchableOpacity
+              style={styles.reportButtonMobile}
+              onPress={() => handleOpenInvoiceReport()}
             >
-              <Ionicons name="print" size={20} color="#FFFFFF" />
-              <Text style={styles.mobileActionButtonText}>Imprimer facture</Text>
+              <Ionicons name="document-text-outline" size={16} color="#FFFFFF" />
+              <Text style={styles.reportButtonMobileText}>Rapport factures</Text>
             </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={[styles.mobileActionButton, styles.mobileActionButtonDanger]}
-              onPress={() => {
-                handleDeleteFacture(selectedInvoiceForDetails?.id);
-              }}
-            >
-              <Ionicons name="trash" size={20} color="#FFFFFF" />
-              <Text style={styles.mobileActionButtonText}>Supprimer facture</Text>
-            </TouchableOpacity>
-            
-            {isAdmin && (
-              <TouchableOpacity 
-                style={[styles.mobileActionButton, styles.mobileActionButtonPrimary]}
-                onPress={() => {
-                  
-                  // Appeler la fonction de confirmation comme sur web
-                  showUpdateConfirmation();
-                }}
-                disabled={isUpdatingInvoice}
+            {Platform.OS === 'web' && (
+              <TouchableOpacity
+                style={[styles.reportButtonMobile, styles.reportButtonMobileSecondary]}
+                onPress={() => handleOpenInvoiceReport({ autoPrint: true })}
               >
-                <Ionicons name="save" size={20} color="#FFFFFF" />
-                <Text style={styles.mobileActionButtonText}>
-                  {isUpdatingInvoice ? 'Modification...' : 'Modifier'}
-                </Text>
+                <Ionicons name="print" size={16} color="#FFFFFF" />
+                <Text style={styles.reportButtonMobileText}>Imprimer PDF</Text>
               </TouchableOpacity>
             )}
           </View>
-
-          {/* Bouton Fermer */}
-          <TouchableOpacity
-            style={styles.closeDetailsMobile}
-            onPress={closeInvoiceModal}
-          >
-            <Ionicons name="close-circle" size={24} color="#FFFFFF" />
-            <Text style={styles.closeDetailsTextMobile}>Fermer</Text>
-          </TouchableOpacity>
         </View>
-      )}
 
-
-      {renderInvoiceReportModal()}
-
-      {/* Modals de calendrier pour mobile (bottom sheet) */}
-      <BottomSheetCalendarModal
-        visible={showMobileStartDateModal}
-        onClose={() => {
-          setShowMobileStartDateModal(false);
-        }}
-        selectedDate={startDate}
-        onDateSelect={handleMobileStartDateSelect}
-        title="Sélectionner la date de début"
-      />
-      <BottomSheetCalendarModal
-        visible={showMobileEndDateModal}
-        onClose={() => {
-          setShowMobileEndDateModal(false);
-        }}
-        selectedDate={endDate}
-        onDateSelect={handleMobileEndDateSelect}
-        title="Sélectionner la date de fin"
-      />
-
-    </ScrollView>
-    {showPaymentsModal && (
-      <View style={styles.modalOverlay}>
-        <TouchableOpacity
-          style={styles.modalBackdrop}
-          activeOpacity={1}
-          onPress={handleClosePaymentsModal}
-        />
-        <View style={styles.paymentsModalContainer}>
-          <View style={styles.paymentsModalHeader}>
-            <Text style={styles.paymentsModalTitle}>Historique des paiements</Text>
-            <TouchableOpacity onPress={handleClosePaymentsModal} style={styles.closeButton}>
-              <Ionicons name="close" size={24} color="#6B7280" />
-            </TouchableOpacity>
+        {/* Statistiques */}
+        <View style={styles.statsContainerMobile}>
+          <View style={styles.statCardMobile}>
+            <Text style={styles.statValueMobile}>{filteredInvoices.length}</Text>
+            <Text style={styles.statLabelMobile}>Total</Text>
           </View>
-          <ScrollView style={styles.paymentsModalContent}>
-            {paymentsLoading ? (
-              <View style={styles.paymentsModalLoading}>
-                <ActivityIndicator size="large" color="#7C3AED" />
-                <Text style={styles.paymentsModalLoadingText}>Chargement des paiements...</Text>
-              </View>
-            ) : paymentsError ? (
-              <Text style={styles.paymentsModalError}>{paymentsError}</Text>
-            ) : payments.length === 0 ? (
-              <View style={styles.paymentsModalEmpty}>
-                <Ionicons name="card-outline" size={24} color="#9CA3AF" />
-                <Text style={styles.paymentsModalEmptyText}>
-                  Aucun paiement enregistré pour cette facture.
-                </Text>
+          <View style={styles.statCardMobile}>
+            <Text style={styles.statValueMobile}>{filteredInvoices.filter((inv: Invoice) => inv.status === 0).length}</Text>
+            <Text style={styles.statLabelMobile}>En cours</Text>
+          </View>
+          <View style={styles.statCardMobile}>
+            <Text style={styles.statValueMobile}>{filteredInvoices.reduce((sum: number, inv: Invoice) => sum + (inv.amountPaidCdf || 0), 0).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}</Text>
+            <Text style={styles.statLabelMobile}>Total CDF</Text>
+          </View>
+        </View>
+
+        {/* Liste des factures ou Détails */}
+        {!selectedInvoice ? (
+          <View style={styles.invoicesListMobile}>
+            {invoicesLoading ? (
+              <LoadingIndicator />
+            ) : invoicesError ? (
+              <ErrorIndicator />
+            ) : filteredInvoices.length === 0 ? (
+              <View style={styles.emptyStateMobile}>
+                <Ionicons name="document-outline" size={48} color="#D1D5DB" />
+                <Text style={styles.emptyStateTitleMobile}>Aucune facture trouvée</Text>
+                <Text style={styles.emptyStateTextMobile}>Aucune facture ne correspond aux critères de recherche</Text>
               </View>
             ) : (
-              payments.map((payment: any) => {
-                const amountCdf = Number(payment.amountCdf) || 0;
-                const amountUsd = Number(payment.amountUsd) || 0;
-                const taux = Number(payment.taux) || exchangeRate;
-                return (
-                  <View key={payment.id} style={styles.paymentHistoryCard}>
-                    <View style={styles.paymentHistoryRow}>
-                      <Text style={styles.paymentHistoryLabel}>Montant CDF</Text>
-                      <Text style={styles.paymentHistoryValue}>{amountCdf.toFixed(0)} CDF</Text>
+              filteredInvoices.map((invoice: Invoice) => (
+                <TouchableOpacity
+                  key={invoice.id}
+                  style={styles.invoiceCardMobile}
+                  onPress={() => openInvoiceModal(invoice)}
+                >
+                  {/* Header */}
+                  <View style={styles.invoiceHeaderMobile}>
+                    <View style={styles.invoiceHeaderLeftMobile}>
+                      <Text style={styles.invoiceIdMobile}>{invoice.numCode || '-'}</Text>
+                      <Text style={styles.invoiceDateHeaderMobile}>{invoice.date}</Text>
                     </View>
-                    <View style={styles.paymentHistoryRow}>
-                      <Text style={styles.paymentHistoryLabel}>Montant USD</Text>
-                      <Text style={styles.paymentHistoryValue}>{amountUsd.toFixed(2)} USD</Text>
+                    <View style={[styles.statusBadge, { backgroundColor: getStatusColor(invoice.status) }]}>
+                      <Text style={styles.statusText}>{getStatusLabel(invoice.status)}</Text>
                     </View>
-                    <View style={styles.paymentHistoryRow}>
-                      <Text style={styles.paymentHistoryLabel}>Taux</Text>
-                      <Text style={styles.paymentHistoryValue}>{taux}</Text>
+                  </View>
+
+                  {/* Informations client */}
+                  <View style={styles.clientSectionMobile}>
+                    <Text style={styles.customerNameMobile}>{invoice.customerName}</Text>
+                    <Text style={styles.customerEmailMobile}>{invoice.description}</Text>
+                  </View>
+
+                  {/* Informations supplémentaires */}
+                  <View style={styles.invoiceInfosMobile}>
+                    <View style={styles.infoItemMobile}>
+                      <Ionicons name="calendar-outline" size={14} color="#6B7280" />
+                      <Text style={styles.infoTextMobile}>{invoice.date}</Text>
                     </View>
-                    <Text style={styles.paymentHistoryObservation}>
-                      {payment.observation ? `Observation: ${payment.observation}` : 'Pas de note'}
-                    </Text>
-                    <Text style={styles.paymentHistoryDate}>
-                      Créé le {formatPaymentDate(payment.created)}
-                    </Text>
-                    <View style={styles.paymentHistoryActions}>
-                      <TouchableOpacity
+                    <View style={styles.infoItemMobile}>
+                      <Ionicons name="time-outline" size={14} color="#6B7280" />
+                      <Text style={styles.infoTextMobile}>
+                        Créé le {invoice.createdAt
+                          ? new Date(invoice.createdAt).toLocaleDateString('fr-FR', {
+                            day: 'numeric',
+                            month: 'short',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })
+                          : new Date().toLocaleDateString('fr-FR', {
+                            day: 'numeric',
+                            month: 'short',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })
+                        }
+                      </Text>
+                    </View>
+                    <View style={styles.infoItemMobile}>
+                      <Ionicons name="receipt-outline" size={14} color="#6B7280" />
+                      <Text style={styles.infoTextMobile}>{invoice.items.length} article(s)</Text>
+                    </View>
+                    {invoice.userName && (
+                      <View style={styles.infoItemMobile}>
+                        <Ionicons name="person-outline" size={14} color="#6B7280" />
+                        <Text style={styles.infoTextMobile}>{invoice.userName}</Text>
+                      </View>
+                    )}
+                    <View style={styles.infoItemMobile}>
+                      <Ionicons name="card-outline" size={14} color="#6B7280" />
+                      <Text style={styles.infoTextMobile}>
+                        {invoice.typePaiement || 'Type inconnu'}
+                      </Text>
+                    </View>
+                    <View style={styles.infoItemMobile}>
+                      <View
                         style={[
-                          styles.deletePaymentButton,
-                          deletingPaymentId === payment.id && styles.deletePaymentButtonDisabled,
+                          styles.invoiceDebtBadgeMobile,
+                          invoice.dette
+                            ? styles.invoiceDebtBadgeDebtMobile
+                            : styles.invoiceDebtBadgePaidMobile,
                         ]}
-                        onPress={() => handleDeletePayment(payment.id)}
-                        disabled={deletingPaymentId === payment.id}
                       >
-                        {deletingPaymentId === payment.id ? (
-                          <ActivityIndicator size="small" color="#FFFFFF" />
-                        ) : (
-                          <>
+                        <Text
+                          style={[
+                            styles.invoiceDebtBadgeTextMobile,
+                            invoice.dette
+                              ? styles.invoiceDebtBadgeTextDebtMobile
+                              : styles.invoiceDebtBadgeTextPaidMobile,
+                          ]}
+                        >
+                          {invoice.dette ? 'DETTE' : 'PAYÉ'}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* Footer avec total */}
+                  <View style={styles.invoiceFooterMobile}>
+                    <Text style={styles.totalLabelMobile}>Total:</Text>
+                    <View style={styles.totalContainerMobile}>
+                      <Text style={styles.invoiceTotalMobile}>
+                        {(invoice.amountPaidCdf || 0).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')} CDF
+                      </Text>
+                      <Text style={styles.invoiceTotalUsdMobile}>
+                        ${(invoice.amountPaidUsd || 0).toFixed(2)}
+                      </Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              ))
+            )}
+          </View>
+        ) : (
+          /* Détails de la facture sur mobile */
+          <View style={styles.invoiceDetailsMobile}>
+            <View style={styles.detailsHeaderMobile}>
+              <Text style={styles.detailsTitleMobile}>Détail facture</Text>
+            </View>
+
+            {/* Onglets pour mobile */}
+            <View style={styles.mobileTabContainer}>
+              <TouchableOpacity
+                style={[
+                  styles.mobileTab,
+                  activeMobileTab === 'details' && styles.mobileTabActive
+                ]}
+                onPress={() => setActiveMobileTab('details')}
+              >
+                <Ionicons
+                  name="information-circle-outline"
+                  size={20}
+                  color={activeMobileTab === 'details' ? '#7C3AED' : '#6B7280'}
+                />
+                <Text style={[
+                  styles.mobileTabText,
+                  activeMobileTab === 'details' && styles.mobileTabTextActive
+                ]}>
+                  Détails
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.mobileTab,
+                  activeMobileTab === 'products' && styles.mobileTabActive
+                ]}
+                onPress={() => setActiveMobileTab('products')}
+              >
+                <Ionicons
+                  name="grid-outline"
+                  size={20}
+                  color={activeMobileTab === 'products' ? '#7C3AED' : '#6B7280'}
+                />
+                <Text style={[
+                  styles.mobileTabText,
+                  activeMobileTab === 'products' && styles.mobileTabTextActive
+                ]}>
+                  Produits
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Contenu conditionnel selon l'onglet */}
+            {activeMobileTab === 'details' ? (
+              <>
+                {/* Informations générales */}
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Informations générales</Text>
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Poste:</Text>
+                    <Text style={styles.infoValue}>{selectedInvoice?.numCode || '-'}</Text>
+                  </View>
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Date:</Text>
+                    <Text style={styles.infoValue}>{selectedInvoice?.date}</Text>
+                  </View>
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Créé le:</Text>
+                    <Text style={styles.infoValue}>
+                      {selectedInvoice?.createdAt
+                        ? new Date(selectedInvoice.createdAt).toLocaleDateString('fr-FR', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })
+                        : new Date().toLocaleDateString('fr-FR', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })
+                      }
+                    </Text>
+                  </View>
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Statut:</Text>
+                    <View style={[styles.statusBadge, { backgroundColor: getStatusColor(selectedInvoice?.status) }]}>
+                      <Text style={styles.statusText}>{getStatusLabel(selectedInvoice?.status)}</Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Client */}
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Client</Text>
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Nom:</Text>
+                    <Text style={styles.infoValue}>{selectedInvoice?.customerName || 'N/A'}</Text>
+                  </View>
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Description:</Text>
+                    <Text style={styles.infoValue}>{selectedInvoice?.description || 'N/A'}</Text>
+                  </View>
+                </View>
+
+                {/* Paiement */}
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Paiement</Text>
+                  <Text style={styles.mobileSectionLabel}>Mode de paiement</Text>
+                  <View style={styles.mobilePaymentChips}>
+                    {paymentMethodOptions.map((method) => {
+                      const isSelected = (selectedInvoice?.typePaiement || '').toLowerCase() === method.toLowerCase();
+                      return (
+                        <TouchableOpacity
+                          key={method}
+                          style={[
+                            styles.mobilePaymentChip,
+                            isSelected && styles.mobilePaymentChipActive
+                          ]}
+                          onPress={() => handleMobilePaymentMethodChange(method)}
+                        >
+                          <Text
+                            style={[
+                              styles.mobilePaymentChipText,
+                              isSelected && styles.mobilePaymentChipTextActive
+                            ]}
+                          >
+                            {method}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+
+                  <Text style={[styles.mobileSectionLabel, { marginTop: 16 }]}>Dette</Text>
+                  <View style={styles.mobileDebtToggleRow}>
+                    {[{ label: 'OUI', value: true }, { label: 'NON', value: false }].map((option) => {
+                      const isSelected = (selectedInvoice?.dette ?? false) === option.value;
+                      return (
+                        <TouchableOpacity
+                          key={option.label}
+                          style={[
+                            styles.mobileDebtButton,
+                            option.value ? styles.mobileDebtButtonDebt : styles.mobileDebtButtonPaid,
+                            isSelected && (option.value ? styles.mobileDebtButtonActiveDebt : styles.mobileDebtButtonActivePaid),
+                            option.label === 'OUI' ? styles.mobileDebtButtonSpacing : null
+                          ]}
+                          onPress={() => handleMobileDebtToggle(option.value)}
+                        >
+                          <Text
+                            style={[
+                              styles.mobileDebtButtonText,
+                              isSelected && (option.value ? styles.mobileDebtButtonTextActiveDebt : styles.mobileDebtButtonTextActivePaid)
+                            ]}
+                          >
+                            {option.label}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+
+                {/* Articles modifiables */}
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Articles ({editableItems.length})</Text>
+                  {editableItems.length > 0 ? (
+                    editableItems.map((item: any, index: number) => (
+                      <View key={item.id || index} style={styles.mobileEditableItemRow}>
+                        <View style={styles.mobileEditableItemInfo}>
+                          <Text style={styles.mobileEditableItemName}>{item.productName || item.name || 'Produit'}</Text>
+                          <Text style={styles.mobileEditableItemPrice}>
+                            ${item.priceUsd?.toFixed(2) || '0.00'} / {item.priceCdf?.toFixed(0) || '0'} CDF
+                          </Text>
+                        </View>
+                        <View style={styles.mobileEditableItemActions}>
+                          <TouchableOpacity
+                            style={styles.mobileQuantityButton}
+                            onPress={() => {
+                              const newItems = [...editableItems];
+                              if (newItems[index].qte > 1) {
+                                newItems[index].qte -= 1;
+                                newItems[index].subTotalUsd = newItems[index].qte * (newItems[index].priceUsd || 0);
+                                newItems[index].subTotalCdf = newItems[index].qte * (newItems[index].priceCdf || 0);
+                                setEditableItems(newItems);
+                              }
+                            }}
+                          >
+                            <Ionicons name="remove" size={16} color="#FFFFFF" />
+                          </TouchableOpacity>
+                          <Text style={styles.mobileQuantityText}>{item.qte || 1}</Text>
+                          <TouchableOpacity
+                            style={styles.mobileQuantityButton}
+                            onPress={() => {
+                              const newItems = [...editableItems];
+                              newItems[index].qte += 1;
+                              newItems[index].subTotalUsd = newItems[index].qte * (newItems[index].priceUsd || 0);
+                              newItems[index].subTotalCdf = newItems[index].qte * (newItems[index].priceCdf || 0);
+                              setEditableItems(newItems);
+                            }}
+                          >
+                            <Ionicons name="add" size={16} color="#FFFFFF" />
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={styles.mobileDeleteItemButton}
+                            onPress={() => {
+                              const newItems = editableItems.filter((_: any, i: number) => i !== index);
+                              setEditableItems(newItems);
+                            }}
+                          >
                             <Ionicons name="trash" size={16} color="#FFFFFF" />
-                            <Text style={styles.deletePaymentButtonText}>Supprimer</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    ))
+                  ) : (
+                    <Text style={styles.infoValue}>Aucun article</Text>
+                  )}
+                </View>
+
+                {/* Totaux dynamiques */}
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Totaux</Text>
+                  {(() => {
+                    const totalCdf = editableItems.reduce((sum: number, item: any) =>
+                      sum + (item.subTotalCdf || item.priceCdf * (item.qte || item.quantity) || 0), 0);
+                    const totalUsd = editableItems.reduce((sum: number, item: any) =>
+                      sum + (item.subTotalUsd || item.priceUsd * (item.qte || item.quantity) || 0), 0);
+                    const reductionCdf = selectedInvoice?.reductionCdf || 0;
+                    const reductionUsd = selectedInvoice?.reductionUsd || 0;
+                    const totalAfterReductionCdf = totalCdf - reductionCdf;
+                    const totalAfterReductionUsd = totalUsd - reductionUsd;
+                    const amountPaidCdf = Number(selectedInvoice?.amountPaidCdf ?? totalAfterReductionCdf);
+                    const amountPaidUsd = Number(selectedInvoice?.amountPaidUsd ?? totalAfterReductionUsd);
+
+                    return (
+                      <>
+                        <View style={styles.totalRow}>
+                          <Text style={styles.totalLabel}>Total CDF:</Text>
+                          <Text style={styles.totalValue}>{totalCdf.toFixed(0)} CDF</Text>
+                        </View>
+                        <View style={styles.totalRow}>
+                          <Text style={styles.totalLabel}>Total USD:</Text>
+                          <Text style={styles.totalValue}>${totalUsd.toFixed(2)}</Text>
+                        </View>
+                        {(reductionCdf > 0 || reductionUsd > 0) && (
+                          <>
+                            <View style={styles.totalRow}>
+                              <Text style={styles.totalLabel}>Réduction CDF:</Text>
+                              <Text style={[styles.totalValue, { color: '#EF4444' }]}>
+                                -{reductionCdf.toFixed(0)} CDF
+                              </Text>
+                            </View>
+                            <View style={styles.totalRow}>
+                              <Text style={styles.totalLabel}>Réduction USD:</Text>
+                              <Text style={[styles.totalValue, { color: '#EF4444' }]}>
+                                -${reductionUsd.toFixed(2)}
+                              </Text>
+                            </View>
                           </>
                         )}
+                        <View style={[styles.totalRow, { borderTopWidth: 1, borderTopColor: '#E5E7EB', paddingTop: 8, marginTop: 8 }]}>
+                          <Text style={[styles.totalLabel, { fontWeight: 'bold', fontSize: 16 }]}>Total à payer:</Text>
+                          <View style={{ alignItems: 'flex-end' }}>
+                            <Text style={[styles.totalValue, { fontWeight: 'bold', fontSize: 18, color: '#7C3AED' }]}>
+                              {amountPaidCdf.toFixed(0)} CDF
+                            </Text>
+                            <Text style={[styles.totalValue, { fontSize: 14, color: '#6B7280' }]}>
+                              ${amountPaidUsd.toFixed(2)}
+                            </Text>
+                            <Text style={{ marginTop: 4, fontSize: 12, color: '#DC2626', fontWeight: '700', textAlign: 'right' }}>
+                              REDUCTION CDF: {(Number(selectedInvoice?.reductionCdf) || 0).toFixed(0)}, REDUCTION USD: {(Number(selectedInvoice?.reductionUsd) || 0).toFixed(2)}
+                            </Text>
+                          </View>
+                        </View>
+                      </>
+                    );
+                  })()}
+                </View>
+
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Faire un paiement</Text>
+                  <Text style={styles.paymentInfoTextMobile}>
+                    Taux: {exchangeRate}{'\n'}
+                    Reste CDF: {invoiceTotals.remainingCdf.toFixed(0)} • Reste USD: {invoiceTotals.remainingUsd.toFixed(2)}
+                  </Text>
+                  <Text style={styles.paymentLabelMobile}>Montant</Text>
+                  <TextInput
+                    style={styles.paymentInputMobile}
+                    placeholder="0.00"
+                    placeholderTextColor="#9CA3AF"
+                    keyboardType={paymentDevise === 1 ? 'decimal-pad' : 'numeric'}
+                    value={paymentAmount}
+                    onChangeText={handlePaymentAmountChange}
+                  />
+                  <View style={styles.paymentDeviseRowMobile}>
+                    {paymentDeviseOptions.map(option => {
+                      const isSelected = paymentDevise === option.value;
+                      return (
+                        <TouchableOpacity
+                          key={option.value}
+                          style={[
+                            styles.paymentDeviseButtonMobile,
+                            isSelected && styles.paymentDeviseButtonActiveMobile,
+                          ]}
+                          onPress={() => handlePaymentDeviseChange(option.value)}
+                        >
+                          <Text
+                            style={[
+                              styles.paymentDeviseButtonTextMobile,
+                              isSelected && styles.paymentDeviseButtonTextActiveMobile,
+                            ]}
+                          >
+                            {option.label}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                  <TextInput
+                    style={styles.paymentObservationInputMobile}
+                    placeholder="Observation (optionnelle)"
+                    placeholderTextColor="#9CA3AF"
+                    value={paymentObservation}
+                    onChangeText={setPaymentObservation}
+                    multiline
+                    numberOfLines={3}
+                  />
+                  <TouchableOpacity
+                    style={[
+                      styles.paymentSubmitButtonMobile,
+                      (isSubmittingPayment || !isPaymentAmountPositive || paymentLimit <= 0) && styles.paymentSubmitButtonDisabledMobile,
+                    ]}
+                    onPress={handleAddPayment}
+                    disabled={isSubmittingPayment || !isPaymentAmountPositive || paymentLimit <= 0}
+                  >
+                    {isSubmittingPayment ? (
+                      <>
+                        <Ionicons name="hourglass" size={18} color="#FFFFFF" />
+                        <Text style={styles.paymentSubmitButtonTextMobile}>Enregistrement...</Text>
+                      </>
+                    ) : (
+                      <>
+                        <Ionicons name="cash-outline" size={18} color="#FFFFFF" />
+                        <Text style={styles.paymentSubmitButtonTextMobile}>Enregistrer le paiement</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.paymentHistoryButtonMobile}
+                    onPress={handleOpenPaymentsModal}
+                  >
+                    <Ionicons name="time-outline" size={16} color="#1F2937" />
+                    <Text style={styles.paymentHistoryButtonTextMobile}>Historique des paiements</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            ) : (
+              /* Onglet Produits */
+              <ScrollView style={styles.productsScrollView}>
+                {/* Filtre par catégorie */}
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Filtrer par catégorie</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryFilterContainer}>
+                    {['Toutes', ...categories.map((cat: any) => cat.name)].map((categoryName) => (
+                      <TouchableOpacity
+                        key={categoryName}
+                        style={[
+                          styles.categoryFilterButton,
+                          selectedProductCategory === categoryName && styles.categoryFilterButtonActive
+                        ]}
+                        onPress={() => setSelectedProductCategory(categoryName)}
+                      >
+                        <Text style={[
+                          styles.categoryFilterText,
+                          selectedProductCategory === categoryName && styles.categoryFilterTextActive
+                        ]}>
+                          {categoryName}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+
+                {/* Champ de sélection du produit */}
+                {selectedProductForAddition && (
+                  <View style={styles.section}>
+                    <View style={styles.productSelectionContainer}>
+                      <Text style={styles.productSelectionTitle}>
+                        Produit sélectionné: {selectedProductForAddition.name}
+                      </Text>
+                      <View style={styles.quantityInputContainer}>
+                        <Text style={styles.quantityLabel}>Quantité:</Text>
+                        <TextInput
+                          style={[styles.quantityInput, { textAlign: 'center' }]}
+                          value={quantityForAddition}
+                          onChangeText={(text) => {
+                            // Validation: seulement les nombres positifs
+                            const numericValue = text.replace(/[^0-9]/g, '');
+                            if (numericValue === '' || parseInt(numericValue) >= 1) {
+                              setQuantityForAddition(numericValue || '1');
+                            }
+                          }}
+                          placeholder="1"
+                          keyboardType="numeric"
+                        />
+                        <TouchableOpacity
+                          style={styles.addToInvoiceButton}
+                          onPress={() => {
+                            const quantity = parseInt(quantityForAddition) || 1;
+
+                            // Vérifier si le produit existe déjà dans la facture
+                            const existingItemIndex = editableItems.findIndex(
+                              item => item.productId === selectedProductForAddition.id
+                            );
+
+                            if (existingItemIndex >= 0) {
+                              // Produit existe déjà : augmenter la quantité
+                              const newItems = [...editableItems];
+                              newItems[existingItemIndex].qte += quantity;
+                              newItems[existingItemIndex].subTotalUsd = newItems[existingItemIndex].qte * (newItems[existingItemIndex].priceUsd || 0);
+                              newItems[existingItemIndex].subTotalCdf = newItems[existingItemIndex].qte * (newItems[existingItemIndex].priceCdf || 0);
+                              setEditableItems(newItems);
+                            } else {
+                              // Nouveau produit : l'ajouter à la liste
+                              const newItem = {
+                                id: selectedProductForAddition.id, // Utiliser l'ID du produit
+                                productId: selectedProductForAddition.id, // ID du produit
+                                productName: selectedProductForAddition.name,
+                                name: selectedProductForAddition.name,
+                                priceUsd: selectedProductForAddition.priceUsd || 0,
+                                priceCdf: selectedProductForAddition.priceCdf || 0,
+                                qte: quantity,
+                                quantity: quantity,
+                                subTotalUsd: (selectedProductForAddition.priceUsd || 0) * quantity,
+                                subTotalCdf: (selectedProductForAddition.priceCdf || 0) * quantity,
+                                taux: exchangeRate
+                              };
+
+                              setEditableItems([...editableItems, newItem]);
+                            }
+
+                            // Réinitialiser la sélection
+                            setSelectedProductForAddition(null);
+                            setQuantityForAddition('1');
+
+                            // Basculer vers l'onglet Détails
+                            setActiveMobileTab('details');
+                          }}
+                          disabled={!quantityForAddition || parseInt(quantityForAddition) < 1}
+                        >
+                          <Ionicons name="checkmark" size={20} color="#FFFFFF" />
+                          <Text style={styles.addToInvoiceButtonText}>Ajouter</Text>
+                        </TouchableOpacity>
+                      </View>
+                      <TouchableOpacity
+                        style={styles.cancelSelectionButton}
+                        onPress={() => {
+                          setSelectedProductForAddition(null);
+                          setQuantityForAddition('1');
+                        }}
+                      >
+                        <Ionicons name="close" size={16} color="#6B7280" />
+                        <Text style={styles.cancelSelectionText}>Annuler</Text>
                       </TouchableOpacity>
                     </View>
                   </View>
-                );
-              })
+                )}
+
+                {/* Liste des produits */}
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Produits disponibles ({filteredProducts.length})</Text>
+                  {filteredProducts.length > 0 ? (
+                    filteredProducts.map((product: any) => (
+                      <View key={product.id} style={styles.mobileProductCard}>
+                        <View style={styles.mobileProductInfo}>
+                          <Text style={styles.mobileProductName}>{product.name}</Text>
+                          <Text style={styles.mobileProductPrice}>
+                            ${product.priceUsd?.toFixed(2) || '0.00'} / {product.priceCdf?.toFixed(0) || '0'} CDF
+                          </Text>
+                          {product.categoryName && (
+                            <Text style={styles.mobileProductCategory}>
+                              Catégorie: {product.categoryName}
+                            </Text>
+                          )}
+                        </View>
+                        <TouchableOpacity
+                          style={styles.mobileAddProductButton}
+                          onPress={() => {
+                            setSelectedProductForAddition(product);
+                            setQuantityForAddition('1');
+                          }}
+                        >
+                          <Ionicons name="add" size={20} color="#FFFFFF" />
+                          <Text style={styles.mobileAddProductButtonText}>Ajouter</Text>
+                        </TouchableOpacity>
+                      </View>
+                    ))
+                  ) : (
+                    <Text style={styles.infoValue}>Aucun produit disponible</Text>
+                  )}
+                </View>
+              </ScrollView>
             )}
-          </ScrollView>
+
+            {/* Actions de la facture */}
+            <View style={styles.mobileInvoiceActions}>
+              <TouchableOpacity
+                style={styles.mobileActionButton}
+                onPress={() => {
+
+                  // Appeler la fonction de confirmation comme sur web
+                  showMobilePrintConfirmation();
+                }}
+              >
+                <Ionicons name="print" size={20} color="#FFFFFF" />
+                <Text style={styles.mobileActionButtonText}>Imprimer facture</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.mobileActionButton, styles.mobileActionButtonDanger]}
+                onPress={() => {
+                  handleDeleteFacture(selectedInvoiceForDetails?.id);
+                }}
+              >
+                <Ionicons name="trash" size={20} color="#FFFFFF" />
+                <Text style={styles.mobileActionButtonText}>Supprimer facture</Text>
+              </TouchableOpacity>
+
+              {isAdmin && (
+                <TouchableOpacity
+                  style={[styles.mobileActionButton, styles.mobileActionButtonPrimary]}
+                  onPress={() => {
+
+                    // Appeler la fonction de confirmation comme sur web
+                    showUpdateConfirmation();
+                  }}
+                  disabled={isUpdatingInvoice}
+                >
+                  <Ionicons name="save" size={20} color="#FFFFFF" />
+                  <Text style={styles.mobileActionButtonText}>
+                    {isUpdatingInvoice ? 'Modification...' : 'Modifier'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* Bouton Fermer */}
+            <TouchableOpacity
+              style={styles.closeDetailsMobile}
+              onPress={closeInvoiceModal}
+            >
+              <Ionicons name="close-circle" size={24} color="#FFFFFF" />
+              <Text style={styles.closeDetailsTextMobile}>Fermer</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+
+        {renderInvoiceReportModal()}
+
+        {/* Modals de calendrier pour mobile (bottom sheet) */}
+        <BottomSheetCalendarModal
+          visible={showMobileStartDateModal}
+          onClose={() => {
+            setShowMobileStartDateModal(false);
+          }}
+          selectedDate={startDate}
+          onDateSelect={handleMobileStartDateSelect}
+          title="Sélectionner la date de début"
+        />
+        <BottomSheetCalendarModal
+          visible={showMobileEndDateModal}
+          onClose={() => {
+            setShowMobileEndDateModal(false);
+          }}
+          selectedDate={endDate}
+          onDateSelect={handleMobileEndDateSelect}
+          title="Sélectionner la date de fin"
+        />
+
+      </ScrollView>
+      {showPaymentsModal && (
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity
+            style={styles.modalBackdrop}
+            activeOpacity={1}
+            onPress={handleClosePaymentsModal}
+          />
+          <View style={styles.paymentsModalContainer}>
+            <View style={styles.paymentsModalHeader}>
+              <Text style={styles.paymentsModalTitle}>Historique des paiements</Text>
+              <TouchableOpacity onPress={handleClosePaymentsModal} style={styles.closeButton}>
+                <Ionicons name="close" size={24} color="#6B7280" />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.paymentsModalContent}>
+              {paymentsLoading ? (
+                <View style={styles.paymentsModalLoading}>
+                  <ActivityIndicator size="large" color="#7C3AED" />
+                  <Text style={styles.paymentsModalLoadingText}>Chargement des paiements...</Text>
+                </View>
+              ) : paymentsError ? (
+                <Text style={styles.paymentsModalError}>{paymentsError}</Text>
+              ) : payments.length === 0 ? (
+                <View style={styles.paymentsModalEmpty}>
+                  <Ionicons name="card-outline" size={24} color="#9CA3AF" />
+                  <Text style={styles.paymentsModalEmptyText}>
+                    Aucun paiement enregistré pour cette facture.
+                  </Text>
+                </View>
+              ) : (
+                payments.map((payment: any) => {
+                  const amountCdf = Number(payment.amountCdf) || 0;
+                  const amountUsd = Number(payment.amountUsd) || 0;
+                  const taux = Number(payment.taux) || exchangeRate;
+                  return (
+                    <View key={payment.id} style={styles.paymentHistoryCard}>
+                      <View style={styles.paymentHistoryRow}>
+                        <Text style={styles.paymentHistoryLabel}>Montant CDF</Text>
+                        <Text style={styles.paymentHistoryValue}>{amountCdf.toFixed(0)} CDF</Text>
+                      </View>
+                      <View style={styles.paymentHistoryRow}>
+                        <Text style={styles.paymentHistoryLabel}>Montant USD</Text>
+                        <Text style={styles.paymentHistoryValue}>{amountUsd.toFixed(2)} USD</Text>
+                      </View>
+                      <View style={styles.paymentHistoryRow}>
+                        <Text style={styles.paymentHistoryLabel}>Taux</Text>
+                        <Text style={styles.paymentHistoryValue}>{taux}</Text>
+                      </View>
+                      <Text style={styles.paymentHistoryObservation}>
+                        {payment.observation ? `Observation: ${payment.observation}` : 'Pas de note'}
+                      </Text>
+                      <Text style={styles.paymentHistoryDate}>
+                        Créé le {formatPaymentDate(payment.created)}
+                      </Text>
+                      <View style={styles.paymentHistoryActions}>
+                        <TouchableOpacity
+                          style={[
+                            styles.deletePaymentButton,
+                            deletingPaymentId === payment.id && styles.deletePaymentButtonDisabled,
+                          ]}
+                          onPress={() => handleDeletePayment(payment.id)}
+                          disabled={deletingPaymentId === payment.id}
+                        >
+                          {deletingPaymentId === payment.id ? (
+                            <ActivityIndicator size="small" color="#FFFFFF" />
+                          ) : (
+                            <>
+                              <Ionicons name="trash" size={16} color="#FFFFFF" />
+                              <Text style={styles.deletePaymentButtonText}>Supprimer</Text>
+                            </>
+                          )}
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  );
+                })
+              )}
+            </ScrollView>
+          </View>
         </View>
-      </View>
-    )}
+      )}
     </>
   );
 };
@@ -5023,7 +5032,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
-  
+
   // Grille des cartes de factures Web
   invoicesGridWeb: {
     flexDirection: 'row',
@@ -5184,11 +5193,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#F3F4F6',
     borderRadius: 8,
   },
-  
-  
-  
+
+
+
   // Grille de produits
-  
+
   // Bouton de statut de facture
   statusButtonContainer: {
     paddingTop: 16,
@@ -5226,7 +5235,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#6B7280',
   },
-  
+
   // Container Mobile
   containerMobile: {
     flex: 1,
@@ -5239,7 +5248,7 @@ const styles = StyleSheet.create({
     color: '#1F2937',
     marginBottom: 8,
   },
-  
+
   // Header
   headerWeb: {
     flexDirection: 'row',
@@ -5250,7 +5259,7 @@ const styles = StyleSheet.create({
   headerLeft: {
     flex: 1,
   },
-  
+
   // Filtres
   filtersContainerWeb: {
     backgroundColor: '#FFFFFF',
@@ -5299,7 +5308,7 @@ const styles = StyleSheet.create({
   filterButtonTextActive: {
     color: '#FFFFFF',
   },
-  
+
   // Recherche
   searchContainer: {
     flexDirection: 'row',
@@ -5346,7 +5355,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 0.3,
   },
-  
+
   // Statistiques
   statsContainerWeb: {
     flexDirection: 'row',
@@ -5429,7 +5438,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
-  
+
   // Table Web
   tableContainerWeb: {
     backgroundColor: '#FFFFFF',
@@ -5491,7 +5500,7 @@ const styles = StyleSheet.create({
   actionButton: {
     padding: 4,
   },
-  
+
   // Liste Mobile
   invoicesListMobile: {
     gap: 12,
@@ -5609,7 +5618,7 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     marginTop: 2,
   },
-  
+
   // Détails de facture Mobile
   invoiceDetailsMobile: {
     backgroundColor: '#FFFFFF',
@@ -5648,7 +5657,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#FFFFFF',
   },
-  
+
   // Modal
   modalOverlay: {
     position: 'absolute',
@@ -5721,7 +5730,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
-  
+
   // Onglets Modal
   modalTabs: {
     flexDirection: 'row',
@@ -5747,7 +5756,7 @@ const styles = StyleSheet.create({
     color: '#7C3AED',
     fontWeight: '600',
   },
-  
+
   // Contenu Modal
   modalContent: {
     flex: 1,
@@ -5955,7 +5964,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
   },
-  
+
   // Articles
   itemRow: {
     flexDirection: 'row',
@@ -6013,7 +6022,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: '#FEF2F2',
   },
-  
+
   // Total
   totalRow: {
     flexDirection: 'row',
@@ -6157,7 +6166,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: '#6B7280',
   },
-  
+
   // Produits Mobile
   productsGridMobile: {
     flexDirection: 'row',
@@ -6194,7 +6203,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: '#6B7280',
   },
-  
+
   // En-tête produits
   productHeader: {
     flexDirection: 'row',
@@ -6243,7 +6252,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  
+
   // En-tête produits mobile
   productHeaderMobile: {
     flexDirection: 'row',
@@ -6289,14 +6298,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
-  
+
   // Sélection de produit
   productCardSelected: {
     borderColor: '#7C3AED',
     borderWidth: 2,
     backgroundColor: '#F3F4F6',
   },
-  
+
   // Chargement et erreurs dans la liste
   loadingIndicator: {
     flex: 1,
@@ -6340,7 +6349,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
-  
+
   // États vides
   emptyStateMobile: {
     flex: 1,
@@ -6364,7 +6373,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
-  
+
   // Styles pour le mode édition
   editContainerWeb: {
     flex: 1,
@@ -6612,7 +6621,7 @@ const styles = StyleSheet.create({
     width: 100,
     textAlign: 'right',
   },
-  
+
   // Styles pour les totaux
   editTotalRowWeb: {
     flexDirection: 'row',
@@ -6632,7 +6641,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#1F2937',
   },
-  
+
   // Styles pour le total après réduction
   editTotalAfterReductionRowWeb: {
     flexDirection: 'row',
@@ -6748,7 +6757,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#9CA3AF',
     opacity: 0.7,
   },
-  
+
   // Styles pour le bouton d'impression
   printButtonWeb: {
     flexDirection: 'row',
@@ -6766,7 +6775,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  
+
   // Styles pour la modal d'impression
   printModalContainer: {
     backgroundColor: '#FFFFFF',
@@ -7277,7 +7286,7 @@ const styles = StyleSheet.create({
     borderTopColor: '#E2E8F0',
     backgroundColor: '#FFFFFF',
   },
-  
+
   // Styles pour l'onglet produits
   productHeaderWeb: {
     flexDirection: 'row',
@@ -7430,7 +7439,7 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     marginTop: 4,
   },
-  
+
   // Styles pour les indicateurs de chargement et d'erreur
   loadingContainerWeb: {
     flex: 1,
@@ -7454,7 +7463,7 @@ const styles = StyleSheet.create({
     color: '#EF4444',
     textAlign: 'center',
   },
-  
+
   // Styles pour l'état vide des produits
   emptyProductsWeb: {
     flex: 1,
@@ -7477,7 +7486,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
-  
+
   // Styles pour les produits en rupture de stock
   productCardOutOfStockWeb: {
     backgroundColor: '#FEF2F2',
@@ -7503,7 +7512,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
     textAlign: 'center',
   },
-  
+
   // Date filter styles
   dateFilterContainer: {
     marginBottom: 16,
@@ -7618,7 +7627,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '600',
   },
-  
+
   // Editable date input styles
   dateInputEditing: {
     borderColor: '#3B82F6',
@@ -7631,7 +7640,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontStyle: 'italic',
   },
-  
+
   // Styles pour les boutons de sélection de date web
   webDateSelectionContainer: {
     flexDirection: 'row',
@@ -7656,7 +7665,7 @@ const styles = StyleSheet.create({
     color: '#007AFF',
     fontWeight: '500',
   },
-  
+
   // Styles pour les boutons de sélection de date mobile
   mobileDateSelectionContainer: {
     flexDirection: 'row',
@@ -7878,7 +7887,7 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     fontWeight: '500',
   },
-  
+
   // Styles pour les actions de facture mobile
   mobileInvoiceActions: {
     flexDirection: 'row',
@@ -7913,7 +7922,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
   },
-  
+
 });
 
 export default FactureComponent;
