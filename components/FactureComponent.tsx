@@ -123,6 +123,7 @@ const formatInvoiceForReceipt = (invoice: any) => {
 const FactureComponent = ({ onInvoiceCountChange }: FactureComponentProps) => {
   const { width } = Dimensions.get('window');
   const isLargeScreen = width > 768;
+  const isTablet = width < 768;
   const paymentMethodOptions = ['Cash', 'EquityBCDC', 'Ecobank', 'Orange-Money', 'M-Pesa', 'Airtel-Money'];
   const paymentDeviseOptions = [
     { label: 'CDF', value: 2 },
@@ -475,7 +476,7 @@ const FactureComponent = ({ onInvoiceCountChange }: FactureComponentProps) => {
       try {
         // Try the date range API first
         response = await getFacturesByDateRange(start, end);
-        console.log('response', response);
+
       } catch (dateRangeError) {
         // Fallback to getAllFactures if date range API fails
         response = await getAllFactures();
@@ -928,7 +929,7 @@ const FactureComponent = ({ onInvoiceCountChange }: FactureComponentProps) => {
 
     const matchesSearch =
       invoice.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (invoice.tableNomination && invoice.tableNomination.toLowerCase().includes(searchTerm.toLowerCase()));
+      (invoice.numCode && invoice.numCode.toLowerCase().includes(searchTerm.toLowerCase()));
 
     return matchesStatus && matchesTable && matchesSearch;
   });
@@ -1624,7 +1625,7 @@ const FactureComponent = ({ onInvoiceCountChange }: FactureComponentProps) => {
     if (!selectedInvoiceForDetails) return;
 
     setIsPrinting(true);
-    console.log('selectedInvoiceForDetails', selectedInvoiceForDetails);
+
     try {
       const receiptData = formatInvoiceForReceipt(selectedInvoiceForDetails);
       await printFacture(receiptData);
@@ -3872,6 +3873,7 @@ Voulez-vous confirmer la modification de cette facture ?`;
   }
 
   // Version Mobile
+  if(isTablet) {
   return (
     <>
       <ScrollView style={styles.containerMobile}>
@@ -4109,7 +4111,7 @@ Voulez-vous confirmer la modification de cette facture ?`;
             <Ionicons name="search" size={18} color="#6B7280" />
             <TextInput
               style={styles.searchInput}
-              placeholder="Rechercher..."
+              placeholder="Rechercher par nom client ou numéro..."
               placeholderTextColor="#9CA3AF"
               value={searchTerm}
               onChangeText={setSearchTerm}
@@ -4933,6 +4935,7 @@ Voulez-vous confirmer la modification de cette facture ?`;
       )}
     </>
   );
+  }
 };
 
 const styles = StyleSheet.create({
