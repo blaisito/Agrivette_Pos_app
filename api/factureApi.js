@@ -100,23 +100,29 @@ export const markFactureAsAborted = async (factureId) => {
 };
 
 // Récupérer les factures par plage de dates
-export const getFacturesByDateRange = async (startDate, endDate) => {
+export const getFacturesByDateRange = async (startDate, endDate, depotCode) => {
   try {
-    // Formater les dates au format requis par l'API
+    // Formater les dates au format requis par l'API (YYYY-MM-DD)
     const formatDateForApi = (date) => {
       const d = new Date(date);
       const month = (d.getMonth() + 1).toString().padStart(2, '0');
       const day = d.getDate().toString().padStart(2, '0');
       const year = d.getFullYear();
-      const hours = d.getHours().toString().padStart(2, '0');
-      const minutes = d.getMinutes().toString().padStart(2, '0');
-      return `${month}/${day}/${year} ${hours}:${minutes}`;
+      return `${year}-${month}-${day}`;
     };
 
     const formattedStartDate = formatDateForApi(startDate);
     const formattedEndDate = formatDateForApi(endDate);
 
-    const endpoint = `/api/v1.0/Facture/get-by-date-range?startDate=${encodeURIComponent(formattedStartDate)}&endDate=${encodeURIComponent(formattedEndDate)}`;
+    // Construire l'endpoint de base
+    let endpoint = `/api/v1.0/Facture/get-by-date-range?startDate=${encodeURIComponent(formattedStartDate)}&endDate=${encodeURIComponent(formattedEndDate)}`;
+    
+    // Ajouter depotCode seulement s'il est fourni et non vide
+    if (depotCode && depotCode.trim() !== '') {
+      endpoint += `&depotCode=${encodeURIComponent(depotCode)}`;
+    }
+
+    console.log(endpoint);
 
     const response = await apiClient.get(endpoint);
     return response;
@@ -125,6 +131,8 @@ export const getFacturesByDateRange = async (startDate, endDate) => {
     throw error;
   }
 };
+
+
 
 // Imprimer une facture
 export const printFacture = async (receiptData) => {

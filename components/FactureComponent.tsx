@@ -6,6 +6,7 @@ import { getExchangeRate } from '../api/configurationApi';
 import { addFacturePayment, deleteFacture, deleteFacturePayment, getAllFactures, getFactureById, getFacturePayments, getFacturesByDateRange, markFactureAsAborted, markFactureAsPayed, printFacture, updateFacture } from '../api/factureApi';
 import { getProducts } from '../api/productApi';
 import { getTables } from '../api/tableApi';
+import { getDepotCodes } from '../api/userApi';
 import { useFetch } from '../hooks/useFetch';
 import { hasAdminClaim } from '../utils/permissions';
 import { getUserData } from '../utils/storage';
@@ -274,10 +275,36 @@ const FactureComponent = ({ onInvoiceCountChange }: FactureComponentProps) => {
 
   const [userDepotCode, setUserDepotCode] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
+  const [depotCodes, setDepotCodes] = useState<string[]>([]);
+  const [selectedDepotCode, setSelectedDepotCode] = useState<string | null>(null);
+  const [depotCodesLoading, setDepotCodesLoading] = useState<boolean>(false);
   const productFetchParams = useMemo(
     () => (userDepotCode ? { depotCode: userDepotCode } : null),
     [userDepotCode]
   );
+
+  // Fonction pour charger les dépôts
+  const loadDepotCodes = async () => {
+    setDepotCodesLoading(true);
+    try {
+      const response = await getDepotCodes();
+      let codes: string[] = [];
+      if (response?.data && Array.isArray(response.data)) {
+        codes = response.data;
+      } else if (Array.isArray(response)) {
+        codes = response;
+      }
+      const normalizedCodes = codes
+        .filter(code => typeof code === 'string' && code.trim() !== '')
+        .map(code => code.trim());
+      setDepotCodes(normalizedCodes);
+    } catch (error) {
+      console.error('Erreur lors du chargement des dépôts:', error);
+      setDepotCodes([]);
+    } finally {
+      setDepotCodesLoading(false);
+    }
+  };
 
   useEffect(() => {
     const loadDepot = async () => {
@@ -288,7 +315,16 @@ const FactureComponent = ({ onInvoiceCountChange }: FactureComponentProps) => {
         }
         // Vérifier si l'utilisateur est admin
         const claims: string[] = Array.isArray(user?.claims) ? (user.claims as string[]) : [];
-        setIsAdmin(hasAdminClaim(claims));
+        const userIsAdmin = hasAdminClaim(claims);
+        setIsAdmin(userIsAdmin);
+        
+        // Si admin, charger la liste des dépôts
+        // Si non admin, utiliser le depotCode de l'utilisateur par défaut
+        if (userIsAdmin) {
+          loadDepotCodes();
+        } else if (user?.depotCode) {
+          setSelectedDepotCode(user.depotCode);
+        }
       } catch (error) {
         console.error('Erreur lors du chargement du dépôt utilisateur:', error);
       }
@@ -296,6 +332,16 @@ const FactureComponent = ({ onInvoiceCountChange }: FactureComponentProps) => {
 
     loadDepot();
   }, []);
+
+  // Charger les dépôts quand isAdmin change
+  useEffect(() => {
+    if (isAdmin) {
+      loadDepotCodes();
+    } else if (userDepotCode) {
+      // Si l'utilisateur n'est plus admin, utiliser son depotCode
+      setSelectedDepotCode(userDepotCode);
+    }
+  }, [isAdmin, userDepotCode]);
 
   // États pour les catégories et produits depuis l'API
   const { data: apiCategories, loading: categoriesLoading, error: categoriesError } = useFetch(getCategories);
@@ -474,8 +520,12 @@ const FactureComponent = ({ onInvoiceCountChange }: FactureComponentProps) => {
 
       let response;
       try {
+        // Déterminer le depotCode à utiliser
+        // Si admin : utiliser selectedDepotCode, sinon utiliser userDepotCode
+        const depotCodeToUse: string | undefined = isAdmin ? (selectedDepotCode ?? undefined) : (userDepotCode ?? undefined);
+        
         // Try the date range API first
-        response = await getFacturesByDateRange(start, end);
+        response = await getFacturesByDateRange(start, end, depotCodeToUse as any);
 
       } catch (dateRangeError) {
         // Fallback to getAllFactures if date range API fails
@@ -564,7 +614,7 @@ const FactureComponent = ({ onInvoiceCountChange }: FactureComponentProps) => {
     [normalizeInvoiceData]
   );
 
-  // Fetch data when component mounts or date range changes
+  // Fetch data when component mounts or date range changes or depot code changes
   useEffect(() => {
     const loadInvoices = async () => {
       try {
@@ -578,7 +628,7 @@ const FactureComponent = ({ onInvoiceCountChange }: FactureComponentProps) => {
     };
 
     loadInvoices();
-  }, [startDate, endDate]);
+  }, [startDate, endDate, selectedDepotCode, isAdmin, userDepotCode]);
 
   // Helper functions for date formatting
   const formatDateForDisplay = (date: Date) => {
@@ -2890,6 +2940,58 @@ Voulez-vous confirmer la modification de cette facture ?`;
                   </ScrollView>
                 </View>
 
+                {/* Filtre par dépôt (uniquement pour les admins) */}
+                {isAdmin && (
+                  <View style={styles.filterGroup}>
+                    <Text style={styles.filterLabel}>Dépôt:</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                      <View style={styles.filterButtons}>
+                        <TouchableOpacity
+                          key="Tous"
+                          style={[
+                            styles.filterButton,
+                            !selectedDepotCode && styles.filterButtonActive
+                          ]}
+                          onPress={() => setSelectedDepotCode(null)}
+                        >
+                          <Text
+                            style={[
+                              styles.filterButtonText,
+                              !selectedDepotCode && styles.filterButtonTextActive
+                            ]}
+                          >
+                            Tous
+                          </Text>
+                        </TouchableOpacity>
+                        {depotCodesLoading && (
+                          <View style={styles.filterButton}>
+                            <Text style={styles.filterButtonText}>Chargement...</Text>
+                          </View>
+                        )}
+                        {!depotCodesLoading && depotCodes.map((depotCode) => (
+                          <TouchableOpacity
+                            key={depotCode}
+                            style={[
+                              styles.filterButton,
+                              selectedDepotCode === depotCode && styles.filterButtonActive
+                            ]}
+                            onPress={() => setSelectedDepotCode(depotCode)}
+                          >
+                            <Text
+                              style={[
+                                styles.filterButtonText,
+                                selectedDepotCode === depotCode && styles.filterButtonTextActive
+                              ]}
+                            >
+                              {depotCode}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    </ScrollView>
+                  </View>
+                )}
+
                 {/* Recherche */}
                 <View style={styles.searchContainer}>
                   <Ionicons name="search" size={20} color="#6B7280" />
@@ -4106,6 +4208,58 @@ Voulez-vous confirmer la modification de cette facture ?`;
               </View>
             </ScrollView>
           </View>
+
+          {/* Filtre par dépôt (uniquement pour les admins) */}
+          {isAdmin && (
+            <View style={styles.filterGroup}>
+              <Text style={styles.filterLabel}>Dépôt:</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View style={styles.filterButtons}>
+                  <TouchableOpacity
+                    key="Tous-mobile"
+                    style={[
+                      styles.filterButton,
+                      !selectedDepotCode && styles.filterButtonActive
+                    ]}
+                    onPress={() => setSelectedDepotCode(null)}
+                  >
+                    <Text
+                      style={[
+                        styles.filterButtonText,
+                        !selectedDepotCode && styles.filterButtonTextActive
+                      ]}
+                    >
+                      Tous
+                    </Text>
+                  </TouchableOpacity>
+                  {depotCodesLoading && (
+                    <View style={styles.filterButton}>
+                      <Text style={styles.filterButtonText}>Chargement...</Text>
+                    </View>
+                  )}
+                  {!depotCodesLoading && depotCodes.map((depotCode) => (
+                    <TouchableOpacity
+                      key={depotCode}
+                      style={[
+                        styles.filterButton,
+                        selectedDepotCode === depotCode && styles.filterButtonActive
+                      ]}
+                      onPress={() => setSelectedDepotCode(depotCode)}
+                    >
+                      <Text
+                        style={[
+                          styles.filterButtonText,
+                          selectedDepotCode === depotCode && styles.filterButtonTextActive
+                        ]}
+                      >
+                        {depotCode}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </ScrollView>
+            </View>
+          )}
 
           <View style={styles.searchContainer}>
             <Ionicons name="search" size={18} color="#6B7280" />
