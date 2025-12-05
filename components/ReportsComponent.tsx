@@ -68,6 +68,7 @@ interface ConsumptionReportData {
 const ReportsComponent = () => {
   const { width } = Dimensions.get('window');
   const isLargeScreen = width > 768;
+  const isMobile = width < 768;
   const [showPdfOverlay, setShowPdfOverlay] = useState<boolean>(false);
   const [pdfData, setPdfData] = useState<any>(null);
   const [pdfTitle, setPdfTitle] = useState('');
@@ -251,7 +252,7 @@ const ReportsComponent = () => {
   }> = [
     { key: 'sales', label: 'Ventes & Consommation', icon: 'trending-up' },
     { key: 'consumption', label: 'Rapport Consommation', icon: 'stats-chart' },
-    /*{ key: 'stock', label: 'Rapport des stocks', icon: 'cube' }*/
+    { key: 'stock', label: 'Rapport des stocks', icon: 'cube' }
   ];
 
   // Données et fonctions simplifiées
@@ -1166,7 +1167,7 @@ const ReportsComponent = () => {
         )} */}
           </View>
 
-          {selectedReportType === 'sales' ? (
+          {selectedReportType === 'sales' && isLargeScreen && (
             <>
               {/* Statistiques principales */}
               <View style={styles.mainStatsWeb}>
@@ -1409,7 +1410,9 @@ const ReportsComponent = () => {
                 )}
               </View>
             </>
-          ) : (
+          )}  
+
+          {selectedReportType === 'consumption' && isLargeScreen && (
             <>
               {/* Statistiques de consommation */}
               <View style={styles.mainStatsWeb}>
@@ -1524,7 +1527,7 @@ const ReportsComponent = () => {
             </>
           )}
 
-          {selectedReportType === 'stock' && (
+          {selectedReportType === 'stock' && isLargeScreen && (
             <>
               {/* Section Rapport des stocks */}
               <View style={styles.stockReportSectionWeb}>
@@ -1710,6 +1713,7 @@ const ReportsComponent = () => {
   }
 
   // Version Mobile/Table
+  if (isMobile) {
   return (
     <ScrollView style={styles.containerMobile}>
       <Text style={styles.titleMobile}>Rapports</Text>
@@ -2536,7 +2540,7 @@ const ReportsComponent = () => {
       )}
     </ScrollView>
   );
-
+  }
 };
 
 const styles = StyleSheet.create({
