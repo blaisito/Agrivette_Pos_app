@@ -735,8 +735,10 @@ const ReportsComponent = () => {
   };
 
   // Fonction pour imprimer les rapports en PDF
-  const handlePrintReport = (reportType: 'sales' | 'consumption') => {
-    const data = reportType === 'sales' ? filteredSellingReportData : consumptionReportData;
+  const handlePrintReport = (reportType: 'sales' | 'consumption' | 'stock') => {
+    const data = reportType === 'sales' ? filteredSellingReportData : 
+                 reportType === 'consumption' ? consumptionReportData : 
+                 stockMovementData;
 
     if (!data || data.length === 0) {
       alert('Aucune donnée à imprimer.');
@@ -745,7 +747,9 @@ const ReportsComponent = () => {
 
     // Pour mobile, afficher la vue PDF complète
     if (Platform.OS !== 'web') {
-      const reportTitle = reportType === 'sales' ? 'Rapport de Vente' : 'Rapport de Consommation';
+      const reportTitle = reportType === 'sales' ? 'Rapport de Vente' : 
+                         reportType === 'consumption' ? 'Rapport de Consommation' : 
+                         'Rapport des Mouvements de Stock';
       setPdfTitle(reportTitle);
       setPdfData(data);
       setPdfPreviewHtml('');
@@ -754,13 +758,15 @@ const ReportsComponent = () => {
     }
 
     try {
-      const reportTitle = reportType === 'sales' ? 'Rapport de Vente' : 'Rapport de Consommation';
+      const reportTitle = reportType === 'sales' ? 'Rapport de Vente' : 
+                         reportType === 'consumption' ? 'Rapport de Consommation' : 
+                         'Rapport des Mouvements de Stock';
       const currentDate = new Date().toLocaleDateString('fr-FR');
-      const startDate = new Date(dateRange.startDate).toLocaleDateString('fr-FR');
-      const endDate = new Date(dateRange.endDate).toLocaleDateString('fr-FR');
+      const startDateFormatted = formatDateForDisplay(startDate);
+      const endDateFormatted = formatDateForDisplay(endDate);
 
       // Générer le HTML pour l'impression
-      const printHTML = generatePrintHTML(reportType, data, reportTitle, currentDate, startDate, endDate);
+      const printHTML = generatePrintHTML(reportType, data, reportTitle, currentDate, startDateFormatted, endDateFormatted);
 
       setPdfTitle(reportTitle);
       setPdfData(data);
@@ -855,10 +861,51 @@ const ReportsComponent = () => {
   };
 
   // Fonction pour générer le HTML d'impression
-  const generatePrintHTML = (reportType: 'sales' | 'consumption', data: any[], reportTitle: string, currentDate: string, startDate: string, endDate: string) => {
+  const generatePrintHTML = (reportType: 'sales' | 'consumption' | 'stock', data: any[], reportTitle: string, currentDate: string, startDate: string, endDate: string) => {
     let tableHTML = '';
 
-    if (reportType === 'sales') {
+    if (reportType === 'stock') {
+      tableHTML = `
+        <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+          <thead>
+            <tr style="background-color: #7C3AED; color: white;">
+              <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Date</th>
+              <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Produit</th>
+              <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Mouvement</th>
+              <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Type</th>
+              <th style="border: 1px solid #ddd; padding: 8px; text-align: center;">Quantité</th>
+              <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Utilisateur</th>
+              <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Dépôt</th>
+              <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Expiration</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data.map(item => {
+              const isSortie = item.mouvementType?.toLowerCase() === 'sortie';
+              const quantityPrefix = isSortie ? '-' : '+';
+              const quantityColor = isSortie ? '#DC2626' : '#059669';
+              const quantityBg = isSortie ? '#FEE2E2' : '#D1FAE5';
+              return `
+              <tr>
+                <td style="border: 1px solid #ddd; padding: 8px;">${new Date(item.transactionDate).toLocaleDateString('fr-FR')} ${new Date(item.transactionDate).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</td>
+                <td style="border: 1px solid #ddd; padding: 8px;">${item.productName || ''}</td>
+                <td style="border: 1px solid #ddd; padding: 8px;">${item.mouvementType || ''}</td>
+                <td style="border: 1px solid #ddd; padding: 8px;">${item.transactionType || ''}</td>
+                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">
+                  <span style="background-color: ${quantityBg}; color: ${quantityColor}; padding: 4px 8px; border-radius: 12px; font-weight: 600; font-size: 11pt;">
+                    ${quantityPrefix}${item.quantity || 0}
+                  </span>
+                </td>
+                <td style="border: 1px solid #ddd; padding: 8px;">${item.userName || ''}</td>
+                <td style="border: 1px solid #ddd; padding: 8px;">${item.depotCode || ''}</td>
+                <td style="border: 1px solid #ddd; padding: 8px;">${item.expirationDate ? new Date(item.expirationDate).toLocaleDateString('fr-FR') : '-'}</td>
+              </tr>
+            `;
+            }).join('')}
+          </tbody>
+        </table>
+      `;
+    } else if (reportType === 'sales') {
       tableHTML = `
         <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
           <thead>
@@ -1026,11 +1073,17 @@ const ReportsComponent = () => {
             <p><strong>Total des ventes USD:</strong> $${data.reduce((sum, item) => sum + (item.subTotalUsd || 0), 0).toFixed(2)}</p>
             <p><strong>Total des ventes CDF:</strong> ${data.reduce((sum, item) => sum + (item.subTotalCdf || 0), 0).toLocaleString()} CDF</p>
             <p><strong>Quantité totale:</strong> ${data.reduce((sum, item) => sum + (item.qte || 0), 0)}</p>
-          ` : `
+          ` : reportType === 'consumption' ? `
             <p><strong>Total des revenus:</strong> $${data.reduce((sum, item) => sum + (item.totalRevenueUsd || 0), 0).toFixed(2)}</p>
             <p><strong>Total des revenus CDF:</strong> ${data.reduce((sum, item) => sum + (item.totalRevenueCdf || 0), 0).toLocaleString()} CDF</p>
             <p><strong>Quantité totale vendue:</strong> ${data.reduce((sum, item) => sum + (item.totalQuantitySold || 0), 0)}</p>
             <p><strong>Nombre total de ventes:</strong> ${data.reduce((sum, item) => sum + (item.numberOfSales || 0), 0)}</p>
+          ` : `
+            <p><strong>Total des mouvements:</strong> ${data.length}</p>
+            <p><strong>Sorties:</strong> ${data.filter(item => item.mouvementType?.toLowerCase() === 'sortie').length}</p>
+            <p><strong>Entrées:</strong> ${data.filter(item => item.mouvementType?.toLowerCase() !== 'sortie').length}</p>
+            <p><strong>Quantité totale (sorties):</strong> ${data.filter(item => item.mouvementType?.toLowerCase() === 'sortie').reduce((sum, item) => sum + (item.quantity || 0), 0)}</p>
+            <p><strong>Quantité totale (entrées):</strong> ${data.filter(item => item.mouvementType?.toLowerCase() !== 'sortie').reduce((sum, item) => sum + (item.quantity || 0), 0)}</p>
           `}
         </div>
         
@@ -1690,10 +1743,19 @@ const ReportsComponent = () => {
                     {/* Section Mouvements de stock */}
                     {stockMovementData.length > 0 && (
                       <View style={styles.stockSectionWeb}>
-                        <Text style={styles.subsectionTitleWeb}>
-                          <Ionicons name="swap-vertical" size={20} color="#3B82F6" />
-                          Mouvements de stock ({stockMovementData.length})
-                        </Text>
+                        <View style={styles.sectionHeaderWeb}>
+                          <Text style={styles.subsectionTitleWeb}>
+                            <Ionicons name="swap-vertical" size={20} color="#3B82F6" />
+                            Mouvements de stock ({stockMovementData.length})
+                          </Text>
+                          <TouchableOpacity
+                            style={styles.printButtonWeb}
+                            onPress={() => handlePrintReport('stock')}
+                          >
+                            <Ionicons name="print" size={20} color="#FFFFFF" />
+                            <Text style={styles.printButtonTextWeb}>Imprimer PDF</Text>
+                          </TouchableOpacity>
+                        </View>
                         <View style={styles.tableContainerWeb}>
                           <View style={styles.tableHeaderWeb}>
                             <Text style={styles.tableHeaderTextWeb}>Date</Text>
@@ -2514,10 +2576,19 @@ const ReportsComponent = () => {
                   {/* Section Mouvements de stock */}
                   {stockMovementData.length > 0 && (
                     <View style={styles.stockSectionMobile}>
-                      <Text style={styles.subsectionTitleMobile}>
-                        <Ionicons name="swap-vertical" size={16} color="#3B82F6" />
-                        Mouvements de stock ({stockMovementData.length})
-                      </Text>
+                      <View style={styles.sectionHeaderMobile}>
+                        <Text style={styles.subsectionTitleMobile}>
+                          <Ionicons name="swap-vertical" size={16} color="#3B82F6" />
+                          Mouvements de stock ({stockMovementData.length})
+                        </Text>
+                        <TouchableOpacity
+                          style={styles.printButtonMobile}
+                          onPress={() => handlePrintReport('stock')}
+                        >
+                          <Ionicons name="print" size={16} color="#FFFFFF" />
+                          <Text style={styles.printButtonTextMobile}>PDF</Text>
+                        </TouchableOpacity>
+                      </View>
                       <View style={styles.transactionsListMobile}>
                         {stockMovementData.map((item, index) => {
                           const isSortie = item.mouvementType?.toLowerCase() === 'sortie';
