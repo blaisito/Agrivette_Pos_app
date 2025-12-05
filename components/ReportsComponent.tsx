@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useRef, useState } from 'react';
-import { Dimensions, Linking, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Dimensions, Linking, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { getExchangeRate } from '../api/configurationApi';
 import { getProductConsumptionReport, getSellingReport, getTodayDateRange } from '../api/reportApi';
 import { getStockMouvementReport, getStockReaprovision, getStockSortie } from '../api/stockReportApi';
@@ -203,6 +203,10 @@ const ReportsComponent = () => {
   const [stockMovementData, setStockMovementData] = useState<StockMovementData[]>([]);
   const [stockLoading, setStockLoading] = useState(false);
   const [stockError, setStockError] = useState<string | null>(null);
+  
+  // États pour les filtres des mouvements de stock
+  const [stockMovementFilter, setStockMovementFilter] = useState<'all' | 'sortie' | 'entree'>('all');
+  const [stockMovementSearch, setStockMovementSearch] = useState<string>('');
 
   // États pour les données de rapport de vente
   const [sellingReportData, setSellingReportData] = useState<SellingReportData[]>([]);
@@ -622,6 +626,22 @@ const ReportsComponent = () => {
     totalSales: consumptionReportData.reduce((sum, item) => sum + item.numberOfSales, 0)
   };
 
+  // Filtrer les données de mouvement de stock
+  const filteredStockMovementData = useMemo(() => {
+    return stockMovementData.filter(item => {
+      // Filtre par type de mouvement
+      const mouvementMatch = stockMovementFilter === 'all' || 
+        (stockMovementFilter === 'sortie' && item.mouvementType?.toLowerCase() === 'sortie') ||
+        (stockMovementFilter === 'entree' && item.mouvementType?.toLowerCase() !== 'sortie');
+      
+      // Filtre par recherche de nom de produit
+      const searchMatch = !stockMovementSearch || 
+        item.productName?.toLowerCase().includes(stockMovementSearch.toLowerCase());
+      
+      return mouvementMatch && searchMatch;
+    });
+  }, [stockMovementData, stockMovementFilter, stockMovementSearch]);
+
   // Fonction pour sélectionner une transaction
   const selectTransaction = (transaction: any) => {
     setSelectedTransaction(transaction);
@@ -736,9 +756,9 @@ const ReportsComponent = () => {
 
   // Fonction pour imprimer les rapports en PDF
   const handlePrintReport = (reportType: 'sales' | 'consumption' | 'stock') => {
-    const data = reportType === 'sales' ? filteredSellingReportData : 
-                 reportType === 'consumption' ? consumptionReportData : 
-                 stockMovementData;
+    const data = reportType === 'sales' ? filteredSellingReportData :
+      reportType === 'consumption' ? consumptionReportData :
+        stockMovementData;
 
     if (!data || data.length === 0) {
       alert('Aucune donnée à imprimer.');
@@ -747,9 +767,9 @@ const ReportsComponent = () => {
 
     // Pour mobile, afficher la vue PDF complète
     if (Platform.OS !== 'web') {
-      const reportTitle = reportType === 'sales' ? 'Rapport de Vente' : 
-                         reportType === 'consumption' ? 'Rapport de Consommation' : 
-                         'Rapport des Mouvements de Stock';
+      const reportTitle = reportType === 'sales' ? 'Rapport de Vente' :
+        reportType === 'consumption' ? 'Rapport de Consommation' :
+          'Rapport des Mouvements de Stock';
       setPdfTitle(reportTitle);
       setPdfData(data);
       setPdfPreviewHtml('');
@@ -758,9 +778,9 @@ const ReportsComponent = () => {
     }
 
     try {
-      const reportTitle = reportType === 'sales' ? 'Rapport de Vente' : 
-                         reportType === 'consumption' ? 'Rapport de Consommation' : 
-                         'Rapport des Mouvements de Stock';
+      const reportTitle = reportType === 'sales' ? 'Rapport de Vente' :
+        reportType === 'consumption' ? 'Rapport de Consommation' :
+          'Rapport des Mouvements de Stock';
       const currentDate = new Date().toLocaleDateString('fr-FR');
       const startDateFormatted = formatDateForDisplay(startDate);
       const endDateFormatted = formatDateForDisplay(endDate);
@@ -881,11 +901,11 @@ const ReportsComponent = () => {
           </thead>
           <tbody>
             ${data.map(item => {
-              const isSortie = item.mouvementType?.toLowerCase() === 'sortie';
-              const quantityPrefix = isSortie ? '-' : '+';
-              const quantityColor = isSortie ? '#DC2626' : '#059669';
-              const quantityBg = isSortie ? '#FEE2E2' : '#D1FAE5';
-              return `
+        const isSortie = item.mouvementType?.toLowerCase() === 'sortie';
+        const quantityPrefix = isSortie ? '-' : '+';
+        const quantityColor = isSortie ? '#DC2626' : '#059669';
+        const quantityBg = isSortie ? '#FEE2E2' : '#D1FAE5';
+        return `
               <tr>
                 <td style="border: 1px solid #ddd; padding: 8px;">${new Date(item.transactionDate).toLocaleDateString('fr-FR')} ${new Date(item.transactionDate).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</td>
                 <td style="border: 1px solid #ddd; padding: 8px;">${item.productName || ''}</td>
@@ -901,7 +921,7 @@ const ReportsComponent = () => {
                 <td style="border: 1px solid #ddd; padding: 8px;">${item.expirationDate ? new Date(item.expirationDate).toLocaleDateString('fr-FR') : '-'}</td>
               </tr>
             `;
-            }).join('')}
+      }).join('')}
           </tbody>
         </table>
       `;
@@ -1746,7 +1766,7 @@ const ReportsComponent = () => {
                         <View style={styles.sectionHeaderWeb}>
                           <Text style={styles.subsectionTitleWeb}>
                             <Ionicons name="swap-vertical" size={20} color="#3B82F6" />
-                            Mouvements de stock ({stockMovementData.length})
+                            Mouvements de stock ({filteredStockMovementData.length})
                           </Text>
                           <TouchableOpacity
                             style={styles.printButtonWeb}
@@ -1756,6 +1776,76 @@ const ReportsComponent = () => {
                             <Text style={styles.printButtonTextWeb}>Imprimer PDF</Text>
                           </TouchableOpacity>
                         </View>
+                        
+                        {/* Filtres et recherche */}
+                        <View style={styles.stockFiltersContainerWeb}>
+                          <View style={styles.stockFilterRowWeb}>
+                            <Text style={styles.filterLabelWeb}>Type de mouvement:</Text>
+                            <View style={styles.stockFilterChipsWeb}>
+                              <TouchableOpacity
+                                style={[
+                                  styles.stockFilterChipWeb,
+                                  stockMovementFilter === 'all' && styles.stockFilterChipWebActive
+                                ]}
+                                onPress={() => setStockMovementFilter('all')}
+                              >
+                                <Text style={[
+                                  styles.stockFilterChipTextWeb,
+                                  stockMovementFilter === 'all' && styles.stockFilterChipTextWebActive
+                                ]}>
+                                  Tous
+                                </Text>
+                              </TouchableOpacity>
+                              <TouchableOpacity
+                                style={[
+                                  styles.stockFilterChipWeb,
+                                  stockMovementFilter === 'sortie' && styles.stockFilterChipWebActive
+                                ]}
+                                onPress={() => setStockMovementFilter('sortie')}
+                              >
+                                <Text style={[
+                                  styles.stockFilterChipTextWeb,
+                                  stockMovementFilter === 'sortie' && styles.stockFilterChipTextWebActive
+                                ]}>
+                                  Sortie
+                                </Text>
+                              </TouchableOpacity>
+                              <TouchableOpacity
+                                style={[
+                                  styles.stockFilterChipWeb,
+                                  stockMovementFilter === 'entree' && styles.stockFilterChipWebActive
+                                ]}
+                                onPress={() => setStockMovementFilter('entree')}
+                              >
+                                <Text style={[
+                                  styles.stockFilterChipTextWeb,
+                                  stockMovementFilter === 'entree' && styles.stockFilterChipTextWebActive
+                                ]}>
+                                  Entrée
+                                </Text>
+                              </TouchableOpacity>
+                            </View>
+                          </View>
+                          <View style={styles.stockSearchContainerWeb}>
+                            <Ionicons name="search" size={20} color="#6B7280" style={styles.searchIconWeb} />
+                            <TextInput
+                              style={styles.stockSearchInputWeb}
+                              placeholder="Rechercher par nom de produit..."
+                              value={stockMovementSearch}
+                              onChangeText={setStockMovementSearch}
+                              placeholderTextColor="#9CA3AF"
+                            />
+                            {stockMovementSearch.length > 0 && (
+                              <TouchableOpacity
+                                onPress={() => setStockMovementSearch('')}
+                                style={styles.searchClearButtonWeb}
+                              >
+                                <Ionicons name="close-circle" size={20} color="#6B7280" />
+                              </TouchableOpacity>
+                            )}
+                          </View>
+                        </View>
+                        
                         <View style={styles.tableContainerWeb}>
                           <View style={styles.tableHeaderWeb}>
                             <Text style={styles.tableHeaderTextWeb}>Date</Text>
@@ -1767,7 +1857,7 @@ const ReportsComponent = () => {
                             <Text style={styles.tableHeaderTextWeb}>Dépôt</Text>
                             <Text style={[styles.tableHeaderTextWeb, { borderRightWidth: 0 }]}>Expiration</Text>
                           </View>
-                          {stockMovementData.map((item, index) => {
+                          {filteredStockMovementData.map((item, index) => {
                             const isSortie = item.mouvementType?.toLowerCase() === 'sortie';
                             const rowStyle = {
                               backgroundColor: '#FFFFFF'
@@ -2479,7 +2569,7 @@ const ReportsComponent = () => {
             {/* Section Rapport des stocks Mobile */}
             <View style={styles.stockReportSectionMobile}>
               <View style={styles.sectionHeaderMobile}>
-                <Text style={styles.sectionTitleMobile}>Rapport des stocks</Text>
+                <Text style={[styles.sectionTitleMobile, { visibility: 'hidden' }]}>Rapport des stocks{stockMovementData.length}</Text>
                 <TouchableOpacity
                   style={styles.printButtonMobile}
                   onPress={loadStockData}
@@ -2511,7 +2601,7 @@ const ReportsComponent = () => {
                 </View>
               )}
 
-              {!stockLoading && !stockError && (stockReaprovisionData.length > 0 || stockSortieData.length > 0) && (
+              {stockMovementData.length > 0 && (
                 <>
                   {/* Section Réapprovisionnement */}
                   {stockReaprovisionData.length > 0 && (
@@ -2579,7 +2669,7 @@ const ReportsComponent = () => {
                       <View style={styles.sectionHeaderMobile}>
                         <Text style={styles.subsectionTitleMobile}>
                           <Ionicons name="swap-vertical" size={16} color="#3B82F6" />
-                          Mouvements de stock ({stockMovementData.length})
+                          Mouvements de stock ({filteredStockMovementData.length})
                         </Text>
                         <TouchableOpacity
                           style={styles.printButtonMobile}
@@ -2589,14 +2679,84 @@ const ReportsComponent = () => {
                           <Text style={styles.printButtonTextMobile}>PDF</Text>
                         </TouchableOpacity>
                       </View>
+                      
+                      {/* Filtres et recherche Mobile */}
+                      <View style={styles.stockFiltersContainerMobile}>
+                        <View style={styles.stockFilterRowMobile}>
+                          <Text style={styles.filterLabelMobile}>Type:</Text>
+                          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.stockFilterChipsScrollMobile}>
+                            <TouchableOpacity
+                              style={[
+                                styles.stockFilterChipMobile,
+                                stockMovementFilter === 'all' && styles.stockFilterChipMobileActive
+                              ]}
+                              onPress={() => setStockMovementFilter('all')}
+                            >
+                              <Text style={[
+                                styles.stockFilterChipTextMobile,
+                                stockMovementFilter === 'all' && styles.stockFilterChipTextMobileActive
+                              ]}>
+                                Tous
+                              </Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              style={[
+                                styles.stockFilterChipMobile,
+                                stockMovementFilter === 'sortie' && styles.stockFilterChipMobileActive
+                              ]}
+                              onPress={() => setStockMovementFilter('sortie')}
+                            >
+                              <Text style={[
+                                styles.stockFilterChipTextMobile,
+                                stockMovementFilter === 'sortie' && styles.stockFilterChipTextMobileActive
+                              ]}>
+                                Sortie
+                              </Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              style={[
+                                styles.stockFilterChipMobile,
+                                stockMovementFilter === 'entree' && styles.stockFilterChipMobileActive
+                              ]}
+                              onPress={() => setStockMovementFilter('entree')}
+                            >
+                              <Text style={[
+                                styles.stockFilterChipTextMobile,
+                                stockMovementFilter === 'entree' && styles.stockFilterChipTextMobileActive
+                              ]}>
+                                Entrée
+                              </Text>
+                            </TouchableOpacity>
+                          </ScrollView>
+                        </View>
+                        <View style={styles.stockSearchContainerMobile}>
+                          <Ionicons name="search" size={18} color="#6B7280" style={styles.searchIconMobile} />
+                          <TextInput
+                            style={styles.stockSearchInputMobile}
+                            placeholder="Rechercher par produit..."
+                            value={stockMovementSearch}
+                            onChangeText={setStockMovementSearch}
+                            placeholderTextColor="#9CA3AF"
+                          />
+                          {stockMovementSearch.length > 0 && (
+                            <TouchableOpacity
+                              onPress={() => setStockMovementSearch('')}
+                              style={styles.searchClearButtonMobile}
+                            >
+                              <Ionicons name="close-circle" size={18} color="#6B7280" />
+                            </TouchableOpacity>
+                          )}
+                        </View>
+                      </View>
+                      
                       <View style={styles.transactionsListMobile}>
-                        {stockMovementData.map((item, index) => {
+                        {filteredStockMovementData.map((item, index) => {
                           const isSortie = item.mouvementType?.toLowerCase() === 'sortie';
                           return (
                             <View
                               key={index}
                               style={[
-                                styles.transactionItemMobile,
+                                styles.transactionItemMobile, { marginHorizontal: 10 },
                                 { backgroundColor: isSortie ? '#FEF2F2' : '#ECFDF3' }
                               ]}
                             >
@@ -2645,7 +2805,7 @@ const ReportsComponent = () => {
                 </>
               )}
 
-              {!stockLoading && !stockError && stockReaprovisionData.length === 0 && stockSortieData.length === 0 && (
+              {!stockError && stockMovementData.length === 0 && (
                 <View style={styles.emptyStateMobile}>
                   <Ionicons name="cube-outline" size={32} color="#9CA3AF" />
                   <Text style={styles.emptyStateTextMobile}>Aucune donnée de stock trouvée</Text>
@@ -5047,6 +5207,119 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#6B7280',
     fontStyle: 'italic',
+  },
+  // Styles pour les filtres de mouvement de stock Web
+  stockFiltersContainerWeb: {
+    marginBottom: 16,
+    gap: 12,
+  },
+  stockFilterRowWeb: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  stockFilterChipsWeb: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  stockFilterChipWeb: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    backgroundColor: '#F9FAFB',
+  },
+  stockFilterChipWebActive: {
+    backgroundColor: '#7C3AED',
+    borderColor: '#7C3AED',
+  },
+  stockFilterChipTextWeb: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#4B5563',
+  },
+  stockFilterChipTextWebActive: {
+    color: '#FFFFFF',
+  },
+  stockSearchContainerWeb: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+  },
+  searchIconWeb: {
+    marginRight: 8,
+  },
+  stockSearchInputWeb: {
+    flex: 1,
+    fontSize: 14,
+    color: '#374151',
+    padding: 0,
+  },
+  searchClearButtonWeb: {
+    marginLeft: 8,
+    padding: 4,
+  },
+  // Styles pour les filtres de mouvement de stock Mobile
+  stockFiltersContainerMobile: {
+    marginBottom: 12,
+    gap: 10,
+    paddingHorizontal: 16,
+  },
+  stockFilterRowMobile: {
+    gap: 8,
+  },
+  stockFilterChipsScrollMobile: {
+    marginTop: 4,
+  },
+  stockFilterChipMobile: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    backgroundColor: '#FFFFFF',
+    marginRight: 8,
+  },
+  stockFilterChipMobileActive: {
+    backgroundColor: '#7C3AED',
+    borderColor: '#7C3AED',
+  },
+  stockFilterChipTextMobile: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#4B5563',
+  },
+  stockFilterChipTextMobileActive: {
+    color: '#FFFFFF',
+  },
+  stockSearchContainerMobile: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+  },
+  searchIconMobile: {
+    marginRight: 8,
+  },
+  stockSearchInputMobile: {
+    flex: 1,
+    fontSize: 13,
+    color: '#374151',
+    padding: 0,
+  },
+  searchClearButtonMobile: {
+    marginLeft: 8,
+    padding: 2,
   },
   // Styles pour Modal DatePicker Mobile
   datePickerOverlayMobile: {
