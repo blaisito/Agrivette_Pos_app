@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Dimensions, Linking, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { getExchangeRate } from '../api/configurationApi';
 import { getProductConsumptionReport, getSellingReport, getTodayDateRange } from '../api/reportApi';
-import { getStockReaprovision, getStockSortie } from '../api/stockReportApi';
+import { getStockMouvementReport, getStockReaprovision, getStockSortie } from '../api/stockReportApi';
 import { getDepotCodes, getUsers } from '../api/userApi';
 import { getUserData } from '../utils/storage';
 import BottomSheetCalendarModal from './ui/BottomSheetCalendarModal';
@@ -17,6 +17,18 @@ interface StockData {
   productName: string;
   quantity: number;
   observation?: string;
+}
+
+interface StockMovementData {
+  productName: string;
+  userName: string;
+  depotCode: string;
+  mouvementType: string;
+  transactionType: string;
+  description?: string;
+  quantity: number;
+  transactionDate: string;
+  expirationDate?: string;
 }
 
 // Type pour la plage de dates
@@ -91,6 +103,21 @@ const ReportsComponent = () => {
     const hours = date.getHours().toString().padStart(2, '0');
     const minutes = date.getMinutes().toString().padStart(2, '0');
     return `${year}/${month}/${day} ${hours}:${minutes}`;
+  }
+
+  // Format pour les endpoints /stock-reaprovision et /stock-sortie (segments d'URL)
+  function formatDateForStockPath(date: Date) {
+    return date.toISOString().split('T')[0]; // YYYY-MM-DD
+  }
+
+  // Format spécifique pour l'API stock-mouvement (MM/DD/YYYY HH:MM)
+  function formatDateForStockMovement(date: Date) {
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const day = date.getDate().toString().padStart(2, '0');
+    const year = date.getFullYear();
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    return `${month}/${day}/${year} ${hours}:${minutes}`;
   }
 
   // Initialize with today's date range
@@ -173,6 +200,7 @@ const ReportsComponent = () => {
   // États pour les données de stock
   const [stockReaprovisionData, setStockReaprovisionData] = useState<StockData[]>([]);
   const [stockSortieData, setStockSortieData] = useState<StockData[]>([]);
+  const [stockMovementData, setStockMovementData] = useState<StockMovementData[]>([]);
   const [stockLoading, setStockLoading] = useState(false);
   const [stockError, setStockError] = useState<string | null>(null);
 
@@ -350,15 +378,48 @@ const ReportsComponent = () => {
     setStockError(null);
 
     try {
-      const startDateFormatted = formatDateForAPI(startDate);
-      const endDateFormatted = formatDateForAPI(endDate);
-      const [reaprovisionResponse, sortieResponse] = await Promise.all([
+      const startDateFormatted = formatDateForStockPath(startDate); // YYYY-MM-DD pour réappro/sortie
+      const endDateFormatted = formatDateForStockPath(endDate);
+      const startDateStock = formatDateForStockMovement(startDate);
+      const endDateStock = formatDateForStockMovement(endDate);
+      const effectiveDepotCode = selectedDepotCode || userDepotCode || '';
+
+      const [reaprovisionResult, sortieResult, mouvementResult] = await Promise.allSettled([
         getStockReaprovision(startDateFormatted, endDateFormatted),
-        getStockSortie(startDateFormatted, endDateFormatted)
+        getStockSortie(startDateFormatted, endDateFormatted),
+        getStockMouvementReport(startDateStock, endDateStock, effectiveDepotCode)
       ]);
 
-      setStockReaprovisionData(reaprovisionResponse?.data || []);
-      setStockSortieData(sortieResponse?.data || []);
+      if (reaprovisionResult.status === 'fulfilled') {
+        setStockReaprovisionData(reaprovisionResult.value?.data || []);
+      } else {
+        console.warn('Réapprovisionnement échoué:', reaprovisionResult.reason);
+        setStockReaprovisionData([]);
+      }
+
+      if (sortieResult.status === 'fulfilled') {
+        setStockSortieData(sortieResult.value?.data || []);
+      } else {
+        console.warn('Sorties échouées:', sortieResult.reason);
+        setStockSortieData([]);
+      }
+
+      if (mouvementResult.status === 'fulfilled') {
+        const mouvementList = mouvementResult.value?.data || mouvementResult.value || [];
+        setStockMovementData(Array.isArray(mouvementList) ? mouvementList : []);
+      } else {
+        console.warn('Mouvements échoués:', mouvementResult.reason);
+        setStockMovementData([]);
+      }
+
+      // Si tout échoue, lever une erreur pour afficher le message global
+      if (
+        reaprovisionResult.status === 'rejected' &&
+        sortieResult.status === 'rejected' &&
+        mouvementResult.status === 'rejected'
+      ) {
+        throw new Error('Impossible de charger les données de stock');
+      }
     } catch (error) {
       setStockError('Erreur lors du chargement des données de stock');
       console.error('Erreur lors du chargement des données de stock:', error);
@@ -522,12 +583,16 @@ const ReportsComponent = () => {
       loadSellingReportData();
     } else if (selectedReportType === 'consumption') {
       loadConsumptionReportData();
+    } else if (selectedReportType === 'stock') {
+      loadStockData();
     }
   }, [selectedReportType, dateRange]);
 
   useEffect(() => {
     if (selectedReportType === 'sales') {
       loadSellingReportData();
+    } else if (selectedReportType === 'stock') {
+      loadStockData();
     }
   }, [selectedDepotCode, selectedReportType]);
 
@@ -1531,7 +1596,17 @@ const ReportsComponent = () => {
             <>
               {/* Section Rapport des stocks */}
               <View style={styles.stockReportSectionWeb}>
-                <Text style={styles.sectionTitleWeb}>Rapport des stocks</Text>
+                <View style={[styles.sectionHeaderWeb, { marginBottom: 12 }]}>
+                  <Text style={[styles.sectionTitleWeb, { visibility: 'hidden' }]}>Rapport des stocks{stockMovementData.length}</Text>
+                  <TouchableOpacity
+                    style={styles.printButtonWeb}
+                    onPress={loadStockData}
+                    disabled={stockLoading}
+                  >
+                    <Ionicons name={stockLoading ? "hourglass-outline" : "refresh-outline"} size={20} color="#FFFFFF" />
+                    <Text style={styles.printButtonTextWeb}>{stockLoading ? 'Chargement...' : 'Actualiser'}</Text>
+                  </TouchableOpacity>
+                </View>
 
                 {/* États de chargement et erreurs */}
                 {stockLoading && (
@@ -1554,7 +1629,7 @@ const ReportsComponent = () => {
                   </View>
                 )}
 
-                {!stockLoading && !stockError && (stockReaprovisionData.length > 0 || stockSortieData.length > 0) && (
+                {setStockMovementData.length > 0 && (
                   <>
                     {/* Section Réapprovisionnement */}
                     {stockReaprovisionData.length > 0 && (
@@ -1611,10 +1686,81 @@ const ReportsComponent = () => {
                         </View>
                       </View>
                     )}
+
+                    {/* Section Mouvements de stock */}
+                    {stockMovementData.length > 0 && (
+                      <View style={styles.stockSectionWeb}>
+                        <Text style={styles.subsectionTitleWeb}>
+                          <Ionicons name="swap-vertical" size={20} color="#3B82F6" />
+                          Mouvements de stock ({stockMovementData.length})
+                        </Text>
+                        <View style={styles.tableContainerWeb}>
+                          <View style={styles.tableHeaderWeb}>
+                            <Text style={styles.tableHeaderTextWeb}>Date</Text>
+                            <Text style={styles.tableHeaderTextWeb}>Produit</Text>
+                            <Text style={styles.tableHeaderTextWeb}>Mouvement</Text>
+                            <Text style={styles.tableHeaderTextWeb}>Type</Text>
+                            <Text style={styles.tableHeaderTextWeb}>Quantité</Text>
+                            <Text style={styles.tableHeaderTextWeb}>Utilisateur</Text>
+                            <Text style={styles.tableHeaderTextWeb}>Dépôt</Text>
+                            <Text style={[styles.tableHeaderTextWeb, { borderRightWidth: 0 }]}>Expiration</Text>
+                          </View>
+                          {stockMovementData.map((item, index) => {
+                            const isSortie = item.mouvementType?.toLowerCase() === 'sortie';
+                            const rowStyle = {
+                              backgroundColor: '#FFFFFF'
+                            };
+                            const quantityPrefix = isSortie ? '-' : '+';
+                            return (
+                              <View key={index} style={[styles.tableRowWeb, rowStyle]}>
+                                <View style={styles.tableCellWeb}>
+                                  <Text style={styles.tableCellTextWeb}>
+                                    {new Date(item.transactionDate).toLocaleDateString('fr-FR')} {new Date(item.transactionDate).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                                  </Text>
+                                </View>
+                                <View style={[styles.tableCellWeb, styles.descriptionCellWeb]}>
+                                  <Text style={styles.tableCellTextWeb}>{item.productName}</Text>
+                                </View>
+                                <View style={styles.tableCellWeb}>
+                                  <Text style={styles.tableCellTextWeb}>{item.mouvementType}</Text>
+                                </View>
+                                <View style={styles.tableCellWeb}>
+                                  <Text style={styles.tableCellTextWeb}>{item.transactionType}</Text>
+                                </View>
+                                <View style={[styles.tableCellWeb, { justifyContent: 'center', alignItems: 'center' }]}>
+                                  <View style={[
+                                    styles.quantityBadgeWeb,
+                                    { backgroundColor: isSortie ? '#FEE2E2' : '#D1FAE5' }
+                                  ]}>
+                                    <Text style={[
+                                      styles.quantityBadgeTextWeb,
+                                      { color: isSortie ? '#DC2626' : '#059669' }
+                                    ]}>
+                                      {quantityPrefix}{item.quantity}
+                                    </Text>
+                                  </View>
+                                </View>
+                                <View style={styles.tableCellWeb}>
+                                  <Text style={styles.tableCellTextWeb}>{item.userName}</Text>
+                                </View>
+                                <View style={styles.tableCellWeb}>
+                                  <Text style={styles.tableCellTextWeb}>{item.depotCode}</Text>
+                                </View>
+                                <View style={[styles.tableCellWeb, { borderRightWidth: 0 }]}>
+                                  <Text style={styles.tableCellTextWeb}>
+                                    {item.expirationDate ? new Date(item.expirationDate).toLocaleDateString('fr-FR') : '-'}
+                                  </Text>
+                                </View>
+                              </View>
+                            );
+                          })}
+                        </View>
+                      </View>
+                    )}
                   </>
                 )}
 
-                {!stockLoading && !stockError && stockReaprovisionData.length === 0 && stockSortieData.length === 0 && (
+                {stockMovementData.length === 0 || stockError && (
                   <View style={styles.emptyStateWeb}>
                     <Ionicons name="cube-outline" size={48} color="#9CA3AF" />
                     <Text style={styles.emptyStateTextWeb}>Aucune donnée de stock trouvée</Text>
@@ -2270,7 +2416,17 @@ const ReportsComponent = () => {
         <>
           {/* Section Rapport des stocks Mobile */}
           <View style={styles.stockReportSectionMobile}>
-            <Text style={styles.sectionTitleMobile}>Rapport des stocks</Text>
+            <View style={styles.sectionHeaderMobile}>
+              <Text style={styles.sectionTitleMobile}>Rapport des stocks</Text>
+              <TouchableOpacity
+                style={styles.printButtonMobile}
+                onPress={loadStockData}
+                disabled={stockLoading}
+              >
+                <Ionicons name={stockLoading ? "hourglass-outline" : "refresh-outline"} size={16} color="#FFFFFF" />
+                <Text style={styles.printButtonTextMobile}>{stockLoading ? '...' : 'Actualiser'}</Text>
+              </TouchableOpacity>
+            </View>
 
             {/* États de chargement et erreurs */}
             {stockLoading && (
@@ -2351,6 +2507,67 @@ const ReportsComponent = () => {
                           )}
                         </View>
                       ))}
+                    </View>
+                  </View>
+                )}
+
+                {/* Section Mouvements de stock */}
+                {stockMovementData.length > 0 && (
+                  <View style={styles.stockSectionMobile}>
+                    <Text style={styles.subsectionTitleMobile}>
+                      <Ionicons name="swap-vertical" size={16} color="#3B82F6" />
+                      Mouvements de stock ({stockMovementData.length})
+                    </Text>
+                    <View style={styles.transactionsListMobile}>
+                      {stockMovementData.map((item, index) => {
+                        const isSortie = item.mouvementType?.toLowerCase() === 'sortie';
+                        return (
+                          <View
+                            key={index}
+                            style={[
+                              styles.transactionItemMobile,
+                              { backgroundColor: isSortie ? '#FEF2F2' : '#ECFDF3' }
+                            ]}
+                          >
+                            <View style={styles.transactionHeaderMobile}>
+                              <View style={styles.productInfoMobile}>
+                                <Text style={styles.transactionDescriptionMobile}>{item.productName}</Text>
+                                <Text style={styles.transactionDateTextMobile}>
+                                  {new Date(item.transactionDate).toLocaleDateString('fr-FR')}{' '}
+                                  {new Date(item.transactionDate).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                                </Text>
+                              </View>
+                              <Text style={[styles.transactionTotalMobile, { color: isSortie ? '#EF4444' : '#10B981' }]}>
+                                {isSortie ? '-' : '+'}{item.quantity}
+                              </Text>
+                            </View>
+                            <View style={{ marginVertical: 8 }}>
+                              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                                <Text style={{ fontSize: 12, color: '#6B7280', fontWeight: '500' }}>Mouvement:</Text>
+                                <Text style={{ fontSize: 12, color: '#1F2937' }}>{item.mouvementType}</Text>
+                              </View>
+                              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                                <Text style={{ fontSize: 12, color: '#6B7280', fontWeight: '500' }}>Type:</Text>
+                                <Text style={{ fontSize: 12, color: '#1F2937' }}>{item.transactionType}</Text>
+                              </View>
+                              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                                <Text style={{ fontSize: 12, color: '#6B7280', fontWeight: '500' }}>Utilisateur:</Text>
+                                <Text style={{ fontSize: 12, color: '#1F2937' }}>{item.userName}</Text>
+                              </View>
+                              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                                <Text style={{ fontSize: 12, color: '#6B7280', fontWeight: '500' }}>Dépôt:</Text>
+                                <Text style={{ fontSize: 12, color: '#1F2937' }}>{item.depotCode}</Text>
+                              </View>
+                              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                                <Text style={{ fontSize: 12, color: '#6B7280', fontWeight: '500' }}>Expiration:</Text>
+                                <Text style={{ fontSize: 12, color: '#1F2937' }}>
+                                  {item.expirationDate ? new Date(item.expirationDate).toLocaleDateString('fr-FR') : '-'}
+                                </Text>
+                              </View>
+                            </View>
+                          </View>
+                        );
+                      })}
                     </View>
                   </View>
                 )}
@@ -3274,6 +3491,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 2,
     elevation: 1,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    overflow: 'hidden',
   },
   tabWeb: {
     flex: 1,
@@ -3458,11 +3678,13 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#374151',
     textAlign: 'center',
+    borderRightWidth: 1,
+    borderRightColor: '#E5E7EB',
   },
   tableRowWeb: {
     flexDirection: 'row',
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: '#E5E7EB',
   },
   tableCellWeb: {
     flex: 1,
@@ -3472,6 +3694,25 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     alignItems: 'center',
     justifyContent: 'center',
+    borderRightWidth: 1,
+    borderRightColor: '#E5E7EB',
+  },
+  tableCellTextWeb: {
+    fontSize: 14,
+    color: '#374151',
+    textAlign: 'center',
+  },
+  quantityBadgeWeb: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    minWidth: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quantityBadgeTextWeb: {
+    fontSize: 13,
+    fontWeight: '600',
   },
   typeCellWeb: {
     justifyContent: 'center',
