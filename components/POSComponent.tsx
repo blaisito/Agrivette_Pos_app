@@ -155,6 +155,8 @@ const POSComponent = ({ onCartItemCountChange }: POSComponentProps) => {
   // États pour la modal de sélection de table
   const [showTableModal, setShowTableModal] = useState(false);
   const [selectedTable, setSelectedTable] = useState<any>(null);
+  const [showConfirmPaymentModal, setShowConfirmPaymentModal] = useState(false);
+  const [confirmPaymentMessage, setConfirmPaymentMessage] = useState('');
 
 
   // État pour la recherche de produits
@@ -699,7 +701,7 @@ const POSComponent = ({ onCartItemCountChange }: POSComponentProps) => {
   };
 
   // Fonction pour créer la facture via l'API
-  const createFactureFromOrder = async () => {
+  const createFactureFromOrder = async (shouldPrint: boolean = true) => {
     // Éviter les appels multiples
     if (isCreatingFacture) {
       return;
@@ -847,11 +849,13 @@ La facture a été enregistrée dans le système.`;
         // Rafraîchir la liste des produits pour mettre à jour le stock
         refetchProducts();
 
-        // Lancer l'impression automatique de la facture
-        try {
-          await handlePrintFacturePOS(receiptData);
-        } catch (printError) {
-          // L'erreur d'impression est déjà gérée dans l'alert de handlePrintFacturePOS
+        // Lancer l'impression automatique de la facture si demandé
+        if (shouldPrint) {
+          try {
+            await handlePrintFacturePOS(receiptData);
+          } catch (printError) {
+            // L'erreur d'impression est déjà gérée dans l'alert de handlePrintFacturePOS
+          }
         }
       } else {
 
@@ -1015,22 +1019,63 @@ ${orderDetails}
   // Web: confirmation quand on clique sur "Total facture" (desktop/web seulement)
   const handleConfirmPaymentWeb = () => {
     const message = createFormattedInvoiceMessage();
+    setConfirmPaymentMessage(message);
+    setShowConfirmPaymentModal(true);
+  };
 
-    // Utiliser confirm() sur web si disponible, sinon fallback Alert
-    if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
-      const confirmed = window.confirm(message);
-      if (!confirmed) return;
+  const handleCreateAndPrint = () => {
+    setShowConfirmPaymentModal(false);
+    createFactureFromOrder(true);
+  };
 
-      // Créer la facture via l'API
-      createFactureFromOrder();
-      return;
-    }
+  const handleCreateWithoutPrint = () => {
+    setShowConfirmPaymentModal(false);
+    createFactureFromOrder(false);
+  };
 
-    // Fallback mobile/native
-    Alert.alert('📋 Confirmation & Impression', message, [
-      { text: '❌ Annuler', style: 'cancel' },
-      { text: '✅ Créer & Imprimer', style: 'default', onPress: () => createFactureFromOrder() }
-    ]);
+  const renderConfirmPaymentModal = () => {
+    if (!showConfirmPaymentModal) return null;
+
+    return (
+      <View style={styles.confirmModalOverlay}>
+        <TouchableOpacity
+          style={styles.confirmModalBackdrop}
+          activeOpacity={1}
+          onPress={() => setShowConfirmPaymentModal(false)}
+        />
+        <View style={styles.confirmModalContent}>
+          <View style={styles.confirmModalHeader}>
+            <Text style={styles.confirmModalTitle}>Confirmation de facture</Text>
+            <TouchableOpacity onPress={() => setShowConfirmPaymentModal(false)} style={styles.closeButton}>
+              <Ionicons name="close" size={22} color="#6B7280" />
+            </TouchableOpacity>
+          </View>
+          <ScrollView style={styles.confirmModalBody}>
+            <Text style={styles.confirmModalText}>{confirmPaymentMessage}</Text>
+          </ScrollView>
+          <View style={styles.confirmModalActions}>
+            <TouchableOpacity
+              style={styles.secondaryActionButton}
+              onPress={handleCreateWithoutPrint}
+              disabled={isCreatingFacture}
+            >
+              <Text style={styles.secondaryActionText}>
+                {isCreatingFacture ? 'Traitement...' : '✅ OK SANS IMPRESSION'}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.primaryActionButton}
+              onPress={handleCreateAndPrint}
+              disabled={isCreatingFacture}
+            >
+              <Text style={styles.primaryActionText}>
+                {isCreatingFacture ? 'Création...' : '✅ Créer & Imprimer'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    );
   };
 
   // Web: confirmation pour imprimer un proforma (sans enregistrer dans la DB)
@@ -1062,6 +1107,8 @@ ${orderDetails}
 
     return (
       <View style={styles.containerWeb}>
+
+        {renderConfirmPaymentModal()}
 
         {/* Header avec bouton retour 
         <View style={[styles.posHeaderWeb, { visibility: 'hidden' }]}>
@@ -1647,6 +1694,7 @@ ${orderDetails}
   // Version Mobile/Tablet
   return (
     <View style={styles.containerMobile}>
+      {renderConfirmPaymentModal()}
       {/* Header avec bouton retour */}
       <View style={styles.headerMobile}>
         <TouchableOpacity
@@ -3710,6 +3758,92 @@ const styles = StyleSheet.create({
     padding: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
+  },
+  confirmModalOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+    zIndex: 1100,
+  },
+  confirmModalBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  confirmModalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    width: '90%',
+    maxWidth: 640,
+    maxHeight: '80%',
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  confirmModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  confirmModalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  confirmModalBody: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  confirmModalText: {
+    fontSize: 14,
+    color: '#111827',
+    lineHeight: 20,
+  },
+  confirmModalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+    backgroundColor: '#F9FAFB',
+  },
+  primaryActionButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    backgroundColor: '#7C3AED',
+    borderRadius: 8,
+    marginLeft: 12,
+  },
+  primaryActionText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  secondaryActionButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 8,
+  },
+  secondaryActionText: {
+    color: '#111827',
+    fontWeight: '600',
+    fontSize: 14,
   },
   tableModalTitle: {
     fontSize: 20,
