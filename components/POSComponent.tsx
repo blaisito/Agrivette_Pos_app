@@ -58,6 +58,7 @@ const formatInvoiceForReceiptPOS = (orderItems: any[], selectedTable: any, custo
     logoPath: "images/logo.png",
 
     // INFORMATIONS FACTURE
+    clientName: customerName || "-",
     //tableName: selectedTable ? (selectedTable.nomination || `Table ${selectedTable.id}`) : "N/A",
     tableName: numCode || "-",
     // INFORMATIONS UTILISATEUR

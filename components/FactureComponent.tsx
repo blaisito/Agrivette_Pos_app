@@ -102,6 +102,9 @@ const formatInvoiceForReceipt = (invoice: any) => {
     total: invoice.amountPaidCdf || 0,
     netTotal: invoice.amountPaidUsd || 0,
 
+    //NOM DU CLIENT 
+    clientName: invoice.customerName || "-",
+
     // INFORMATIONS UTILISATEURS
     UserName: invoice.userName || "-",
     Num: factureDate,

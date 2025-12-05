@@ -278,10 +278,10 @@ const ReportsComponent = () => {
     label: string;
     icon: keyof typeof Ionicons.glyphMap;
   }> = [
-    { key: 'sales', label: 'Ventes & Consommation', icon: 'trending-up' },
-    { key: 'consumption', label: 'Rapport Consommation', icon: 'stats-chart' },
-    { key: 'stock', label: 'Rapport des stocks', icon: 'cube' }
-  ];
+      { key: 'sales', label: 'Ventes & Consommation', icon: 'trending-up' },
+      { key: 'consumption', label: 'Rapport Consommation', icon: 'stats-chart' },
+      { key: 'stock', label: 'Rapport des stocks', icon: 'cube' }
+    ];
 
   // Données et fonctions simplifiées
   const currentData = reportData.sales.today; // Utilise toujours les données d'aujourd'hui
@@ -1161,55 +1161,55 @@ const ReportsComponent = () => {
               </View>
             </View>
 
-          {selectedReportType === 'sales' && (
-            <View style={styles.depotSelectorContainerWeb}>
-              <Text style={styles.filterLabelWeb}>Dépôt</Text>
-              {isAdmin ? (
-                depotCodesLoading ? (
-                  <Text style={styles.depotHelperText}>Chargement des dépôts...</Text>
-                ) : depotCodesError ? (
-                  <Text style={[styles.depotHelperText, styles.depotHelperTextError]}>
-                    {depotCodesError}
-                  </Text>
-                ) : depotCodes.length === 0 ? (
-                  <Text style={styles.depotHelperText}>Aucun dépôt disponible.</Text>
-                ) : (
-                  <View style={styles.depotChipsWeb}>
-                    {['', ...depotCodes].map((code) => {
-                      const isSelected = selectedDepotCode === code;
-                      const displayText = code === '' ? 'Tout' : code;
-                      return (
-                        <TouchableOpacity
-                          key={code === '' ? 'all' : code}
-                          style={[
-                            styles.depotChipWeb,
-                            isSelected && styles.depotChipWebActive,
-                          ]}
-                          onPress={() => setSelectedDepotCode(code)}
-                        >
-                          <Text
+            {selectedReportType === 'sales' && (
+              <View style={styles.depotSelectorContainerWeb}>
+                <Text style={styles.filterLabelWeb}>Dépôt</Text>
+                {isAdmin ? (
+                  depotCodesLoading ? (
+                    <Text style={styles.depotHelperText}>Chargement des dépôts...</Text>
+                  ) : depotCodesError ? (
+                    <Text style={[styles.depotHelperText, styles.depotHelperTextError]}>
+                      {depotCodesError}
+                    </Text>
+                  ) : depotCodes.length === 0 ? (
+                    <Text style={styles.depotHelperText}>Aucun dépôt disponible.</Text>
+                  ) : (
+                    <View style={styles.depotChipsWeb}>
+                      {['', ...depotCodes].map((code) => {
+                        const isSelected = selectedDepotCode === code;
+                        const displayText = code === '' ? 'Tout' : code;
+                        return (
+                          <TouchableOpacity
+                            key={code === '' ? 'all' : code}
                             style={[
-                              styles.depotChipTextWeb,
-                              isSelected && styles.depotChipTextWebActive,
+                              styles.depotChipWeb,
+                              isSelected && styles.depotChipWebActive,
                             ]}
+                            onPress={() => setSelectedDepotCode(code)}
                           >
-                            {displayText}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
+                            <Text
+                              style={[
+                                styles.depotChipTextWeb,
+                                isSelected && styles.depotChipTextWebActive,
+                              ]}
+                            >
+                              {displayText}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  )
+                ) : (
+                  <View style={styles.depotBadgeWeb}>
+                    <Ionicons name="business" size={16} color="#4C1D95" />
+                    <Text style={styles.depotBadgeTextWeb}>
+                      {userDepotCode || 'Aucun dépôt assigné'}
+                    </Text>
                   </View>
-                )
-              ) : (
-                <View style={styles.depotBadgeWeb}>
-                  <Ionicons name="business" size={16} color="#4C1D95" />
-                  <Text style={styles.depotBadgeTextWeb}>
-                    {userDepotCode || 'Aucun dépôt assigné'}
-                  </Text>
-                </View>
-              )}
-            </View>
-          )}
+                )}
+              </View>
+            )}
 
 
             {/* Bouton pour charger les données de stock */}
@@ -1475,7 +1475,7 @@ const ReportsComponent = () => {
                 )}
               </View>
             </>
-          )}  
+          )}
 
           {selectedReportType === 'consumption' && isLargeScreen && (
             <>
@@ -1860,190 +1860,190 @@ const ReportsComponent = () => {
 
   // Version Mobile/Table
   if (isMobile) {
-  return (
-    <ScrollView style={styles.containerMobile}>
-      <Text style={styles.titleMobile}>Rapports</Text>
+    return (
+      <ScrollView style={styles.containerMobile}>
+        <Text style={styles.titleMobile}>Rapports</Text>
 
-      {/* Navigation des tabs de rapport - Modern Design */}
-      <View style={styles.reportTabsContainerMobile}>
-        {reportTabsConfig.map((tab) => (
-          <TouchableOpacity
-            key={tab.key}
-            style={[
-              styles.reportTabButtonMobile,
-              selectedReportType === tab.key && styles.reportTabButtonMobileActive
-            ]}
-            onPress={() => {
-              setSelectedReportType(tab.key);
-              setSelectedTransaction(null);
-            }}
-          >
-            <Ionicons
-              name={tab.icon}
-              size={18}
-              color={selectedReportType === tab.key ? '#FFFFFF' : '#6B7280'}
-            />
-            <Text
+        {/* Navigation des tabs de rapport - Modern Design */}
+        <View style={styles.reportTabsContainerMobile}>
+          {reportTabsConfig.map((tab) => (
+            <TouchableOpacity
+              key={tab.key}
               style={[
-                styles.reportTabButtonTextMobile,
-                selectedReportType === tab.key && styles.reportTabButtonTextMobileActive
+                styles.reportTabButtonMobile,
+                selectedReportType === tab.key && styles.reportTabButtonMobileActive
               ]}
+              onPress={() => {
+                setSelectedReportType(tab.key);
+                setSelectedTransaction(null);
+              }}
             >
-              {tab.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      {/* Filtre par intervalle de temps - Grid Horizontal */}
-      <View style={styles.filtersSectionModernMobile}>
-        <Text style={styles.sectionTitleMobile}>Période</Text>
-        <View style={styles.dateGridMobile}>
-          <TouchableOpacity
-            style={styles.dateCardMobile}
-            onPress={() => setShowMobileStartDateModal(true)}
-          >
-            <Ionicons name="calendar" size={20} color="#7C3AED" />
-            <Text style={styles.dateLabelMobile}>Début</Text>
-            <Text style={styles.dateValueMobile}>{formatDateForDisplay(startDate)}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.dateCardMobile}
-            onPress={() => setShowMobileEndDateModal(true)}
-          >
-            <Ionicons name="calendar" size={20} color="#7C3AED" />
-            <Text style={styles.dateLabelMobile}>Fin</Text>
-            <Text style={styles.dateValueMobile}>{formatDateForDisplay(endDate)}</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Bouton pour charger les données de stock */}
-        {selectedReportType === 'stock' && (
-          <TouchableOpacity
-            style={styles.loadStockButtonMobile}
-            onPress={loadStockData}
-            disabled={stockLoading}
-          >
-            <Ionicons
-              name={stockLoading ? "hourglass-outline" : "refresh-outline"}
-              size={18}
-              color="#FFFFFF"
-            />
-            <Text style={styles.loadStockButtonTextMobile}>
-              {stockLoading ? 'Chargement...' : 'Charger les données de stock'}
-            </Text>
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {selectedReportType === 'sales' && (
-        <View style={styles.depotSelectorContainerMobile}>
-          <Text style={styles.sectionTitleMobile}>Dépôt</Text>
-          {isAdmin ? (
-            depotCodesLoading ? (
-              <Text style={styles.depotHelperTextMobile}>Chargement des dépôts...</Text>
-            ) : depotCodesError ? (
-              <Text style={[styles.depotHelperTextMobile, styles.depotHelperTextError]}>
-                {depotCodesError}
-              </Text>
-            ) : depotCodes.length === 0 ? (
-              <Text style={styles.depotHelperTextMobile}>Aucun dépôt disponible.</Text>
-            ) : (
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                style={styles.depotChipsScrollMobile}
+              <Ionicons
+                name={tab.icon}
+                size={18}
+                color={selectedReportType === tab.key ? '#FFFFFF' : '#6B7280'}
+              />
+              <Text
+                style={[
+                  styles.reportTabButtonTextMobile,
+                  selectedReportType === tab.key && styles.reportTabButtonTextMobileActive
+                ]}
               >
-                <TouchableOpacity
-                  style={[
-                    styles.depotChipMobile,
-                    selectedDepotCode === '' && styles.depotChipMobileActive,
-                  ]}
-                  onPress={() => setSelectedDepotCode('')}
-                >
-                  <Text
-                    style={[
-                      styles.depotChipTextMobile,
-                      selectedDepotCode === '' && styles.depotChipTextMobileActive,
-                    ]}
-                  >
-                    Tout
-                  </Text>
-                </TouchableOpacity>
-                {depotCodes.map((code) => {
-                  const isSelected = selectedDepotCode === code;
-                  return (
-                    <TouchableOpacity
-                      key={code}
-                      style={[
-                        styles.depotChipMobile,
-                        isSelected && styles.depotChipMobileActive,
-                      ]}
-                      onPress={() => setSelectedDepotCode(code)}
-                    >
-                      <Text
-                        style={[
-                          styles.depotChipTextMobile,
-                          isSelected && styles.depotChipTextMobileActive,
-                        ]}
-                      >
-                        {code}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-            )
-          ) : (
-            <View style={styles.depotBadgeMobile}>
-              <Ionicons name="business" size={16} color="#4C1D95" />
-              <Text style={styles.depotBadgeTextMobile}>
-                {userDepotCode || 'Aucun dépôt assigné'}
+                {tab.label}
               </Text>
-            </View>
-          )}
+            </TouchableOpacity>
+          ))}
         </View>
-      )}
 
-      {selectedReportType === 'sales' ? (
-        <>
-          {/* Statistiques principales - Grid 2x2 */}
-          <View style={styles.statsGridMobile}>
-            <View style={styles.statCardModernMobile}>
-              <View style={[styles.statIconModernMobile, { backgroundColor: '#D1FAE5' }]}>
-                <Ionicons name="cash" size={24} color="#10B981" />
-              </View>
-              <Text style={styles.statValueModernMobile}>${sellingReportSummary.totalRevenueUsd.toFixed(2)}</Text>
-              <Text style={styles.statLabelModernMobile}>Chiffre d'affaires USD</Text>
-            </View>
-
-            <View style={styles.statCardModernMobile}>
-              <View style={[styles.statIconModernMobile, { backgroundColor: '#DCFCE7' }]}>
-                <Ionicons name="cash" size={24} color="#059669" />
-              </View>
-              <Text style={styles.statValueModernMobile}>{sellingReportSummary.totalRevenueCdf.toLocaleString()}</Text>
-              <Text style={styles.statLabelModernMobile}>Chiffre d'affaires CDF</Text>
-            </View>
-
-            <View style={styles.statCardModernMobile}>
-              <View style={[styles.statIconModernMobile, { backgroundColor: '#DBEAFE' }]}>
-                <Ionicons name="receipt" size={24} color="#3B82F6" />
-              </View>
-              <Text style={styles.statValueModernMobile}>{sellingReportSummary.totalTransactions}</Text>
-              <Text style={styles.statLabelModernMobile}>Transactions</Text>
-            </View>
-
-            <View style={styles.statCardModernMobile}>
-              <View style={[styles.statIconModernMobile, { backgroundColor: '#FEE2E2' }]}>
-                <Ionicons name="cube" size={24} color="#EF4444" />
-              </View>
-              <Text style={styles.statValueModernMobile}>{sellingReportSummary.totalQuantity}</Text>
-              <Text style={styles.statLabelModernMobile}>Quantité vendue</Text>
-            </View>
+        {/* Filtre par intervalle de temps - Grid Horizontal */}
+        <View style={styles.filtersSectionModernMobile}>
+          <Text style={styles.sectionTitleMobile}>Période</Text>
+          <View style={styles.dateGridMobile}>
+            <TouchableOpacity
+              style={styles.dateCardMobile}
+              onPress={() => setShowMobileStartDateModal(true)}
+            >
+              <Ionicons name="calendar" size={20} color="#7C3AED" />
+              <Text style={styles.dateLabelMobile}>Début</Text>
+              <Text style={styles.dateValueMobile}>{formatDateForDisplay(startDate)}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.dateCardMobile}
+              onPress={() => setShowMobileEndDateModal(true)}
+            >
+              <Ionicons name="calendar" size={20} color="#7C3AED" />
+              <Text style={styles.dateLabelMobile}>Fin</Text>
+              <Text style={styles.dateValueMobile}>{formatDateForDisplay(endDate)}</Text>
+            </TouchableOpacity>
           </View>
 
-          {/* Filtre par catégorie - Mobile - Masqué */}
-          {/* <View style={{ marginBottom: 16, paddingHorizontal: 16 }}>
+          {/* Bouton pour charger les données de stock */}
+          {selectedReportType === 'stock' && (
+            <TouchableOpacity
+              style={styles.loadStockButtonMobile}
+              onPress={loadStockData}
+              disabled={stockLoading}
+            >
+              <Ionicons
+                name={stockLoading ? "hourglass-outline" : "refresh-outline"}
+                size={18}
+                color="#FFFFFF"
+              />
+              <Text style={styles.loadStockButtonTextMobile}>
+                {stockLoading ? 'Chargement...' : 'Charger les données de stock'}
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {selectedReportType === 'sales' && (
+          <View style={styles.depotSelectorContainerMobile}>
+            <Text style={styles.sectionTitleMobile}>Dépôt</Text>
+            {isAdmin ? (
+              depotCodesLoading ? (
+                <Text style={styles.depotHelperTextMobile}>Chargement des dépôts...</Text>
+              ) : depotCodesError ? (
+                <Text style={[styles.depotHelperTextMobile, styles.depotHelperTextError]}>
+                  {depotCodesError}
+                </Text>
+              ) : depotCodes.length === 0 ? (
+                <Text style={styles.depotHelperTextMobile}>Aucun dépôt disponible.</Text>
+              ) : (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  style={styles.depotChipsScrollMobile}
+                >
+                  <TouchableOpacity
+                    style={[
+                      styles.depotChipMobile,
+                      selectedDepotCode === '' && styles.depotChipMobileActive,
+                    ]}
+                    onPress={() => setSelectedDepotCode('')}
+                  >
+                    <Text
+                      style={[
+                        styles.depotChipTextMobile,
+                        selectedDepotCode === '' && styles.depotChipTextMobileActive,
+                      ]}
+                    >
+                      Tout
+                    </Text>
+                  </TouchableOpacity>
+                  {depotCodes.map((code) => {
+                    const isSelected = selectedDepotCode === code;
+                    return (
+                      <TouchableOpacity
+                        key={code}
+                        style={[
+                          styles.depotChipMobile,
+                          isSelected && styles.depotChipMobileActive,
+                        ]}
+                        onPress={() => setSelectedDepotCode(code)}
+                      >
+                        <Text
+                          style={[
+                            styles.depotChipTextMobile,
+                            isSelected && styles.depotChipTextMobileActive,
+                          ]}
+                        >
+                          {code}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              )
+            ) : (
+              <View style={styles.depotBadgeMobile}>
+                <Ionicons name="business" size={16} color="#4C1D95" />
+                <Text style={styles.depotBadgeTextMobile}>
+                  {userDepotCode || 'Aucun dépôt assigné'}
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {selectedReportType === 'sales' ? (
+          <>
+            {/* Statistiques principales - Grid 2x2 */}
+            <View style={styles.statsGridMobile}>
+              <View style={styles.statCardModernMobile}>
+                <View style={[styles.statIconModernMobile, { backgroundColor: '#D1FAE5' }]}>
+                  <Ionicons name="cash" size={24} color="#10B981" />
+                </View>
+                <Text style={styles.statValueModernMobile}>${sellingReportSummary.totalRevenueUsd.toFixed(2)}</Text>
+                <Text style={styles.statLabelModernMobile}>Chiffre d'affaires USD</Text>
+              </View>
+
+              <View style={styles.statCardModernMobile}>
+                <View style={[styles.statIconModernMobile, { backgroundColor: '#DCFCE7' }]}>
+                  <Ionicons name="cash" size={24} color="#059669" />
+                </View>
+                <Text style={styles.statValueModernMobile}>{sellingReportSummary.totalRevenueCdf.toLocaleString()}</Text>
+                <Text style={styles.statLabelModernMobile}>Chiffre d'affaires CDF</Text>
+              </View>
+
+              <View style={styles.statCardModernMobile}>
+                <View style={[styles.statIconModernMobile, { backgroundColor: '#DBEAFE' }]}>
+                  <Ionicons name="receipt" size={24} color="#3B82F6" />
+                </View>
+                <Text style={styles.statValueModernMobile}>{sellingReportSummary.totalTransactions}</Text>
+                <Text style={styles.statLabelModernMobile}>Transactions</Text>
+              </View>
+
+              <View style={styles.statCardModernMobile}>
+                <View style={[styles.statIconModernMobile, { backgroundColor: '#FEE2E2' }]}>
+                  <Ionicons name="cube" size={24} color="#EF4444" />
+                </View>
+                <Text style={styles.statValueModernMobile}>{sellingReportSummary.totalQuantity}</Text>
+                <Text style={styles.statLabelModernMobile}>Quantité vendue</Text>
+              </View>
+            </View>
+
+            {/* Filtre par catégorie - Mobile - Masqué */}
+            {/* <View style={{ marginBottom: 16, paddingHorizontal: 16 }}>
           <Text style={{ fontSize: 14, fontWeight: '600', color: '#1F2937', marginBottom: 8 }}>Filtrer par catégorie:</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexDirection: 'row' }}>
             <TouchableOpacity 
@@ -2080,683 +2080,683 @@ const ReportsComponent = () => {
           </ScrollView>
         </View> */}
 
-          {/* Filtre par utilisateur - Mobile */}
-          <View style={{ marginBottom: 16, paddingHorizontal: 16 }}>
-            <Text style={{ fontSize: 14, fontWeight: '600', color: '#1F2937', marginBottom: 8 }}>Filtrer par utilisateur:</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexDirection: 'row' }}>
-              <TouchableOpacity
-                style={[
-                  { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: '#D1D5DB', marginRight: 8 },
-                  !selectedUserId && { backgroundColor: '#3B82F6', borderColor: '#3B82F6' }
-                ]}
-                onPress={() => setSelectedUserId(null)}
-              >
-                <Text style={[
-                  { fontSize: 12, fontWeight: '500', color: '#6B7280' },
-                  !selectedUserId && { color: '#FFFFFF' }
-                ]}>
-                  Tous
-                </Text>
-              </TouchableOpacity>
-              {users.map((user) => (
+            {/* Filtre par utilisateur - Mobile */}
+            <View style={{ marginBottom: 16, paddingHorizontal: 16 }}>
+              <Text style={{ fontSize: 14, fontWeight: '600', color: '#1F2937', marginBottom: 8 }}>Filtrer par utilisateur:</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexDirection: 'row' }}>
                 <TouchableOpacity
-                  key={user.id}
                   style={[
                     { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: '#D1D5DB', marginRight: 8 },
-                    selectedUserId === user.id && { backgroundColor: '#3B82F6', borderColor: '#3B82F6' }
+                    !selectedUserId && { backgroundColor: '#3B82F6', borderColor: '#3B82F6' }
                   ]}
-                  onPress={() => setSelectedUserId(user.id)}
+                  onPress={() => setSelectedUserId(null)}
                 >
                   <Text style={[
                     { fontSize: 12, fontWeight: '500', color: '#6B7280' },
-                    selectedUserId === user.id && { color: '#FFFFFF' }
+                    !selectedUserId && { color: '#FFFFFF' }
                   ]}>
-                    {user.username}
+                    Tous
                   </Text>
                 </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
+                {users.map((user) => (
+                  <TouchableOpacity
+                    key={user.id}
+                    style={[
+                      { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: '#D1D5DB', marginRight: 8 },
+                      selectedUserId === user.id && { backgroundColor: '#3B82F6', borderColor: '#3B82F6' }
+                    ]}
+                    onPress={() => setSelectedUserId(user.id)}
+                  >
+                    <Text style={[
+                      { fontSize: 12, fontWeight: '500', color: '#6B7280' },
+                      selectedUserId === user.id && { color: '#FFFFFF' }
+                    ]}>
+                      {user.username}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
 
-          {/* Liste des ventes ou Détails */}
-          {!selectedTransaction ? (
-            <View style={styles.listSectionMobile}>
-              <View style={styles.sectionHeaderMobile}>
-                <Text style={styles.sectionTitleMobile}>Rapport de Vente ({filteredSellingReportData.length})</Text>
-                <TouchableOpacity
-                  style={styles.printButtonMobile}
-                  onPress={() => handlePrintReport('sales')}
-                >
-                  <Ionicons name="print" size={16} color="#FFFFFF" />
-                  <Text style={styles.printButtonTextMobile}>PDF</Text>
-                </TouchableOpacity>
-              </View>
-
-              {sellingReportLoading ? (
-                <View style={{ padding: 40, alignItems: 'center', justifyContent: 'center' }}>
-                  <Ionicons name="hourglass-outline" size={28} color="#6B7280" />
-                  <Text style={{ marginTop: 12, fontSize: 14, color: '#6B7280', fontWeight: '500' }}>
-                    Chargement des données...
-                  </Text>
+            {/* Liste des ventes ou Détails */}
+            {!selectedTransaction ? (
+              <View style={styles.listSectionMobile}>
+                <View style={styles.sectionHeaderMobile}>
+                  <Text style={styles.sectionTitleMobile}>Rapport de Vente ({filteredSellingReportData.length})</Text>
+                  <TouchableOpacity
+                    style={styles.printButtonMobile}
+                    onPress={() => handlePrintReport('sales')}
+                  >
+                    <Ionicons name="print" size={16} color="#FFFFFF" />
+                    <Text style={styles.printButtonTextMobile}>PDF</Text>
+                  </TouchableOpacity>
                 </View>
-              ) : (
-                <View style={styles.transactionsListMobile}>
-                  {filteredSellingReportData.map((sale, index) => (
-                    <TouchableOpacity key={sale.id} style={styles.transactionItemMobile} onPress={() => selectTransaction(sale)}>
-                      <View style={styles.transactionHeaderMobile}>
-                        <View style={styles.productInfoMobile}>
-                          <Text style={styles.transactionDescriptionMobile}>{sale.productName}</Text>
-                          <Text style={styles.transactionDateTextMobile}>
-                            {new Date(sale.created).toLocaleDateString('fr-FR')} {new Date(sale.created).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+
+                {sellingReportLoading ? (
+                  <View style={{ padding: 40, alignItems: 'center', justifyContent: 'center' }}>
+                    <Ionicons name="hourglass-outline" size={28} color="#6B7280" />
+                    <Text style={{ marginTop: 12, fontSize: 14, color: '#6B7280', fontWeight: '500' }}>
+                      Chargement des données...
+                    </Text>
+                  </View>
+                ) : (
+                  <View style={styles.transactionsListMobile}>
+                    {filteredSellingReportData.map((sale, index) => (
+                      <TouchableOpacity key={sale.id} style={styles.transactionItemMobile} onPress={() => selectTransaction(sale)}>
+                        <View style={styles.transactionHeaderMobile}>
+                          <View style={styles.productInfoMobile}>
+                            <Text style={styles.transactionDescriptionMobile}>{sale.productName}</Text>
+                            <Text style={styles.transactionDateTextMobile}>
+                              {new Date(sale.created).toLocaleDateString('fr-FR')} {new Date(sale.created).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                            </Text>
+                          </View>
+                        </View>
+
+                        <View style={{ marginVertical: 8 }}>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                            <Text style={{ fontSize: 12, color: '#6B7280', fontWeight: '500' }}>Client:</Text>
+                            <Text style={{ fontSize: 12, color: '#1F2937' }}>{sale.factureClient}</Text>
+                          </View>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                            <Text style={{ fontSize: 12, color: '#6B7280', fontWeight: '500' }}>Table:</Text>
+                            <Text style={{ fontSize: 12, color: '#1F2937' }}>{sale.tableNomination}</Text>
+                          </View>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                            <Text style={{ fontSize: 12, color: '#6B7280', fontWeight: '500' }}>Quantité:</Text>
+                            <Text style={{ fontSize: 12, color: '#1F2937' }}>{sale.qte}</Text>
+                          </View>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                            <Text style={{ fontSize: 12, color: '#6B7280', fontWeight: '500' }}>Utilisateur:</Text>
+                            <Text style={{ fontSize: 12, color: '#1F2937' }}>{sale.userName}</Text>
+                          </View>
+                        </View>
+
+                        <View style={styles.transactionFooterMobile}>
+                          <View style={[styles.transactionTypeMobile, { backgroundColor: '#10B981' }]}>
+                            <Text style={styles.transactionTypeTextMobile}>
+                              Vente
+                            </Text>
+                          </View>
+                          <Text style={[styles.transactionAmountMobile, { color: '#059669' }]}>
+                            {`${sale.subTotalUsd.toFixed(2)} USD`}
                           </Text>
                         </View>
-                      </View>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+              </View>
+            ) : (
+              /* Détails de la vente */
+              <View style={styles.detailsContainerMobile}>
+                <View style={styles.detailsHeaderMobileSection}>
+                  <TouchableOpacity onPress={backToTable} style={styles.backButtonMobile}>
+                    <Ionicons name="arrow-back" size={20} color="#7C3AED" />
+                    <Text style={styles.backButtonTextMobile}>Retour</Text>
+                  </TouchableOpacity>
+                  <Text style={styles.detailsTitleSectionMobile}>Détails de la vente</Text>
+                </View>
 
-                      <View style={{ marginVertical: 8 }}>
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
-                          <Text style={{ fontSize: 12, color: '#6B7280', fontWeight: '500' }}>Client:</Text>
-                          <Text style={{ fontSize: 12, color: '#1F2937' }}>{sale.factureClient}</Text>
-                        </View>
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
-                          <Text style={{ fontSize: 12, color: '#6B7280', fontWeight: '500' }}>Table:</Text>
-                          <Text style={{ fontSize: 12, color: '#1F2937' }}>{sale.tableNomination}</Text>
-                        </View>
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
-                          <Text style={{ fontSize: 12, color: '#6B7280', fontWeight: '500' }}>Quantité:</Text>
-                          <Text style={{ fontSize: 12, color: '#1F2937' }}>{sale.qte}</Text>
-                        </View>
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
-                          <Text style={{ fontSize: 12, color: '#6B7280', fontWeight: '500' }}>Utilisateur:</Text>
-                          <Text style={{ fontSize: 12, color: '#1F2937' }}>{sale.userName}</Text>
+                <View style={styles.detailsCardMobile}>
+                  <View style={styles.detailRowMobile}>
+                    <Text style={styles.detailLabelMobile}>Produit</Text>
+                    <Text style={styles.detailValueMobile}>{selectedTransaction.productName}</Text>
+                  </View>
+                  <View style={styles.detailRowMobile}>
+                    <Text style={styles.detailLabelMobile}>Client</Text>
+                    <Text style={styles.detailValueMobile}>{selectedTransaction.factureClient}</Text>
+                  </View>
+                  <View style={styles.detailRowMobile}>
+                    <Text style={styles.detailLabelMobile}>Table</Text>
+                    <Text style={styles.detailValueMobile}>{selectedTransaction.tableNomination}</Text>
+                  </View>
+                  <View style={styles.detailRowMobile}>
+                    <Text style={styles.detailLabelMobile}>Quantité</Text>
+                    <Text style={styles.detailValueMobile}>{selectedTransaction.qte}</Text>
+                  </View>
+                  <View style={styles.detailRowMobile}>
+                    <Text style={styles.detailLabelMobile}>Prix USD</Text>
+                    <Text style={[styles.detailValueMobile, styles.detailAmountMobile]}>
+                      ${selectedTransaction.subTotalUsd.toFixed(2)}
+                    </Text>
+                  </View>
+                  <View style={styles.detailRowMobile}>
+                    <Text style={styles.detailLabelMobile}>Prix CDF</Text>
+                    <Text style={[styles.detailValueMobile, styles.detailAmountMobile]}>
+                      {selectedTransaction.subTotalCdf.toLocaleString()} CDF
+                    </Text>
+                  </View>
+                  <View style={styles.detailRowMobile}>
+                    <Text style={styles.detailLabelMobile}>Date</Text>
+                    <Text style={styles.detailValueMobile}>
+                      {new Date(selectedTransaction.created).toLocaleDateString('fr-FR')}
+                    </Text>
+                  </View>
+                  <View style={styles.detailRowMobile}>
+                    <Text style={styles.detailLabelMobile}>Responsable</Text>
+                    <Text style={styles.detailValueMobile}>{selectedTransaction.userName}</Text>
+                  </View>
+                </View>
+              </View>
+            )}
+          </>
+        ) : (
+          <>
+            {/* Statistiques de consommation - Grid 2x2 */}
+            <View style={styles.statsGridMobile}>
+              <View style={styles.statCardModernMobile}>
+                <View style={[styles.statIconModernMobile, { backgroundColor: '#eeeeee' }]}>
+                  <Ionicons name="cash" size={24} color="#059669" />
+                </View>
+                <Text style={styles.statValueModernMobile}>{consumptionReportSummary.totalRevenueCdf.toLocaleString()}</Text>
+                <Text style={styles.statLabelModernMobile}>Revenus CDF</Text>
+              </View>
+
+              <View style={styles.statCardModernMobile}>
+                <View style={[styles.statIconModernMobile, { backgroundColor: '#FEE2E2' }]}>
+                  <Ionicons name="trending-down" size={24} color="#EF4444" />
+                </View>
+                <Text style={styles.statValueModernMobile}>
+                  {consumptionReportSummary.totalQuantitySold}
+                </Text>
+                <Text style={styles.statLabelModernMobile}>Quantité vendue</Text>
+              </View>
+
+              <View style={styles.statCardModernMobile}>
+                <View style={[styles.statIconModernMobile, { backgroundColor: '#FEF3C7' }]}>
+                  <Ionicons name="calculator" size={24} color="#F59E0B" />
+                </View>
+                <Text style={styles.statValueModernMobile}>
+                  ${consumptionReportSummary.totalRevenueUsd.toFixed(2)}
+                </Text>
+                <Text style={styles.statLabelModernMobile}>Revenus USD</Text>
+              </View>
+
+              <View style={styles.statCardModernMobile}>
+                <View style={[styles.statIconModernMobile, { backgroundColor: '#DBEAFE' }]}>
+                  <Ionicons name="receipt" size={24} color="#3B82F6" />
+                </View>
+                <Text style={styles.statValueModernMobile}>
+                  {consumptionReportSummary.totalSales}
+                </Text>
+                <Text style={styles.statLabelModernMobile}>Nombre de ventes</Text>
+              </View>
+            </View>
+
+            {/* Liste du rapport de consommation ou Détails */}
+            {!selectedTransaction ? (
+              <View style={styles.listSectionMobile}>
+                <View style={styles.sectionHeaderMobile}>
+                  <Text style={styles.sectionTitleMobile}>Rapport de Consommation ({consumptionReportData.length})</Text>
+                  <TouchableOpacity
+                    style={styles.printButtonMobile}
+                    onPress={() => handlePrintReport('consumption')}
+                  >
+                    <Ionicons name="print" size={16} color="#FFFFFF" />
+                    <Text style={styles.printButtonTextMobile}>PDF</Text>
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.transactionsListMobile}>
+                  {consumptionReportData.map((item, index) => (
+                    <TouchableOpacity key={item.productId} style={styles.transactionItemMobile} onPress={() => selectTransaction(item)}>
+                      <View style={styles.transactionHeaderMobile}>
+                        <View style={styles.productInfoMobile}>
+                          <Text style={styles.transactionDescriptionMobile}>{item.productName}</Text>
+                          <Text style={styles.transactionDateTextMobile}>
+                            {item.categoryName}
+                          </Text>
+                          <Text style={[styles.transactionDateTextMobile, { fontSize: 12, color: '#6B7280', marginTop: 2 }]}>
+                            {new Date(item.firstSaleDate).toLocaleDateString('fr-FR')} {new Date(item.firstSaleDate).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })} - {new Date(item.lastSaleDate).toLocaleDateString('fr-FR')} {new Date(item.lastSaleDate).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                          </Text>
                         </View>
                       </View>
 
                       <View style={styles.transactionFooterMobile}>
-                        <View style={[styles.transactionTypeMobile, { backgroundColor: '#10B981' }]}>
+                        <View style={[styles.transactionTypeMobile, { backgroundColor: '#3B82F6' }]}>
                           <Text style={styles.transactionTypeTextMobile}>
-                            Vente
+                            {item.totalQuantitySold} vendus
                           </Text>
                         </View>
-                        <Text style={[styles.transactionAmountMobile, { color: '#059669' }]}>
-                          {`${sale.subTotalUsd.toFixed(2)} USD`}
+                        <View style={{ alignItems: 'flex-end', flex: 1 }}>
+                          <Text style={[styles.transactionAmountMobile, { color: '#10B981' }]}>
+                            {`CDF ${(item.totalQuantitySold ? (item.totalRevenueCdf / item.totalQuantitySold).toFixed(2) : '0.00')}`}
+                          </Text>
+                          <Text style={[styles.transactionAmountMobile, { color: '#0E7490', fontSize: 14 }]}>
+                            {`USD ${(item.totalQuantitySold ? (item.totalRevenueUsd / item.totalQuantitySold).toFixed(2) : '0.00')}`}
+                          </Text>
+                        </View>
+                        <View style={{ alignItems: 'flex-end' }}>
+                          <Text style={[styles.transactionAmountMobile, { color: '#097B58' }]}>
+                            {`${(item.totalRevenueCdf ?? 0).toFixed(2)} CDF`}
+                          </Text>
+                          <Text style={[styles.transactionAmountMobile, { color: '#0C4A6E', fontSize: 14 }]}>
+                            {`${(item.totalRevenueUsd ?? 0).toFixed(2)} USD`}
+                          </Text>
+                        </View>
+                        <Text style={styles.transactionStatusTextMobile}>
+                          {item.numberOfSales} ventes
                         </Text>
                       </View>
                     </TouchableOpacity>
                   ))}
                 </View>
-              )}
-            </View>
-          ) : (
-            /* Détails de la vente */
-            <View style={styles.detailsContainerMobile}>
-              <View style={styles.detailsHeaderMobileSection}>
-                <TouchableOpacity onPress={backToTable} style={styles.backButtonMobile}>
-                  <Ionicons name="arrow-back" size={20} color="#7C3AED" />
-                  <Text style={styles.backButtonTextMobile}>Retour</Text>
-                </TouchableOpacity>
-                <Text style={styles.detailsTitleSectionMobile}>Détails de la vente</Text>
               </View>
+            ) : (
+              /* Détails de la consommation */
+              <View style={styles.detailsContainerMobile}>
+                <View style={styles.detailsHeaderMobileSection}>
+                  <TouchableOpacity onPress={backToTable} style={styles.backButtonMobile}>
+                    <Ionicons name="arrow-back" size={20} color="#7C3AED" />
+                    <Text style={styles.backButtonTextMobile}>Retour</Text>
+                  </TouchableOpacity>
+                  <Text style={styles.detailsTitleSectionMobile}>Détails du produit</Text>
+                </View>
 
-              <View style={styles.detailsCardMobile}>
-                <View style={styles.detailRowMobile}>
-                  <Text style={styles.detailLabelMobile}>Produit</Text>
-                  <Text style={styles.detailValueMobile}>{selectedTransaction.productName}</Text>
-                </View>
-                <View style={styles.detailRowMobile}>
-                  <Text style={styles.detailLabelMobile}>Client</Text>
-                  <Text style={styles.detailValueMobile}>{selectedTransaction.factureClient}</Text>
-                </View>
-                <View style={styles.detailRowMobile}>
-                  <Text style={styles.detailLabelMobile}>Table</Text>
-                  <Text style={styles.detailValueMobile}>{selectedTransaction.tableNomination}</Text>
-                </View>
-                <View style={styles.detailRowMobile}>
-                  <Text style={styles.detailLabelMobile}>Quantité</Text>
-                  <Text style={styles.detailValueMobile}>{selectedTransaction.qte}</Text>
-                </View>
-                <View style={styles.detailRowMobile}>
-                  <Text style={styles.detailLabelMobile}>Prix USD</Text>
-                  <Text style={[styles.detailValueMobile, styles.detailAmountMobile]}>
-                    ${selectedTransaction.subTotalUsd.toFixed(2)}
-                  </Text>
-                </View>
-                <View style={styles.detailRowMobile}>
-                  <Text style={styles.detailLabelMobile}>Prix CDF</Text>
-                  <Text style={[styles.detailValueMobile, styles.detailAmountMobile]}>
-                    {selectedTransaction.subTotalCdf.toLocaleString()} CDF
-                  </Text>
-                </View>
-                <View style={styles.detailRowMobile}>
-                  <Text style={styles.detailLabelMobile}>Date</Text>
-                  <Text style={styles.detailValueMobile}>
-                    {new Date(selectedTransaction.created).toLocaleDateString('fr-FR')}
-                  </Text>
-                </View>
-                <View style={styles.detailRowMobile}>
-                  <Text style={styles.detailLabelMobile}>Responsable</Text>
-                  <Text style={styles.detailValueMobile}>{selectedTransaction.userName}</Text>
+                <View style={styles.detailsCardMobile}>
+                  <View style={styles.detailRowMobile}>
+                    <Text style={styles.detailLabelMobile}>Produit</Text>
+                    <Text style={styles.detailValueMobile}>{selectedTransaction.productName}</Text>
+                  </View>
+                  <View style={styles.detailRowMobile}>
+                    <Text style={styles.detailLabelMobile}>Catégorie</Text>
+                    <Text style={styles.detailValueMobile}>{selectedTransaction.categoryName}</Text>
+                  </View>
+                  <View style={styles.detailRowMobile}>
+                    <Text style={styles.detailLabelMobile}>Quantité totale vendue</Text>
+                    <Text style={styles.detailValueMobile}>{selectedTransaction.totalQuantitySold}</Text>
+                  </View>
+                  <View style={styles.detailRowMobile}>
+                    <Text style={styles.detailLabelMobile}>Nombre de ventes</Text>
+                    <Text style={styles.detailValueMobile}>{selectedTransaction.numberOfSales}</Text>
+                  </View>
+                  <View style={styles.detailRowMobile}>
+                    <Text style={styles.detailLabelMobile}>Revenu total USD</Text>
+                    <Text style={[styles.detailValueMobile, styles.detailAmountMobile]}>
+                      ${selectedTransaction.totalRevenueUsd.toFixed(2)}
+                    </Text>
+                  </View>
+                  <View style={styles.detailRowMobile}>
+                    <Text style={styles.detailLabelMobile}>Revenu total CDF</Text>
+                    <Text style={[styles.detailValueMobile, styles.detailAmountMobile]}>
+                      {selectedTransaction.totalRevenueCdf.toLocaleString()} CDF
+                    </Text>
+                  </View>
+                  <View style={styles.detailRowMobile}>
+                    <Text style={styles.detailLabelMobile}>Prix moyen USD</Text>
+                    <Text style={styles.detailValueMobile}>
+                      ${selectedTransaction.averagePriceUsd.toFixed(2)}
+                    </Text>
+                  </View>
+                  <View style={styles.detailRowMobile}>
+                    <Text style={styles.detailLabelMobile}>Prix moyen CDF</Text>
+                    <Text style={styles.detailValueMobile}>
+                      {selectedTransaction.averagePriceCdf.toFixed(0)} CDF
+                    </Text>
+                  </View>
+                  <View style={styles.detailRowMobile}>
+                    <Text style={styles.detailLabelMobile}>Première vente</Text>
+                    <Text style={styles.detailValueMobile}>
+                      {new Date(selectedTransaction.firstSaleDate).toLocaleDateString('fr-FR')} {new Date(selectedTransaction.firstSaleDate).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                    </Text>
+                  </View>
+                  <View style={styles.detailRowMobile}>
+                    <Text style={styles.detailLabelMobile}>Dernière vente</Text>
+                    <Text style={styles.detailValueMobile}>
+                      {new Date(selectedTransaction.lastSaleDate).toLocaleDateString('fr-FR')} {new Date(selectedTransaction.lastSaleDate).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                    </Text>
+                  </View>
                 </View>
               </View>
-            </View>
-          )}
-        </>
-      ) : (
-        <>
-          {/* Statistiques de consommation - Grid 2x2 */}
-          <View style={styles.statsGridMobile}>
-            <View style={styles.statCardModernMobile}>
-              <View style={[styles.statIconModernMobile, { backgroundColor: '#eeeeee' }]}>
-                <Ionicons name="cash" size={24} color="#059669" />
-              </View>
-              <Text style={styles.statValueModernMobile}>{consumptionReportSummary.totalRevenueCdf.toLocaleString()}</Text>
-              <Text style={styles.statLabelModernMobile}>Revenus CDF</Text>
-            </View>
+            )}
 
-            <View style={styles.statCardModernMobile}>
-              <View style={[styles.statIconModernMobile, { backgroundColor: '#FEE2E2' }]}>
-                <Ionicons name="trending-down" size={24} color="#EF4444" />
-              </View>
-              <Text style={styles.statValueModernMobile}>
-                {consumptionReportSummary.totalQuantitySold}
-              </Text>
-              <Text style={styles.statLabelModernMobile}>Quantité vendue</Text>
-            </View>
+          </>
+        )}
 
-            <View style={styles.statCardModernMobile}>
-              <View style={[styles.statIconModernMobile, { backgroundColor: '#FEF3C7' }]}>
-                <Ionicons name="calculator" size={24} color="#F59E0B" />
-              </View>
-              <Text style={styles.statValueModernMobile}>
-                ${consumptionReportSummary.totalRevenueUsd.toFixed(2)}
-              </Text>
-              <Text style={styles.statLabelModernMobile}>Revenus USD</Text>
-            </View>
-
-            <View style={styles.statCardModernMobile}>
-              <View style={[styles.statIconModernMobile, { backgroundColor: '#DBEAFE' }]}>
-                <Ionicons name="receipt" size={24} color="#3B82F6" />
-              </View>
-              <Text style={styles.statValueModernMobile}>
-                {consumptionReportSummary.totalSales}
-              </Text>
-              <Text style={styles.statLabelModernMobile}>Nombre de ventes</Text>
-            </View>
-          </View>
-
-          {/* Liste du rapport de consommation ou Détails */}
-          {!selectedTransaction ? (
-            <View style={styles.listSectionMobile}>
+        {selectedReportType === 'stock' && (
+          <>
+            {/* Section Rapport des stocks Mobile */}
+            <View style={styles.stockReportSectionMobile}>
               <View style={styles.sectionHeaderMobile}>
-                <Text style={styles.sectionTitleMobile}>Rapport de Consommation ({consumptionReportData.length})</Text>
+                <Text style={styles.sectionTitleMobile}>Rapport des stocks</Text>
                 <TouchableOpacity
                   style={styles.printButtonMobile}
-                  onPress={() => handlePrintReport('consumption')}
-                >
-                  <Ionicons name="print" size={16} color="#FFFFFF" />
-                  <Text style={styles.printButtonTextMobile}>PDF</Text>
-                </TouchableOpacity>
-              </View>
-              <View style={styles.transactionsListMobile}>
-                {consumptionReportData.map((item, index) => (
-                  <TouchableOpacity key={item.productId} style={styles.transactionItemMobile} onPress={() => selectTransaction(item)}>
-                    <View style={styles.transactionHeaderMobile}>
-                      <View style={styles.productInfoMobile}>
-                        <Text style={styles.transactionDescriptionMobile}>{item.productName}</Text>
-                        <Text style={styles.transactionDateTextMobile}>
-                          {item.categoryName}
-                        </Text>
-                        <Text style={[styles.transactionDateTextMobile, { fontSize: 12, color: '#6B7280', marginTop: 2 }]}>
-                          {new Date(item.firstSaleDate).toLocaleDateString('fr-FR')} {new Date(item.firstSaleDate).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })} - {new Date(item.lastSaleDate).toLocaleDateString('fr-FR')} {new Date(item.lastSaleDate).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-                        </Text>
-                      </View>
-                    </View>
-
-                    <View style={styles.transactionFooterMobile}>
-                      <View style={[styles.transactionTypeMobile, { backgroundColor: '#3B82F6' }]}>
-                        <Text style={styles.transactionTypeTextMobile}>
-                          {item.totalQuantitySold} vendus
-                        </Text>
-                      </View>
-                      <View style={{ alignItems: 'flex-end', flex: 1 }}>
-                        <Text style={[styles.transactionAmountMobile, { color: '#10B981' }]}>
-                          {`CDF ${(item.totalQuantitySold ? (item.totalRevenueCdf / item.totalQuantitySold).toFixed(2) : '0.00')}`}
-                        </Text>
-                        <Text style={[styles.transactionAmountMobile, { color: '#0E7490', fontSize: 14 }]}>
-                          {`USD ${(item.totalQuantitySold ? (item.totalRevenueUsd / item.totalQuantitySold).toFixed(2) : '0.00')}`}
-                        </Text>
-                      </View>
-                      <View style={{ alignItems: 'flex-end' }}>
-                        <Text style={[styles.transactionAmountMobile, { color: '#097B58' }]}>
-                          {`${(item.totalRevenueCdf ?? 0).toFixed(2)} CDF`}
-                        </Text>
-                        <Text style={[styles.transactionAmountMobile, { color: '#0C4A6E', fontSize: 14 }]}>
-                          {`${(item.totalRevenueUsd ?? 0).toFixed(2)} USD`}
-                        </Text>
-                      </View>
-                      <Text style={styles.transactionStatusTextMobile}>
-                        {item.numberOfSales} ventes
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-          ) : (
-            /* Détails de la consommation */
-            <View style={styles.detailsContainerMobile}>
-              <View style={styles.detailsHeaderMobileSection}>
-                <TouchableOpacity onPress={backToTable} style={styles.backButtonMobile}>
-                  <Ionicons name="arrow-back" size={20} color="#7C3AED" />
-                  <Text style={styles.backButtonTextMobile}>Retour</Text>
-                </TouchableOpacity>
-                <Text style={styles.detailsTitleSectionMobile}>Détails du produit</Text>
-              </View>
-
-              <View style={styles.detailsCardMobile}>
-                <View style={styles.detailRowMobile}>
-                  <Text style={styles.detailLabelMobile}>Produit</Text>
-                  <Text style={styles.detailValueMobile}>{selectedTransaction.productName}</Text>
-                </View>
-                <View style={styles.detailRowMobile}>
-                  <Text style={styles.detailLabelMobile}>Catégorie</Text>
-                  <Text style={styles.detailValueMobile}>{selectedTransaction.categoryName}</Text>
-                </View>
-                <View style={styles.detailRowMobile}>
-                  <Text style={styles.detailLabelMobile}>Quantité totale vendue</Text>
-                  <Text style={styles.detailValueMobile}>{selectedTransaction.totalQuantitySold}</Text>
-                </View>
-                <View style={styles.detailRowMobile}>
-                  <Text style={styles.detailLabelMobile}>Nombre de ventes</Text>
-                  <Text style={styles.detailValueMobile}>{selectedTransaction.numberOfSales}</Text>
-                </View>
-                <View style={styles.detailRowMobile}>
-                  <Text style={styles.detailLabelMobile}>Revenu total USD</Text>
-                  <Text style={[styles.detailValueMobile, styles.detailAmountMobile]}>
-                    ${selectedTransaction.totalRevenueUsd.toFixed(2)}
-                  </Text>
-                </View>
-                <View style={styles.detailRowMobile}>
-                  <Text style={styles.detailLabelMobile}>Revenu total CDF</Text>
-                  <Text style={[styles.detailValueMobile, styles.detailAmountMobile]}>
-                    {selectedTransaction.totalRevenueCdf.toLocaleString()} CDF
-                  </Text>
-                </View>
-                <View style={styles.detailRowMobile}>
-                  <Text style={styles.detailLabelMobile}>Prix moyen USD</Text>
-                  <Text style={styles.detailValueMobile}>
-                    ${selectedTransaction.averagePriceUsd.toFixed(2)}
-                  </Text>
-                </View>
-                <View style={styles.detailRowMobile}>
-                  <Text style={styles.detailLabelMobile}>Prix moyen CDF</Text>
-                  <Text style={styles.detailValueMobile}>
-                    {selectedTransaction.averagePriceCdf.toFixed(0)} CDF
-                  </Text>
-                </View>
-                <View style={styles.detailRowMobile}>
-                  <Text style={styles.detailLabelMobile}>Première vente</Text>
-                  <Text style={styles.detailValueMobile}>
-                    {new Date(selectedTransaction.firstSaleDate).toLocaleDateString('fr-FR')} {new Date(selectedTransaction.firstSaleDate).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-                  </Text>
-                </View>
-                <View style={styles.detailRowMobile}>
-                  <Text style={styles.detailLabelMobile}>Dernière vente</Text>
-                  <Text style={styles.detailValueMobile}>
-                    {new Date(selectedTransaction.lastSaleDate).toLocaleDateString('fr-FR')} {new Date(selectedTransaction.lastSaleDate).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-                  </Text>
-                </View>
-              </View>
-            </View>
-          )}
-
-        </>
-      )}
-
-      {selectedReportType === 'stock' && (
-        <>
-          {/* Section Rapport des stocks Mobile */}
-          <View style={styles.stockReportSectionMobile}>
-            <View style={styles.sectionHeaderMobile}>
-              <Text style={styles.sectionTitleMobile}>Rapport des stocks</Text>
-              <TouchableOpacity
-                style={styles.printButtonMobile}
-                onPress={loadStockData}
-                disabled={stockLoading}
-              >
-                <Ionicons name={stockLoading ? "hourglass-outline" : "refresh-outline"} size={16} color="#FFFFFF" />
-                <Text style={styles.printButtonTextMobile}>{stockLoading ? '...' : 'Actualiser'}</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* États de chargement et erreurs */}
-            {stockLoading && (
-              <View style={styles.loadingContainerMobile}>
-                <Ionicons name="hourglass-outline" size={32} color="#3B82F6" />
-                <Text style={styles.loadingTextMobile}>Chargement des données de stock...</Text>
-              </View>
-            )}
-
-            {stockError && (
-              <View style={styles.errorContainerMobile}>
-                <Ionicons name="alert-circle-outline" size={20} color="#EF4444" />
-                <Text style={styles.errorTextMobile}>{stockError}</Text>
-                <TouchableOpacity
-                  style={styles.retryButtonMobile}
                   onPress={loadStockData}
+                  disabled={stockLoading}
                 >
-                  <Text style={styles.retryButtonTextMobile}>Réessayer</Text>
+                  <Ionicons name={stockLoading ? "hourglass-outline" : "refresh-outline"} size={16} color="#FFFFFF" />
+                  <Text style={styles.printButtonTextMobile}>{stockLoading ? '...' : 'Actualiser'}</Text>
                 </TouchableOpacity>
               </View>
-            )}
 
-            {!stockLoading && !stockError && (stockReaprovisionData.length > 0 || stockSortieData.length > 0) && (
-              <>
-                {/* Section Réapprovisionnement */}
-                {stockReaprovisionData.length > 0 && (
-                  <View style={styles.stockSectionMobile}>
-                    <Text style={styles.subsectionTitleMobile}>
-                      <Ionicons name="trending-up" size={16} color="#10B981" />
-                      Réapprovisionnements ({stockReaprovisionData.length})
-                    </Text>
-                    <View style={styles.transactionsListMobile}>
-                      {stockReaprovisionData.map((item, index) => (
-                        <View key={index} style={styles.transactionItemMobile}>
-                          <View style={styles.transactionHeaderMobile}>
-                            <View style={styles.productInfoMobile}>
-                              <Text style={styles.transactionDescriptionMobile}>{item.productName}</Text>
-                              <Text style={styles.transactionDateMobile}>{formatDate(item.date)}</Text>
-                            </View>
-                            <Text style={[styles.transactionTotalMobile, { color: '#10B981' }]}>
-                              +{item.quantity}
-                            </Text>
-                          </View>
-                          {item.observation && (
-                            <View style={styles.observationMobile}>
-                              <Text style={styles.observationTextMobile}>Observation: {item.observation}</Text>
-                            </View>
-                          )}
-                        </View>
-                      ))}
-                    </View>
-                  </View>
-                )}
+              {/* États de chargement et erreurs */}
+              {stockLoading && (
+                <View style={styles.loadingContainerMobile}>
+                  <Ionicons name="hourglass-outline" size={32} color="#3B82F6" />
+                  <Text style={styles.loadingTextMobile}>Chargement des données de stock...</Text>
+                </View>
+              )}
 
-                {/* Section Sorties de stock */}
-                {stockSortieData.length > 0 && (
-                  <View style={styles.stockSectionMobile}>
-                    <Text style={styles.subsectionTitleMobile}>
-                      <Ionicons name="trending-down" size={16} color="#EF4444" />
-                      Sorties de stock ({stockSortieData.length})
-                    </Text>
-                    <View style={styles.transactionsListMobile}>
-                      {stockSortieData.map((item, index) => (
-                        <View key={index} style={styles.transactionItemMobile}>
-                          <View style={styles.transactionHeaderMobile}>
-                            <View style={styles.productInfoMobile}>
-                              <Text style={styles.transactionDescriptionMobile}>{item.productName}</Text>
-                              <Text style={styles.transactionDateMobile}>{formatDate(item.date)}</Text>
-                            </View>
-                            <Text style={[styles.transactionTotalMobile, { color: '#EF4444' }]}>
-                              -{item.quantity}
-                            </Text>
-                          </View>
-                          {item.observation && (
-                            <View style={styles.observationMobile}>
-                              <Text style={styles.observationTextMobile}>Observation: {item.observation}</Text>
-                            </View>
-                          )}
-                        </View>
-                      ))}
-                    </View>
-                  </View>
-                )}
+              {stockError && (
+                <View style={styles.errorContainerMobile}>
+                  <Ionicons name="alert-circle-outline" size={20} color="#EF4444" />
+                  <Text style={styles.errorTextMobile}>{stockError}</Text>
+                  <TouchableOpacity
+                    style={styles.retryButtonMobile}
+                    onPress={loadStockData}
+                  >
+                    <Text style={styles.retryButtonTextMobile}>Réessayer</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
 
-                {/* Section Mouvements de stock */}
-                {stockMovementData.length > 0 && (
-                  <View style={styles.stockSectionMobile}>
-                    <Text style={styles.subsectionTitleMobile}>
-                      <Ionicons name="swap-vertical" size={16} color="#3B82F6" />
-                      Mouvements de stock ({stockMovementData.length})
-                    </Text>
-                    <View style={styles.transactionsListMobile}>
-                      {stockMovementData.map((item, index) => {
-                        const isSortie = item.mouvementType?.toLowerCase() === 'sortie';
-                        return (
-                          <View
-                            key={index}
-                            style={[
-                              styles.transactionItemMobile,
-                              { backgroundColor: isSortie ? '#FEF2F2' : '#ECFDF3' }
-                            ]}
-                          >
+              {!stockLoading && !stockError && (stockReaprovisionData.length > 0 || stockSortieData.length > 0) && (
+                <>
+                  {/* Section Réapprovisionnement */}
+                  {stockReaprovisionData.length > 0 && (
+                    <View style={styles.stockSectionMobile}>
+                      <Text style={styles.subsectionTitleMobile}>
+                        <Ionicons name="trending-up" size={16} color="#10B981" />
+                        Réapprovisionnements ({stockReaprovisionData.length})
+                      </Text>
+                      <View style={styles.transactionsListMobile}>
+                        {stockReaprovisionData.map((item, index) => (
+                          <View key={index} style={styles.transactionItemMobile}>
                             <View style={styles.transactionHeaderMobile}>
                               <View style={styles.productInfoMobile}>
                                 <Text style={styles.transactionDescriptionMobile}>{item.productName}</Text>
-                                <Text style={styles.transactionDateTextMobile}>
-                                  {new Date(item.transactionDate).toLocaleDateString('fr-FR')}{' '}
-                                  {new Date(item.transactionDate).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-                                </Text>
+                                <Text style={styles.transactionDateMobile}>{formatDate(item.date)}</Text>
                               </View>
-                              <Text style={[styles.transactionTotalMobile, { color: isSortie ? '#EF4444' : '#10B981' }]}>
-                                {isSortie ? '-' : '+'}{item.quantity}
+                              <Text style={[styles.transactionTotalMobile, { color: '#10B981' }]}>
+                                +{item.quantity}
                               </Text>
                             </View>
-                            <View style={{ marginVertical: 8 }}>
-                              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
-                                <Text style={{ fontSize: 12, color: '#6B7280', fontWeight: '500' }}>Mouvement:</Text>
-                                <Text style={{ fontSize: 12, color: '#1F2937' }}>{item.mouvementType}</Text>
+                            {item.observation && (
+                              <View style={styles.observationMobile}>
+                                <Text style={styles.observationTextMobile}>Observation: {item.observation}</Text>
                               </View>
-                              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
-                                <Text style={{ fontSize: 12, color: '#6B7280', fontWeight: '500' }}>Type:</Text>
-                                <Text style={{ fontSize: 12, color: '#1F2937' }}>{item.transactionType}</Text>
+                            )}
+                          </View>
+                        ))}
+                      </View>
+                    </View>
+                  )}
+
+                  {/* Section Sorties de stock */}
+                  {stockSortieData.length > 0 && (
+                    <View style={styles.stockSectionMobile}>
+                      <Text style={styles.subsectionTitleMobile}>
+                        <Ionicons name="trending-down" size={16} color="#EF4444" />
+                        Sorties de stock ({stockSortieData.length})
+                      </Text>
+                      <View style={styles.transactionsListMobile}>
+                        {stockSortieData.map((item, index) => (
+                          <View key={index} style={styles.transactionItemMobile}>
+                            <View style={styles.transactionHeaderMobile}>
+                              <View style={styles.productInfoMobile}>
+                                <Text style={styles.transactionDescriptionMobile}>{item.productName}</Text>
+                                <Text style={styles.transactionDateMobile}>{formatDate(item.date)}</Text>
                               </View>
-                              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
-                                <Text style={{ fontSize: 12, color: '#6B7280', fontWeight: '500' }}>Utilisateur:</Text>
-                                <Text style={{ fontSize: 12, color: '#1F2937' }}>{item.userName}</Text>
+                              <Text style={[styles.transactionTotalMobile, { color: '#EF4444' }]}>
+                                -{item.quantity}
+                              </Text>
+                            </View>
+                            {item.observation && (
+                              <View style={styles.observationMobile}>
+                                <Text style={styles.observationTextMobile}>Observation: {item.observation}</Text>
                               </View>
-                              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
-                                <Text style={{ fontSize: 12, color: '#6B7280', fontWeight: '500' }}>Dépôt:</Text>
-                                <Text style={{ fontSize: 12, color: '#1F2937' }}>{item.depotCode}</Text>
-                              </View>
-                              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                                <Text style={{ fontSize: 12, color: '#6B7280', fontWeight: '500' }}>Expiration:</Text>
-                                <Text style={{ fontSize: 12, color: '#1F2937' }}>
-                                  {item.expirationDate ? new Date(item.expirationDate).toLocaleDateString('fr-FR') : '-'}
+                            )}
+                          </View>
+                        ))}
+                      </View>
+                    </View>
+                  )}
+
+                  {/* Section Mouvements de stock */}
+                  {stockMovementData.length > 0 && (
+                    <View style={styles.stockSectionMobile}>
+                      <Text style={styles.subsectionTitleMobile}>
+                        <Ionicons name="swap-vertical" size={16} color="#3B82F6" />
+                        Mouvements de stock ({stockMovementData.length})
+                      </Text>
+                      <View style={styles.transactionsListMobile}>
+                        {stockMovementData.map((item, index) => {
+                          const isSortie = item.mouvementType?.toLowerCase() === 'sortie';
+                          return (
+                            <View
+                              key={index}
+                              style={[
+                                styles.transactionItemMobile,
+                                { backgroundColor: isSortie ? '#FEF2F2' : '#ECFDF3' }
+                              ]}
+                            >
+                              <View style={styles.transactionHeaderMobile}>
+                                <View style={styles.productInfoMobile}>
+                                  <Text style={styles.transactionDescriptionMobile}>{item.productName}</Text>
+                                  <Text style={styles.transactionDateTextMobile}>
+                                    {new Date(item.transactionDate).toLocaleDateString('fr-FR')}{' '}
+                                    {new Date(item.transactionDate).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                                  </Text>
+                                </View>
+                                <Text style={[styles.transactionTotalMobile, { color: isSortie ? '#EF4444' : '#10B981' }]}>
+                                  {isSortie ? '-' : '+'}{item.quantity}
                                 </Text>
                               </View>
+                              <View style={{ marginVertical: 8 }}>
+                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                                  <Text style={{ fontSize: 12, color: '#6B7280', fontWeight: '500' }}>Mouvement:</Text>
+                                  <Text style={{ fontSize: 12, color: '#1F2937' }}>{item.mouvementType}</Text>
+                                </View>
+                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                                  <Text style={{ fontSize: 12, color: '#6B7280', fontWeight: '500' }}>Type:</Text>
+                                  <Text style={{ fontSize: 12, color: '#1F2937' }}>{item.transactionType}</Text>
+                                </View>
+                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                                  <Text style={{ fontSize: 12, color: '#6B7280', fontWeight: '500' }}>Utilisateur:</Text>
+                                  <Text style={{ fontSize: 12, color: '#1F2937' }}>{item.userName}</Text>
+                                </View>
+                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                                  <Text style={{ fontSize: 12, color: '#6B7280', fontWeight: '500' }}>Dépôt:</Text>
+                                  <Text style={{ fontSize: 12, color: '#1F2937' }}>{item.depotCode}</Text>
+                                </View>
+                                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                                  <Text style={{ fontSize: 12, color: '#6B7280', fontWeight: '500' }}>Expiration:</Text>
+                                  <Text style={{ fontSize: 12, color: '#1F2937' }}>
+                                    {item.expirationDate ? new Date(item.expirationDate).toLocaleDateString('fr-FR') : '-'}
+                                  </Text>
+                                </View>
+                              </View>
                             </View>
-                          </View>
-                        );
-                      })}
+                          );
+                        })}
+                      </View>
                     </View>
-                  </View>
-                )}
-              </>
-            )}
+                  )}
+                </>
+              )}
 
-            {!stockLoading && !stockError && stockReaprovisionData.length === 0 && stockSortieData.length === 0 && (
-              <View style={styles.emptyStateMobile}>
-                <Ionicons name="cube-outline" size={32} color="#9CA3AF" />
-                <Text style={styles.emptyStateTextMobile}>Aucune donnée de stock trouvée</Text>
-                <Text style={styles.emptyStateSubtextMobile}>Cliquez sur "Charger les données de stock" pour commencer</Text>
-              </View>
-            )}
-          </View>
-        </>
-      )}
+              {!stockLoading && !stockError && stockReaprovisionData.length === 0 && stockSortieData.length === 0 && (
+                <View style={styles.emptyStateMobile}>
+                  <Ionicons name="cube-outline" size={32} color="#9CA3AF" />
+                  <Text style={styles.emptyStateTextMobile}>Aucune donnée de stock trouvée</Text>
+                  <Text style={styles.emptyStateSubtextMobile}>Cliquez sur "Charger les données de stock" pour commencer</Text>
+                </View>
+              )}
+            </View>
+          </>
+        )}
 
-      {/* Modal DatePicker pour Mobile */}
-      {!isLargeScreen && (
-        <Modal
-          visible={showDatePicker}
-          transparent={true}
-          animationType="slide"
-          onRequestClose={closeDatePicker}
-        >
-          <TouchableOpacity
-            style={styles.datePickerOverlayMobile}
-            activeOpacity={1}
-            onPress={closeDatePicker}
+        {/* Modal DatePicker pour Mobile */}
+        {!isLargeScreen && (
+          <Modal
+            visible={showDatePicker}
+            transparent={true}
+            animationType="slide"
+            onRequestClose={closeDatePicker}
           >
             <TouchableOpacity
+              style={styles.datePickerOverlayMobile}
               activeOpacity={1}
-              onPress={(e) => e.stopPropagation()}
-              style={styles.datePickerContainerMobile}
+              onPress={closeDatePicker}
             >
-              <View style={styles.datePickerHeaderMobile}>
-                <Text style={styles.datePickerTitleMobile}>
-                  {currentDateType === 'start' ? 'Date de début' : 'Date de fin'}
-                </Text>
-                <TouchableOpacity onPress={closeDatePicker}>
-                  <Ionicons name="close" size={24} color="#6B7280" />
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.datePickerContentMobile}>
-                {/* Navigation des mois */}
-                <View style={styles.monthNavigationMobile}>
-                  <TouchableOpacity onPress={() => navigateMonth('prev')} style={styles.monthNavButtonMobile}>
-                    <Ionicons name="chevron-back" size={24} color="#7C3AED" />
-                  </TouchableOpacity>
-                  <Text style={styles.monthYearTextMobile}>
-                    {formatMonthYear(currentMonth, currentYear)}
+              <TouchableOpacity
+                activeOpacity={1}
+                onPress={(e) => e.stopPropagation()}
+                style={styles.datePickerContainerMobile}
+              >
+                <View style={styles.datePickerHeaderMobile}>
+                  <Text style={styles.datePickerTitleMobile}>
+                    {currentDateType === 'start' ? 'Date de début' : 'Date de fin'}
                   </Text>
-                  <TouchableOpacity onPress={() => navigateMonth('next')} style={styles.monthNavButtonMobile}>
-                    <Ionicons name="chevron-forward" size={24} color="#7C3AED" />
+                  <TouchableOpacity onPress={closeDatePicker}>
+                    <Ionicons name="close" size={24} color="#6B7280" />
                   </TouchableOpacity>
                 </View>
 
-                {/* Jours de la semaine */}
-                <View style={styles.weekDaysRowMobile}>
-                  {['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'].map((day, index) => (
-                    <Text key={index} style={styles.weekDayTextMobile}>{day}</Text>
-                  ))}
-                </View>
-
-                {/* Calendrier */}
-                <View style={styles.calendarGridMobile}>
-                  {generateCalendarWeeks().map((week: any[], weekIndex: number) => (
-                    <View key={weekIndex} style={styles.calendarWeekMobile}>
-                      {week.map((dayObj: any, dayIndex: number) => (
-                        <TouchableOpacity
-                          key={dayIndex}
-                          style={[
-                            styles.calendarDayMobile,
-                            !dayObj.isCurrentMonth && styles.calendarDayInactiveMobile
-                          ]}
-                          onPress={() => dayObj.isCurrentMonth && selectDate(dayObj.day, dayObj.month + 1, dayObj.year)}
-                          disabled={!dayObj.isCurrentMonth}
-                        >
-                          <Text
-                            style={[
-                              styles.calendarDayTextMobile,
-                              !dayObj.isCurrentMonth && styles.calendarDayTextInactiveMobile
-                            ]}
-                          >
-                            {dayObj.day}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  ))}
-                </View>
-
-                <TouchableOpacity
-                  style={styles.datePickerCloseButtonMobile}
-                  onPress={closeDatePicker}
-                >
-                  <Text style={styles.datePickerCloseTextMobile}>Fermer</Text>
-                </TouchableOpacity>
-              </View>
-            </TouchableOpacity>
-          </TouchableOpacity>
-        </Modal>
-      )}
-
-      {/* Modals de calendrier pour mobile (bottom sheet) */}
-      <BottomSheetCalendarModal
-        visible={showMobileStartDateModal}
-        onClose={() => setShowMobileStartDateModal(false)}
-        selectedDate={startDate}
-        onDateSelect={handleMobileStartDateSelect}
-        title="Sélectionner la date de début"
-      />
-      <BottomSheetCalendarModal
-        visible={showMobileEndDateModal}
-        onClose={() => setShowMobileEndDateModal(false)}
-        selectedDate={endDate}
-        onDateSelect={handleMobileEndDateSelect}
-        title="Sélectionner la date de fin"
-      />
-      {showPdfOverlay && (
-        <Modal
-          visible={showPdfOverlay}
-          transparent
-          animationType="fade"
-          onRequestClose={closePdfPreview}
-        >
-          <View style={styles.pdfOverlayBackdrop}>
-            <View style={styles.pdfOverlayContainer}>
-              <View style={styles.pdfOverlayHeader}>
-                <Text style={styles.pdfOverlayTitle}>{pdfTitle || 'Aperçu du rapport'}</Text>
-                <View style={styles.pdfOverlayActions}>
-                  {Platform.OS === 'web' && pdfPreviewHtml !== '' && (
-                    <TouchableOpacity style={styles.pdfOverlayButton} onPress={handlePrintFromPreview}>
-                      <Ionicons name="print" size={18} color="#FFFFFF" />
-                      <Text style={styles.pdfOverlayButtonText}>Imprimer</Text>
+                <View style={styles.datePickerContentMobile}>
+                  {/* Navigation des mois */}
+                  <View style={styles.monthNavigationMobile}>
+                    <TouchableOpacity onPress={() => navigateMonth('prev')} style={styles.monthNavButtonMobile}>
+                      <Ionicons name="chevron-back" size={24} color="#7C3AED" />
                     </TouchableOpacity>
-                  )}
-                  <TouchableOpacity style={styles.pdfOverlayCloseButton} onPress={closePdfPreview}>
-                    <Ionicons name="close" size={22} color="#6B7280" />
+                    <Text style={styles.monthYearTextMobile}>
+                      {formatMonthYear(currentMonth, currentYear)}
+                    </Text>
+                    <TouchableOpacity onPress={() => navigateMonth('next')} style={styles.monthNavButtonMobile}>
+                      <Ionicons name="chevron-forward" size={24} color="#7C3AED" />
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Jours de la semaine */}
+                  <View style={styles.weekDaysRowMobile}>
+                    {['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'].map((day, index) => (
+                      <Text key={index} style={styles.weekDayTextMobile}>{day}</Text>
+                    ))}
+                  </View>
+
+                  {/* Calendrier */}
+                  <View style={styles.calendarGridMobile}>
+                    {generateCalendarWeeks().map((week: any[], weekIndex: number) => (
+                      <View key={weekIndex} style={styles.calendarWeekMobile}>
+                        {week.map((dayObj: any, dayIndex: number) => (
+                          <TouchableOpacity
+                            key={dayIndex}
+                            style={[
+                              styles.calendarDayMobile,
+                              !dayObj.isCurrentMonth && styles.calendarDayInactiveMobile
+                            ]}
+                            onPress={() => dayObj.isCurrentMonth && selectDate(dayObj.day, dayObj.month + 1, dayObj.year)}
+                            disabled={!dayObj.isCurrentMonth}
+                          >
+                            <Text
+                              style={[
+                                styles.calendarDayTextMobile,
+                                !dayObj.isCurrentMonth && styles.calendarDayTextInactiveMobile
+                              ]}
+                            >
+                              {dayObj.day}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    ))}
+                  </View>
+
+                  <TouchableOpacity
+                    style={styles.datePickerCloseButtonMobile}
+                    onPress={closeDatePicker}
+                  >
+                    <Text style={styles.datePickerCloseTextMobile}>Fermer</Text>
                   </TouchableOpacity>
                 </View>
-              </View>
-              <View style={styles.pdfOverlayBody}>
-                {Platform.OS === 'web' ? (
-                  <View style={styles.pdfIframeContainer}>
-                    {pdfPreviewHtml ? (
-                      React.createElement('iframe', {
-                        srcDoc: pdfPreviewHtml,
-                        style: {
-                          width: '100%',
-                          height: '100%',
-                          border: 'none',
-                          borderRadius: '12px'
-                        },
-                        ref: iframeRef
-                      } as any)
-                    ) : (
-                      <View style={styles.pdfOverlayEmptyState}>
-                        <Ionicons name="document-outline" size={32} color="#9CA3AF" />
-                        <Text style={styles.pdfOverlayEmptyText}>Aucune prévisualisation disponible.</Text>
-                      </View>
+              </TouchableOpacity>
+            </TouchableOpacity>
+          </Modal>
+        )}
+
+        {/* Modals de calendrier pour mobile (bottom sheet) */}
+        <BottomSheetCalendarModal
+          visible={showMobileStartDateModal}
+          onClose={() => setShowMobileStartDateModal(false)}
+          selectedDate={startDate}
+          onDateSelect={handleMobileStartDateSelect}
+          title="Sélectionner la date de début"
+        />
+        <BottomSheetCalendarModal
+          visible={showMobileEndDateModal}
+          onClose={() => setShowMobileEndDateModal(false)}
+          selectedDate={endDate}
+          onDateSelect={handleMobileEndDateSelect}
+          title="Sélectionner la date de fin"
+        />
+        {showPdfOverlay && (
+          <Modal
+            visible={showPdfOverlay}
+            transparent
+            animationType="fade"
+            onRequestClose={closePdfPreview}
+          >
+            <View style={styles.pdfOverlayBackdrop}>
+              <View style={styles.pdfOverlayContainer}>
+                <View style={styles.pdfOverlayHeader}>
+                  <Text style={styles.pdfOverlayTitle}>{pdfTitle || 'Aperçu du rapport'}</Text>
+                  <View style={styles.pdfOverlayActions}>
+                    {Platform.OS === 'web' && pdfPreviewHtml !== '' && (
+                      <TouchableOpacity style={styles.pdfOverlayButton} onPress={handlePrintFromPreview}>
+                        <Ionicons name="print" size={18} color="#FFFFFF" />
+                        <Text style={styles.pdfOverlayButtonText}>Imprimer</Text>
+                      </TouchableOpacity>
                     )}
+                    <TouchableOpacity style={styles.pdfOverlayCloseButton} onPress={closePdfPreview}>
+                      <Ionicons name="close" size={22} color="#6B7280" />
+                    </TouchableOpacity>
                   </View>
-                ) : (
-                  <ScrollView style={styles.pdfOverlayScroll} contentContainerStyle={styles.pdfOverlayScrollContent}>
-                    <Text style={styles.pdfOverlaySectionTitle}>Résumé</Text>
-                    {(() => {
-                      const reportText = generateReportText();
-                      if (!reportText) {
-                        return (
-                          <Text style={styles.pdfOverlayText}>Aucune donnée disponible pour ce rapport.</Text>
-                        );
-                      }
-                      return reportText.split('\n').map((line, index) => (
-                        <Text key={index} style={styles.pdfOverlayText}>
-                          {line}
-                        </Text>
-                      ));
-                    })()}
-                  </ScrollView>
-                )}
+                </View>
+                <View style={styles.pdfOverlayBody}>
+                  {Platform.OS === 'web' ? (
+                    <View style={styles.pdfIframeContainer}>
+                      {pdfPreviewHtml ? (
+                        React.createElement('iframe', {
+                          srcDoc: pdfPreviewHtml,
+                          style: {
+                            width: '100%',
+                            height: '100%',
+                            border: 'none',
+                            borderRadius: '12px'
+                          },
+                          ref: iframeRef
+                        } as any)
+                      ) : (
+                        <View style={styles.pdfOverlayEmptyState}>
+                          <Ionicons name="document-outline" size={32} color="#9CA3AF" />
+                          <Text style={styles.pdfOverlayEmptyText}>Aucune prévisualisation disponible.</Text>
+                        </View>
+                      )}
+                    </View>
+                  ) : (
+                    <ScrollView style={styles.pdfOverlayScroll} contentContainerStyle={styles.pdfOverlayScrollContent}>
+                      <Text style={styles.pdfOverlaySectionTitle}>Résumé</Text>
+                      {(() => {
+                        const reportText = generateReportText();
+                        if (!reportText) {
+                          return (
+                            <Text style={styles.pdfOverlayText}>Aucune donnée disponible pour ce rapport.</Text>
+                          );
+                        }
+                        return reportText.split('\n').map((line, index) => (
+                          <Text key={index} style={styles.pdfOverlayText}>
+                            {line}
+                          </Text>
+                        ));
+                      })()}
+                    </ScrollView>
+                  )}
+                </View>
               </View>
             </View>
-          </View>
-        </Modal>
-      )}
-    </ScrollView>
-  );
+          </Modal>
+        )}
+      </ScrollView>
+    );
   }
 };
 
