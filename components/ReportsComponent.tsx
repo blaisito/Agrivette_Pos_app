@@ -2502,35 +2502,41 @@ const ReportsComponent = () => {
         <Text style={styles.titleMobile}>Rapports</Text>
 
         {/* Navigation des tabs de rapport - Modern Design */}
-        <View style={styles.reportTabsContainerMobile}>
-          {reportTabsConfig.map((tab) => (
-            <TouchableOpacity
-              key={tab.key}
-              style={[
-                styles.reportTabButtonMobile,
-                selectedReportType === tab.key && styles.reportTabButtonMobileActive
-              ]}
-              onPress={() => {
-                setSelectedReportType(tab.key);
-                setSelectedTransaction(null);
-              }}
-            >
-              <Ionicons
-                name={tab.icon}
-                size={18}
-                color={selectedReportType === tab.key ? '#FFFFFF' : '#6B7280'}
-              />
-              <Text
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.reportTabsScrollMobile}
+        >
+          <View style={styles.reportTabsContainerMobile}>
+            {reportTabsConfig.map((tab) => (
+              <TouchableOpacity
+                key={tab.key}
                 style={[
-                  styles.reportTabButtonTextMobile,
-                  selectedReportType === tab.key && styles.reportTabButtonTextMobileActive
+                  styles.reportTabButtonMobile,
+                  selectedReportType === tab.key && styles.reportTabButtonMobileActive
                 ]}
+                onPress={() => {
+                  setSelectedReportType(tab.key);
+                  setSelectedTransaction(null);
+                }}
               >
-                {tab.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+                <Ionicons
+                  name={tab.icon}
+                  size={18}
+                  color={selectedReportType === tab.key ? '#FFFFFF' : '#6B7280'}
+                />
+                <Text
+                  style={[
+                    styles.reportTabButtonTextMobile,
+                    selectedReportType === tab.key && styles.reportTabButtonTextMobileActive
+                  ]}
+                >
+                  {tab.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </ScrollView>
 
         {/* Filtre par intervalle de temps - Grid Horizontal */}
         <View style={styles.filtersSectionModernMobile}>
@@ -5366,15 +5372,12 @@ const styles = StyleSheet.create({
   },
   reportTabsContainerMobile: {
     flexDirection: 'row',
-    marginBottom: 16,
-    marginHorizontal: 16,
     backgroundColor: '#E5E7EB',
     borderRadius: 999,
     padding: 4,
     gap: 6,
   },
   reportTabButtonMobile: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -5382,6 +5385,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 999,
+    minWidth: 170,
   },
   reportTabButtonMobileActive: {
     backgroundColor: '#7C3AED',
@@ -5394,6 +5398,11 @@ const styles = StyleSheet.create({
   },
   reportTabButtonTextMobileActive: {
     color: '#FFFFFF',
+  },
+  reportTabsScrollMobile: {
+    paddingHorizontal: 16,
+    paddingBottom: 4,
+    gap: 6,
   },
 
   // Modern Date Grid Mobile
