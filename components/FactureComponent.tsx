@@ -944,16 +944,16 @@ const FactureComponent = ({ onInvoiceCountChange }: FactureComponentProps) => {
     // Gérer les statuts numériques de l'API
     if (typeof status === 'number') {
       switch (status) {
-        case 0: return 'Proformat status facture (0)';
-        case 1: return 'Payé status facture (1)';
+        case 0: return 'Non payé';
+        case 1: return 'Payé';
         case 2: return 'Annulé status facture (2)';
         default: return 'Inconnu';
       }
     }
     // Gérer les statuts textuels (pour compatibilité)
     switch (status) {
-      case 'en cours': return 'Proformat status facture (0)';
-      case 'terminé': return 'Payé status facture (1)';
+      case 'en cours': return 'Non payé';
+      case 'terminé': return 'Payé';
       case 'en pause': return 'Annulé status facture (2)';
       default: return status;
     }
