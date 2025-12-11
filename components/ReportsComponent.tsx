@@ -541,6 +541,14 @@ const ReportsComponent = () => {
     );
   }, [debtReportData, debtSearch]);
 
+  const debtTotals = useMemo(() => {
+    const totalUsd = filteredDebtReportData.reduce((sum, d) => sum + (d.creditUsd || 0), 0);
+    const totalCdf = filteredDebtReportData.reduce((sum, d) => sum + (d.creditCdf || 0), 0);
+    const paidUsd = filteredDebtReportData.reduce((sum, d) => sum + (d.montantPayeUsd || 0), 0);
+    const paidCdf = filteredDebtReportData.reduce((sum, d) => sum + (d.montantPayeCdf || 0), 0);
+    return { totalUsd, totalCdf, paidUsd, paidCdf };
+  }, [filteredDebtReportData]);
+
   const filteredPaymentReportData = useMemo(() => {
     const term = paymentSearch.trim().toLowerCase();
     const depotNorm = (selectedDepotCode ?? '').trim().toLowerCase();
@@ -2173,6 +2181,49 @@ const ReportsComponent = () => {
                 </TouchableOpacity>
               </View>
 
+              {/* Statistiques dettes */}
+              <View style={styles.mainStatsWeb}>
+                <View style={styles.statCardWeb}>
+                  <View style={styles.statIconWeb}>
+                    <Ionicons name="cash" size={24} color="#EF4444" />
+                  </View>
+                  <View style={styles.statContentWeb}>
+                    <Text style={styles.statValueWeb}>${debtTotals.totalUsd.toFixed(2)}</Text>
+                    <Text style={styles.statLabelWeb}>Crédit total USD</Text>
+                  </View>
+                </View>
+
+                <View style={styles.statCardWeb}>
+                  <View style={styles.statIconWeb}>
+                    <Ionicons name="cash" size={24} color="#F59E0B" />
+                  </View>
+                  <View style={styles.statContentWeb}>
+                    <Text style={styles.statValueWeb}>{debtTotals.totalCdf.toLocaleString()} CDF</Text>
+                    <Text style={styles.statLabelWeb}>Crédit total CDF</Text>
+                  </View>
+                </View>
+
+                <View style={styles.statCardWeb}>
+                  <View style={styles.statIconWeb}>
+                    <Ionicons name="card" size={24} color="#0EA5E9" />
+                  </View>
+                  <View style={styles.statContentWeb}>
+                    <Text style={styles.statValueWeb}>${debtTotals.paidUsd.toFixed(2)}</Text>
+                    <Text style={styles.statLabelWeb}>Payé total USD</Text>
+                  </View>
+                </View>
+
+                <View style={styles.statCardWeb}>
+                  <View style={styles.statIconWeb}>
+                    <Ionicons name="card" size={24} color="#2563EB" />
+                  </View>
+                  <View style={styles.statContentWeb}>
+                    <Text style={styles.statValueWeb}>{debtTotals.paidCdf.toLocaleString()} CDF</Text>
+                    <Text style={styles.statLabelWeb}>Payé total CDF</Text>
+                  </View>
+                </View>
+              </View>
+
               {debtReportError && (
                 <View style={styles.errorContainerWeb}>
                   <Ionicons name="alert-circle-outline" size={24} color="#EF4444" />
@@ -3653,6 +3704,41 @@ const ReportsComponent = () => {
                 <Ionicons name={debtReportLoading ? "hourglass-outline" : "refresh-outline"} size={16} color="#FFFFFF" />
                 <Text style={styles.printButtonTextMobile}>{debtReportLoading ? '...' : 'Actualiser'}</Text>
               </TouchableOpacity>
+            </View>
+
+            {/* Statistiques dettes - Mobile/Tablet */}
+            <View style={styles.statsGridMobile}>
+              <View style={styles.statCardModernMobile}>
+                <View style={[styles.statIconModernMobile, { backgroundColor: '#FEF2F2' }]}>
+                  <Ionicons name="cash" size={24} color="#EF4444" />
+                </View>
+                <Text style={styles.statValueModernMobile}>${debtTotals.totalUsd.toFixed(2)}</Text>
+                <Text style={styles.statLabelModernMobile}>Crédit total USD</Text>
+              </View>
+
+              <View style={styles.statCardModernMobile}>
+                <View style={[styles.statIconModernMobile, { backgroundColor: '#FFFBEB' }]}>
+                  <Ionicons name="cash" size={24} color="#F59E0B" />
+                </View>
+                <Text style={styles.statValueModernMobile}>{debtTotals.totalCdf.toLocaleString()} CDF</Text>
+                <Text style={styles.statLabelModernMobile}>Crédit total CDF</Text>
+              </View>
+
+              <View style={styles.statCardModernMobile}>
+                <View style={[styles.statIconModernMobile, { backgroundColor: '#E0F2FE' }]}>
+                  <Ionicons name="card" size={24} color="#0EA5E9" />
+                </View>
+                <Text style={styles.statValueModernMobile}>${debtTotals.paidUsd.toFixed(2)}</Text>
+                <Text style={styles.statLabelModernMobile}>Payé total USD</Text>
+              </View>
+
+              <View style={styles.statCardModernMobile}>
+                <View style={[styles.statIconModernMobile, { backgroundColor: '#DBEAFE' }]}>
+                  <Ionicons name="card" size={24} color="#2563EB" />
+                </View>
+                <Text style={styles.statValueModernMobile}>{debtTotals.paidCdf.toLocaleString()} CDF</Text>
+                <Text style={styles.statLabelModernMobile}>Payé total CDF</Text>
+              </View>
             </View>
 
             {debtReportError && (
