@@ -2496,7 +2496,7 @@ const ReportsComponent = () => {
   }
 
   // Version Mobile/Table
-  if (isMobile) {
+  if (!isLargeScreen) {
     return (
       <ScrollView style={styles.containerMobile}>
         <Text style={styles.titleMobile}>Rapports</Text>
@@ -3075,7 +3075,7 @@ const ReportsComponent = () => {
             ) : (
               <View style={styles.transactionsListMobile}>
                 {debtReportData.map((item) => (
-                  <View key={item.id} style={styles.transactionItemMobile}>
+                  <TouchableOpacity key={item.id} style={styles.transactionItemMobile} onPress={() => handleOpenDebtModal(item)}>
                     <View style={styles.transactionHeaderMobile}>
                       <View style={styles.productInfoMobile}>
                         <Text style={styles.transactionDescriptionMobile}>{item.numCode || 'Sans code'}</Text>
@@ -3142,7 +3142,7 @@ const ReportsComponent = () => {
                         </Text>
                       </View>
                     </View>
-                  </View>
+                  </TouchableOpacity>
                 ))}
               </View>
             )}
@@ -3504,6 +3504,169 @@ const ReportsComponent = () => {
           onDateSelect={handleMobileEndDateSelect}
           title="Sélectionner la date de fin"
         />
+        {showDebtModal && selectedDebt && (
+          <Modal
+            visible={showDebtModal}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setShowDebtModal(false)}
+          >
+            <View style={styles.pdfOverlayBackdrop}>
+              <View style={[styles.pdfOverlayContainer, { maxWidth: 900 }]}>
+                <View style={styles.pdfOverlayHeader}>
+                  <Text style={styles.pdfOverlayTitle}>Paiements facture {selectedDebt.numCode || ''}</Text>
+                  <View style={styles.pdfOverlayActions}>
+                    <TouchableOpacity style={styles.pdfOverlayCloseButton} onPress={() => setShowDebtModal(false)}>
+                      <Ionicons name="close" size={22} color="#6B7280" />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+                  <TouchableOpacity
+                    style={[
+                      styles.reportTabButtonWeb,
+                      debtPaymentTab === 'list' && styles.reportTabButtonWebActive
+                    ]}
+                    onPress={() => setDebtPaymentTab('list')}
+                  >
+                    <Ionicons name="list" size={18} color={debtPaymentTab === 'list' ? '#FFFFFF' : '#6B7280'} />
+                    <Text style={[
+                      styles.reportTabButtonTextWeb,
+                      debtPaymentTab === 'list' && styles.reportTabButtonTextWebActive
+                    ]}>Paiements</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.reportTabButtonWeb,
+                      debtPaymentTab === 'pay' && styles.reportTabButtonWebActive
+                    ]}
+                    onPress={() => setDebtPaymentTab('pay')}
+                  >
+                    <Ionicons name="card" size={18} color={debtPaymentTab === 'pay' ? '#FFFFFF' : '#6B7280'} />
+                    <Text style={[
+                      styles.reportTabButtonTextWeb,
+                      debtPaymentTab === 'pay' && styles.reportTabButtonTextWebActive
+                    ]}>Effectuer un paiement</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {debtPaymentTab === 'list' ? (
+                  <View style={{ flex: 1 }}>
+                    {debtPaymentsLoading ? (
+                      <View style={{ padding: 20, alignItems: 'center' }}>
+                        <Ionicons name="hourglass-outline" size={28} color="#6B7280" />
+                        <Text style={{ marginTop: 8, color: '#6B7280', fontWeight: '500' }}>Chargement...</Text>
+                      </View>
+                    ) : debtPaymentsError ? (
+                      <View style={styles.errorContainerWeb}>
+                        <Ionicons name="alert-circle-outline" size={24} color="#EF4444" />
+                        <Text style={styles.errorTextWeb}>{debtPaymentsError}</Text>
+                        <TouchableOpacity style={styles.retryButtonWeb} onPress={() => loadDebtPayments(selectedDebt.id)}>
+                          <Text style={styles.retryButtonTextWeb}>Réessayer</Text>
+                        </TouchableOpacity>
+                      </View>
+                    ) : debtPayments.length === 0 ? (
+                      <View style={styles.emptyStateWeb}>
+                        <Ionicons name="document-outline" size={32} color="#9CA3AF" />
+                        <Text style={styles.emptyStateTextWeb}>Aucun paiement trouvé</Text>
+                      </View>
+                    ) : (
+                      <View style={styles.tableWeb}>
+                        <View style={styles.tableHeaderWeb}>
+                          <Text style={styles.tableHeaderTextWeb}>Montant</Text>
+                          <Text style={styles.tableHeaderTextWeb}>Taux</Text>
+                          <Text style={styles.tableHeaderTextWeb}>Observation</Text>
+                          <Text style={[styles.tableHeaderTextWeb, { borderRightWidth: 0 }]}>Date</Text>
+                        </View>
+                        {debtPayments.map((p: any) => (
+                          <View key={p.id} style={styles.tableRowWeb}>
+                            <Text style={styles.tableCellWeb}>
+                              ${(p.amountUsd ?? p.amount ?? 0).toFixed ? (p.amountUsd ?? p.amount ?? 0).toFixed(2) : (p.amountUsd ?? p.amount ?? 0)} / {(p.amountCdf ?? 0).toLocaleString()} CDF
+                            </Text>
+                            <Text style={styles.tableCellWeb}>{p.taux ?? '-'}</Text>
+                            <Text style={[styles.tableCellWeb, styles.descriptionCellWeb]}>{p.observation || '-'}</Text>
+                            <Text style={[styles.tableCellWeb, { borderRightWidth: 0 }]}>{formatDate(p.created)}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    )}
+                  </View>
+                ) : (
+                  <View style={{ gap: 12 }}>
+                    <View style={{ flexDirection: 'row', gap: 12 }}>
+                      <TouchableOpacity
+                        style={[
+                          styles.depotChipWeb,
+                          paymentDevise === 1 && styles.depotChipWebActive
+                        ]}
+                        onPress={() => setPaymentDevise(1)}
+                      >
+                        <Text style={[
+                          styles.depotChipTextWeb,
+                          paymentDevise === 1 && styles.depotChipTextWebActive
+                        ]}>USD</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[
+                          styles.depotChipWeb,
+                          paymentDevise === 2 && styles.depotChipWebActive
+                        ]}
+                        onPress={() => setPaymentDevise(2)}
+                      >
+                        <Text style={[
+                          styles.depotChipTextWeb,
+                          paymentDevise === 2 && styles.depotChipTextWebActive
+                        ]}>CDF</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <View>
+                      <Text style={styles.filterLabelWeb}>Montant (reste {paymentDevise === 1 ? `${selectedDebt.creditUsd.toFixed(2)} USD` : `${selectedDebt.creditCdf.toLocaleString()} CDF`})</Text>
+                      <TextInput
+                        style={[styles.dateInputWeb, { textAlign: 'left' }]}
+                        keyboardType="numeric"
+                        placeholder="0"
+                        value={paymentAmount}
+                        onChangeText={(val) => {
+                          let next = val;
+                          const parsed = parseFloat(val);
+                          const max = paymentDevise === 1 ? selectedDebt.creditUsd : selectedDebt.creditCdf;
+                          if (!isNaN(parsed) && parsed > max) {
+                            next = max.toString();
+                          }
+                          if (!isNaN(parsed) && parsed < 0) {
+                            next = '0';
+                          }
+                          setPaymentAmount(next);
+                        }}
+                      />
+                    </View>
+                    <View>
+                      <Text style={styles.filterLabelWeb}>Observation</Text>
+                      <TextInput
+                        style={[styles.dateInputWeb, { textAlign: 'left' }]}
+                        placeholder="Note"
+                        value={paymentObservation}
+                        onChangeText={setPaymentObservation}
+                      />
+                    </View>
+                    {paymentError && (
+                      <Text style={{ color: '#EF4444', fontSize: 13 }}>{paymentError}</Text>
+                    )}
+                    <TouchableOpacity
+                      style={[styles.printButtonWeb, { backgroundColor: paymentSubmitting ? '#A78BFA' : '#7C3AED' }]}
+                      onPress={handleSubmitDebtPayment}
+                      disabled={paymentSubmitting}
+                    >
+                      <Ionicons name="checkmark" size={18} color="#FFFFFF" />
+                      <Text style={styles.printButtonTextWeb}>{paymentSubmitting ? 'Envoi...' : 'Valider le paiement'}</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+            </View>
+          </Modal>
+        )}
         {showPdfOverlay && (
           <Modal
             visible={showPdfOverlay}
