@@ -146,6 +146,48 @@ export const convertToISOFormat = (dateString, isEndDate = false) => {
 };
 
 /**
+ * Get interval metrics data
+ * @param {string} startDate - Start date in format YYYY/MM/DD HH:MM
+ * @param {string} endDate - End date in format YYYY/MM/DD HH:MM
+ * @param {string} depotCode - Depot code (optional)
+ * @returns {Promise} API response
+ */
+export const getIntervalMetrics = async (startDate, endDate, depotCode) => {
+  try {
+    // Convertir YYYY/MM/DD HH:MM vers MM/DD/YYYY HH:MM pour l'API
+    const convertToMMDDYYYY = (dateString) => {
+      if (!dateString) return '';
+      
+      // Si c'est déjà au format YYYY/MM/DD HH:MM
+      const match = dateString.match(/^(\d{4})\/(\d{2})\/(\d{2})\s+(\d{1,2}):(\d{2})$/);
+      if (match) {
+        const [, year, month, day, hour, minute] = match;
+        return `${month}/${day}/${year} ${hour.padStart(2, '0')}:${minute.padStart(2, '0')}`;
+      }
+      
+      return dateString;
+    };
+    
+    const formattedStartDate = convertToMMDDYYYY(startDate);
+    const formattedEndDate = convertToMMDDYYYY(endDate);
+    
+    const startDateEncoded = encodeURIComponent(formattedStartDate);
+    const endDateEncoded = encodeURIComponent(formattedEndDate);
+    const depotParam = depotCode ? `&depotCode=${encodeURIComponent(depotCode)}` : '';
+    const endpoint = `/api/v1.0/Report/interval-metrics?startDate=${startDateEncoded}&endDate=${endDateEncoded}${depotParam}`;
+    
+    return await apiClient.get(endpoint);
+  } catch (error) {
+    // Retourner une réponse d'erreur au lieu de lancer une exception
+    return {
+      success: false,
+      error: error.message || 'Erreur lors du chargement des métriques d\'intervalle',
+      data: null
+    };
+  }
+};
+
+/**
  * Get today's date range (start and end both today)
  * @returns {Object} Object with startDate and endDate
  */

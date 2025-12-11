@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Dimensions, Linking, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { getExchangeRate } from '../api/configurationApi';
-import { getProductConsumptionReport, getSellingReport, getTodayDateRange } from '../api/reportApi';
+import { getIntervalMetrics, getProductConsumptionReport, getSellingReport, getTodayDateRange } from '../api/reportApi';
 import { getStockMouvementReport, getStockReaprovision, getStockSortie } from '../api/stockReportApi';
 import { getDepotCodes, getUsers } from '../api/userApi';
 import { getUserData } from '../utils/storage';
@@ -76,6 +76,27 @@ interface ConsumptionReportData {
   lastSaleDate: string;
 }
 
+// Types pour les dettes
+interface DebtReportData {
+  id: string;
+  numCode: string | null;
+  reductionUsd: number;
+  reductionCdf: number;
+  client: string;
+  taxationUsd: number;
+  taxationCdf: number;
+  userName: string;
+  nbVentes: number;
+  qteVentes: number;
+  nbPaiement: number;
+  montantPayeCdf: number;
+  montantPayeUsd: number;
+  creditUsd: number;
+  creditCdf: number;
+  depotCode: string;
+  created: string;
+}
+
 // Composant Rapports
 const ReportsComponent = () => {
   const { width } = Dimensions.get('window');
@@ -87,7 +108,7 @@ const ReportsComponent = () => {
   const [pdfPreviewHtml, setPdfPreviewHtml] = useState<string>('');
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
-  const [selectedReportType, setSelectedReportType] = useState<'sales' | 'consumption' | 'stock'>('sales');
+  const [selectedReportType, setSelectedReportType] = useState<'sales' | 'consumption' | 'stock' | 'debt'>('sales');
   const [userDepotCode, setUserDepotCode] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [selectedDepotCode, setSelectedDepotCode] = useState<string | null>(null);
@@ -213,10 +234,24 @@ const ReportsComponent = () => {
   const [sellingReportLoading, setSellingReportLoading] = useState(false);
   const [sellingReportError, setSellingReportError] = useState<string | null>(null);
 
+  // États pour les métriques d'intervalle
+  const [intervalMetrics, setIntervalMetrics] = useState<{
+    totalFactureAmountAfterReductionUsd: number;
+    totalFactureAmountAfterReductionCdf: number;
+  } | null>(null);
+  const [intervalMetricsLoading, setIntervalMetricsLoading] = useState(false);
+  const [intervalMetricsError, setIntervalMetricsError] = useState<string | null>(null);
+
   // États pour les données de rapport de consommation
   const [consumptionReportData, setConsumptionReportData] = useState<ConsumptionReportData[]>([]);
   const [consumptionReportLoading, setConsumptionReportLoading] = useState(false);
   const [consumptionReportError, setConsumptionReportError] = useState<string | null>(null);
+
+  // États pour les dettes
+  const [debtReportData, setDebtReportData] = useState<DebtReportData[]>([]);
+  const [debtReportLoading, setDebtReportLoading] = useState(false);
+  const [debtReportError, setDebtReportError] = useState<string | null>(null);
+  const [expandedDebtId, setExpandedDebtId] = useState<string | null>(null);
 
   // États pour le taux de change
   const [exchangeRate, setExchangeRate] = useState<number>(2500); // Valeur par défaut
@@ -278,13 +313,14 @@ const ReportsComponent = () => {
 
   // Configuration des onglets de rapport
   const reportTabsConfig: Array<{
-    key: 'sales' | 'consumption' | 'stock';
+    key: 'sales' | 'consumption' | 'stock' | 'debt';
     label: string;
     icon: keyof typeof Ionicons.glyphMap;
   }> = [
       { key: 'sales', label: 'Ventes & Consommation', icon: 'trending-up' },
       { key: 'consumption', label: 'Rapport Consommation', icon: 'stats-chart' },
-      { key: 'stock', label: 'Rapport des stocks', icon: 'cube' }
+      { key: 'stock', label: 'Rapport des stocks', icon: 'cube' },
+      { key: 'debt', label: 'Rapport des dettes', icon: 'alert-circle' }
     ];
 
   // Données et fonctions simplifiées
@@ -359,6 +395,44 @@ const ReportsComponent = () => {
     setSellingReportLoading(false);
   };
 
+  // Fonction pour charger les métriques d'intervalle
+  const loadIntervalMetrics = async () => {
+    setIntervalMetricsLoading(true);
+    setIntervalMetricsError(null);
+
+    const effectiveDepotCode = selectedDepotCode || userDepotCode || '';
+
+    if (!effectiveDepotCode) {
+      setIntervalMetricsError('Aucun dépôt disponible pour charger les métriques.');
+      setIntervalMetrics(null);
+      setIntervalMetricsLoading(false);
+      return;
+    }
+
+    const response = await getIntervalMetrics(
+      dateRange.startDate,
+      dateRange.endDate,
+      effectiveDepotCode
+    );
+
+    if (response.success === false) {
+      setIntervalMetricsError(response.error || 'Erreur lors du chargement des métriques d\'intervalle');
+      setIntervalMetrics(null);
+    } else {
+      const apiData = response?.data;
+      if (apiData) {
+        setIntervalMetrics({
+          totalFactureAmountAfterReductionUsd: apiData.totalFactureAmountAfterReductionUsd || 0,
+          totalFactureAmountAfterReductionCdf: apiData.totalFactureAmountAfterReductionCdf || 0,
+        });
+      } else {
+        setIntervalMetrics(null);
+      }
+    }
+
+    setIntervalMetricsLoading(false);
+  };
+
   // Fonction pour charger les données de rapport de consommation
   const loadConsumptionReportData = async () => {
     setConsumptionReportLoading(true);
@@ -374,6 +448,38 @@ const ReportsComponent = () => {
     }
 
     setConsumptionReportLoading(false);
+  };
+
+  // Fonction pour charger les factures en dette
+  const loadDebtReportData = async () => {
+    setDebtReportLoading(true);
+    setDebtReportError(null);
+    setExpandedDebtId(null);
+
+    try {
+      const response = await fetch('https://www.restau3.somee.com/api/v1.0/Report/facture-credit-report', {
+        method: 'GET',
+        headers: { accept: '*/*' }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Statut ${response.status}`);
+      }
+
+      const json = await response.json();
+      const list = Array.isArray(json?.data) ? json.data : [];
+      setDebtReportData(list);
+    } catch (error: any) {
+      console.error('Erreur lors du chargement du rapport de dettes:', error);
+      setDebtReportError('Erreur lors du chargement du rapport de dettes');
+      setDebtReportData([]);
+    } finally {
+      setDebtReportLoading(false);
+    }
+  };
+
+  const toggleDebtDetails = (id: string) => {
+    setExpandedDebtId(prev => (prev === id ? null : id));
   };
 
   // Fonction pour charger les données de stock
@@ -585,16 +691,20 @@ const ReportsComponent = () => {
   useEffect(() => {
     if (selectedReportType === 'sales') {
       loadSellingReportData();
+      loadIntervalMetrics();
     } else if (selectedReportType === 'consumption') {
       loadConsumptionReportData();
     } else if (selectedReportType === 'stock') {
       loadStockData();
+    } else if (selectedReportType === 'debt') {
+      loadDebtReportData();
     }
   }, [selectedReportType, dateRange]);
 
   useEffect(() => {
     if (selectedReportType === 'sales') {
       loadSellingReportData();
+      loadIntervalMetrics();
     } else if (selectedReportType === 'stock') {
       loadStockData();
     }
@@ -1348,6 +1458,30 @@ const ReportsComponent = () => {
                     <Text style={styles.statLabelWeb}>Quantité vendue</Text>
                   </View>
                 </View>
+
+                <View style={styles.statCardWeb}>
+                  <View style={styles.statIconWeb}>
+                    <Ionicons name="card" size={24} color="#8B5CF6" />
+                  </View>
+                  <View style={styles.statContentWeb}>
+                    <Text style={styles.statValueWeb}>
+                      {intervalMetricsLoading ? '...' : intervalMetrics ? `$${intervalMetrics.totalFactureAmountAfterReductionUsd.toFixed(2)}` : '$0.00'}
+                    </Text>
+                    <Text style={styles.statLabelWeb}>Montant facture après réduction USD</Text>
+                  </View>
+                </View>
+
+                <View style={styles.statCardWeb}>
+                  <View style={styles.statIconWeb}>
+                    <Ionicons name="card" size={24} color="#7C3AED" />
+                  </View>
+                  <View style={styles.statContentWeb}>
+                    <Text style={styles.statValueWeb}>
+                      {intervalMetricsLoading ? '...' : intervalMetrics ? intervalMetrics.totalFactureAmountAfterReductionCdf.toLocaleString() : '0'}
+                    </Text>
+                    <Text style={styles.statLabelWeb}>Montant facture après réduction CDF</Text>
+                  </View>
+                </View>
               </View>
 
               {/* Filtre par catégorie - Masqué */}
@@ -1663,6 +1797,92 @@ const ReportsComponent = () => {
               </View>
 
             </>
+          )}
+
+          {selectedReportType === 'debt' && isLargeScreen && (
+            <View style={styles.tableSectionWeb}>
+              <View style={styles.sectionHeaderWeb}>
+                <Text style={styles.sectionTitleWeb}>Rapport des dettes ({debtReportData.length})</Text>
+                <TouchableOpacity
+                  style={styles.printButtonWeb}
+                  onPress={loadDebtReportData}
+                  disabled={debtReportLoading}
+                >
+                  <Ionicons name={debtReportLoading ? "hourglass-outline" : "refresh-outline"} size={20} color="#FFFFFF" />
+                  <Text style={styles.printButtonTextWeb}>{debtReportLoading ? 'Chargement...' : 'Actualiser'}</Text>
+                </TouchableOpacity>
+              </View>
+
+              {debtReportError && (
+                <View style={styles.errorContainerWeb}>
+                  <Ionicons name="alert-circle-outline" size={24} color="#EF4444" />
+                  <Text style={styles.errorTextWeb}>{debtReportError}</Text>
+                  <TouchableOpacity style={styles.retryButtonWeb} onPress={loadDebtReportData}>
+                    <Text style={styles.retryButtonTextWeb}>Réessayer</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {debtReportLoading ? (
+                <View style={{ padding: 40, alignItems: 'center', justifyContent: 'center' }}>
+                  <Ionicons name="hourglass-outline" size={32} color="#6B7280" />
+                  <Text style={{ marginTop: 12, fontSize: 16, color: '#6B7280', fontWeight: '500' }}>
+                    Chargement des données...
+                  </Text>
+                </View>
+              ) : debtReportData.length === 0 ? (
+                <View style={styles.emptyStateWeb}>
+                  <Ionicons name="document-outline" size={48} color="#9CA3AF" />
+                  <Text style={styles.emptyStateTextWeb}>Aucune facture en dette trouvée</Text>
+                </View>
+              ) : (
+                <View style={styles.tableWeb}>
+                  <View style={styles.tableHeaderWeb}>
+                    <Text style={styles.tableHeaderTextWeb}>Code</Text>
+                    <Text style={styles.tableHeaderTextWeb}>Client</Text>
+                    <Text style={styles.tableHeaderTextWeb}>Utilisateur</Text>
+                    <Text style={styles.tableHeaderTextWeb}>Dépôt</Text>
+                    <Text style={styles.tableHeaderTextWeb}>Ventes</Text>
+                    <Text style={styles.tableHeaderTextWeb}>Quantité</Text>
+                    <Text style={styles.tableHeaderTextWeb}>Crédit USD</Text>
+                    <Text style={[styles.tableHeaderTextWeb, { borderRightWidth: 0 }]}>Date</Text>
+                  </View>
+
+                  {debtReportData.map((item) => (
+                    <View key={item.id}>
+                      <View style={styles.tableRowWeb}>
+                        <Text style={styles.tableCellWeb}>{item.numCode || '-'}</Text>
+                        <Text style={[styles.tableCellWeb, styles.descriptionCellWeb]}>{item.client || 'Anonyme'}</Text>
+                        <Text style={styles.tableCellWeb}>{item.userName}</Text>
+                        <Text style={styles.tableCellWeb}>{item.depotCode}</Text>
+                        <Text style={styles.tableCellWeb}>{item.nbVentes}</Text>
+                        <Text style={styles.tableCellWeb}>{item.qteVentes}</Text>
+                        <Text style={[styles.tableCellWeb, styles.amountCellWeb, { color: '#EF4444' }]}>
+                          ${item.creditUsd.toFixed(2)} / {item.creditCdf.toLocaleString()} CDF
+                        </Text>
+                        <Text style={[styles.tableCellWeb, { borderRightWidth: 0 }]}>
+                          {formatDate(item.created)}
+                        </Text>
+                      </View>
+                      <View style={[styles.tableRowWeb, { backgroundColor: '#F9FAFB' }]}>
+                        <Text style={[styles.tableCellWeb, { flex: 1, textAlign: 'left' }]}>
+                          Total facture:{'\n'}
+                          ${item.taxationUsd.toFixed(2)} / {item.taxationCdf.toLocaleString()} CDF
+                        </Text>
+                        <Text style={[styles.tableCellWeb, { flex: 1, textAlign: 'left' }]}>
+                          Payé:{'\n'}
+                          ${item.montantPayeUsd.toFixed(2)} / {item.montantPayeCdf.toLocaleString()} CDF
+                        </Text>
+                        <Text style={[styles.tableCellWeb, { flex: 1, textAlign: 'left', borderRightWidth: 0 }]}>
+                          Réduction:{'\n'}
+                          ${item.reductionUsd.toFixed(2)} / {item.reductionCdf.toLocaleString()} CDF
+                        </Text>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </View>
           )}
 
           {selectedReportType === 'stock' && isLargeScreen && (
@@ -2157,7 +2377,7 @@ const ReportsComponent = () => {
           </View>
         )}
 
-        {selectedReportType === 'sales' ? (
+        {selectedReportType === 'sales' && (
           <>
             {/* Statistiques principales - Grid 2x2 */}
             <View style={styles.statsGridMobile}>
@@ -2192,45 +2412,27 @@ const ReportsComponent = () => {
                 <Text style={styles.statValueModernMobile}>{sellingReportSummary.totalQuantity}</Text>
                 <Text style={styles.statLabelModernMobile}>Quantité vendue</Text>
               </View>
-            </View>
 
-            {/* Filtre par catégorie - Mobile - Masqué */}
-            {/* <View style={{ marginBottom: 16, paddingHorizontal: 16 }}>
-          <Text style={{ fontSize: 14, fontWeight: '600', color: '#1F2937', marginBottom: 8 }}>Filtrer par catégorie:</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexDirection: 'row' }}>
-            <TouchableOpacity 
-              style={[
-                { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: '#D1D5DB', marginRight: 8 },
-                !selectedCategoryId && { backgroundColor: '#10B981', borderColor: '#10B981' }
-              ]}
-              onPress={() => setSelectedCategoryId(null)}
-            >
-              <Text style={[
-                { fontSize: 12, fontWeight: '500', color: '#6B7280' },
-                !selectedCategoryId && { color: '#FFFFFF' }
-              ]}>
-                Toutes
-              </Text>
-            </TouchableOpacity>
-            {Array.isArray(categories) && categories.map((category) => (
-              <TouchableOpacity 
-                key={category.id}
-                style={[
-                  { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: '#D1D5DB', marginRight: 8 },
-                  selectedCategoryId === category.id && { backgroundColor: '#10B981', borderColor: '#10B981' }
-                ]}
-                onPress={() => setSelectedCategoryId(category.id)}
-              >
-                <Text style={[
-                  { fontSize: 12, fontWeight: '500', color: '#6B7280' },
-                  selectedCategoryId === category.id && { color: '#FFFFFF' }
-                ]}>
-                  {category.categoryName}
+              <View style={styles.statCardModernMobile}>
+                <View style={[styles.statIconModernMobile, { backgroundColor: '#EDE9FE' }]}>
+                  <Ionicons name="card" size={24} color="#8B5CF6" />
+                </View>
+                <Text style={styles.statValueModernMobile}>
+                  {intervalMetricsLoading ? '...' : intervalMetrics ? `$${intervalMetrics.totalFactureAmountAfterReductionUsd.toFixed(2)}` : '$0.00'}
                 </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View> */}
+                <Text style={styles.statLabelModernMobile}>Montant facture après réduction USD</Text>
+              </View>
+
+              <View style={styles.statCardModernMobile}>
+                <View style={[styles.statIconModernMobile, { backgroundColor: '#F3E8FF' }]}>
+                  <Ionicons name="card" size={24} color="#7C3AED" />
+                </View>
+                <Text style={styles.statValueModernMobile}>
+                  {intervalMetricsLoading ? '...' : intervalMetrics ? intervalMetrics.totalFactureAmountAfterReductionCdf.toLocaleString() : '0'}
+                </Text>
+                <Text style={styles.statLabelModernMobile}>Montant facture après réduction CDF</Text>
+              </View>
+            </View>
 
             {/* Filtre par utilisateur - Mobile */}
             <View style={{ marginBottom: 16, paddingHorizontal: 16 }}>
@@ -2392,7 +2594,9 @@ const ReportsComponent = () => {
               </View>
             )}
           </>
-        ) : (
+        )}
+
+        {selectedReportType === 'consumption' && (
           <>
             {/* Statistiques de consommation - Grid 2x2 */}
             <View style={styles.statsGridMobile}>
@@ -2562,6 +2766,122 @@ const ReportsComponent = () => {
             )}
 
           </>
+        )}
+
+        {selectedReportType === 'debt' && (
+          <View style={styles.listSectionMobile}>
+            <View style={styles.sectionHeaderMobile}>
+              <Text style={styles.sectionTitleMobile}>Rapport des dettes ({debtReportData.length})</Text>
+              <TouchableOpacity
+                style={styles.printButtonMobile}
+                onPress={loadDebtReportData}
+                disabled={debtReportLoading}
+              >
+                <Ionicons name={debtReportLoading ? "hourglass-outline" : "refresh-outline"} size={16} color="#FFFFFF" />
+                <Text style={styles.printButtonTextMobile}>{debtReportLoading ? '...' : 'Actualiser'}</Text>
+              </TouchableOpacity>
+            </View>
+
+            {debtReportError && (
+              <View style={styles.errorContainerMobile}>
+                <Ionicons name="alert-circle-outline" size={20} color="#EF4444" />
+                <Text style={styles.errorTextMobile}>{debtReportError}</Text>
+                <TouchableOpacity
+                  style={styles.retryButtonMobile}
+                  onPress={loadDebtReportData}
+                >
+                  <Text style={styles.retryButtonTextMobile}>Réessayer</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {debtReportLoading ? (
+              <View style={{ padding: 32, alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="hourglass-outline" size={28} color="#6B7280" />
+                <Text style={{ marginTop: 10, fontSize: 14, color: '#6B7280', fontWeight: '500' }}>
+                  Chargement des données...
+                </Text>
+              </View>
+            ) : debtReportData.length === 0 ? (
+              <View style={styles.emptyStateMobile}>
+                <Ionicons name="document-outline" size={32} color="#9CA3AF" />
+                <Text style={styles.emptyStateTextMobile}>Aucune facture en dette trouvée</Text>
+              </View>
+            ) : (
+              <View style={styles.transactionsListMobile}>
+                {debtReportData.map((item) => (
+                  <View key={item.id} style={styles.transactionItemMobile}>
+                    <View style={styles.transactionHeaderMobile}>
+                      <View style={styles.productInfoMobile}>
+                        <Text style={styles.transactionDescriptionMobile}>{item.numCode || 'Sans code'}</Text>
+                        <Text style={styles.transactionDateTextMobile}>
+                          {item.client || 'Client non renseigné'}
+                        </Text>
+                      </View>
+                      <Text style={[styles.transactionTotalMobile, { color: '#EF4444' }]}>
+                        ${item.creditUsd.toFixed(2)}
+                      </Text>
+                    </View>
+
+                    <View style={{ marginVertical: 8 }}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                        <Text style={{ fontSize: 12, color: '#6B7280', fontWeight: '500' }}>Utilisateur:</Text>
+                        <Text style={{ fontSize: 12, color: '#1F2937' }}>{item.userName}</Text>
+                      </View>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                        <Text style={{ fontSize: 12, color: '#6B7280', fontWeight: '500' }}>Dépôt:</Text>
+                        <Text style={{ fontSize: 12, color: '#1F2937' }}>{item.depotCode}</Text>
+                      </View>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                        <Text style={{ fontSize: 12, color: '#6B7280', fontWeight: '500' }}>Ventes / Qté:</Text>
+                        <Text style={{ fontSize: 12, color: '#1F2937' }}>{item.nbVentes} / {item.qteVentes}</Text>
+                      </View>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                        <Text style={{ fontSize: 12, color: '#6B7280', fontWeight: '500' }}>Date:</Text>
+                        <Text style={{ fontSize: 12, color: '#1F2937' }}>{formatDate(item.created)}</Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.transactionFooterMobile}>
+                      <View style={[styles.transactionTypeMobile, { backgroundColor: '#F59E0B' }]}>
+                        <Text style={styles.transactionTypeTextMobile}>Crédit</Text>
+                      </View>
+                      <View style={{ alignItems: 'flex-end' }}>
+                        <Text style={[styles.transactionAmountMobile, { color: '#EF4444' }]}>
+                          {item.creditCdf.toLocaleString()} CDF
+                        </Text>
+                        <Text style={[styles.transactionAmountMobile, { color: '#EF4444', fontSize: 14 }]}>
+                          ${item.creditUsd.toFixed(2)}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* Détails supplémentaires */}
+                    <View style={styles.stockInfoMobile}>
+                      <View style={styles.stockRowMobile}>
+                        <Text style={styles.stockLabelMobile}>Total facture</Text>
+                        <Text style={styles.stockValueMobile}>
+                          ${item.taxationUsd.toFixed(2)} / {item.taxationCdf.toLocaleString()} CDF
+                        </Text>
+                      </View>
+                      <View style={styles.stockRowMobile}>
+                        <Text style={styles.stockLabelMobile}>Déjà payé</Text>
+                        <Text style={styles.stockValueMobile}>
+                          ${item.montantPayeUsd.toFixed(2)} / {item.montantPayeCdf.toLocaleString()} CDF
+                        </Text>
+                      </View>
+                      <View style={styles.stockRowMobile}>
+                        <Text style={styles.stockLabelMobile}>Réduction</Text>
+                        <Text style={styles.stockValueMobile}>
+                          ${item.reductionUsd.toFixed(2)} / {item.reductionCdf.toLocaleString()} CDF
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
         )}
 
         {selectedReportType === 'stock' && (
@@ -3196,7 +3516,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 8,
     padding: 20,
-    flexDirection: 'row',
+    
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
