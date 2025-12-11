@@ -247,7 +247,7 @@ const ReportsComponent = () => {
   const [stockMovementData, setStockMovementData] = useState<StockMovementData[]>([]);
   const [stockLoading, setStockLoading] = useState(false);
   const [stockError, setStockError] = useState<string | null>(null);
-  
+
   // États pour les filtres des mouvements de stock
   const [stockMovementFilter, setStockMovementFilter] = useState<'all' | 'sortie' | 'entree'>('all');
   const [stockMovementSearch, setStockMovementSearch] = useState<string>('');
@@ -989,19 +989,19 @@ const ReportsComponent = () => {
     const selectedDepotNormalized = (selectedDepotCode ?? '').trim().toLowerCase();
     return stockMovementData.filter(item => {
       // Filtre par type de mouvement
-      const mouvementMatch = stockMovementFilter === 'all' || 
+      const mouvementMatch = stockMovementFilter === 'all' ||
         (stockMovementFilter === 'sortie' && item.mouvementType?.toLowerCase() === 'sortie') ||
         (stockMovementFilter === 'entree' && item.mouvementType?.toLowerCase() !== 'sortie');
-      
+
       // Filtre par recherche de nom de produit
-      const searchMatch = !stockMovementSearch || 
+      const searchMatch = !stockMovementSearch ||
         item.productName?.toLowerCase().includes(stockMovementSearch.toLowerCase());
 
       // Filtre par dépôt
       const depotMatch =
         selectedDepotNormalized === '' ||
         (item.depotCode || '').trim().toLowerCase() === selectedDepotNormalized;
-      
+
       return mouvementMatch && searchMatch && depotMatch;
     });
   }, [stockMovementData, stockMovementFilter, stockMovementSearch, selectedDepotCode]);
@@ -1787,29 +1787,29 @@ const ReportsComponent = () => {
                   </View>
                 </View>
 
-              <View style={styles.statCardWeb}>
-                <View style={styles.statIconWeb}>
-                  <Ionicons name="cash-outline" size={24} color="#0EA5E9" />
+                <View style={styles.statCardWeb}>
+                  <View style={styles.statIconWeb}>
+                    <Ionicons name="cash-outline" size={24} color="#0EA5E9" />
+                  </View>
+                  <View style={styles.statContentWeb}>
+                    <Text style={styles.statValueWeb}>
+                      {sellingReportLoading || expensesLoading ? '...' : `$${realRevenueUsd.toFixed(2)}`}
+                    </Text>
+                    <Text style={styles.statLabelWeb}>Chiffre d'affaires USD réel</Text>
+                  </View>
                 </View>
-                <View style={styles.statContentWeb}>
-                  <Text style={styles.statValueWeb}>
-                    {sellingReportLoading || expensesLoading ? '...' : `$${realRevenueUsd.toFixed(2)}`}
-                  </Text>
-                  <Text style={styles.statLabelWeb}>Chiffre d'affaires USD réel</Text>
-                </View>
-              </View>
 
-              <View style={styles.statCardWeb}>
-                <View style={styles.statIconWeb}>
-                  <Ionicons name="cash-outline" size={24} color="#0284C7" />
+                <View style={styles.statCardWeb}>
+                  <View style={styles.statIconWeb}>
+                    <Ionicons name="cash-outline" size={24} color="#0284C7" />
+                  </View>
+                  <View style={styles.statContentWeb}>
+                    <Text style={styles.statValueWeb}>
+                      {sellingReportLoading || expensesLoading ? '...' : realRevenueCdf.toLocaleString()}
+                    </Text>
+                    <Text style={styles.statLabelWeb}>Chiffre d'affaires CDF réel</Text>
+                  </View>
                 </View>
-                <View style={styles.statContentWeb}>
-                  <Text style={styles.statValueWeb}>
-                    {sellingReportLoading || expensesLoading ? '...' : realRevenueCdf.toLocaleString()}
-                  </Text>
-                  <Text style={styles.statLabelWeb}>Chiffre d'affaires CDF réel</Text>
-                </View>
-              </View>
 
                 <View style={styles.statCardWeb}>
                   <View style={styles.statIconWeb}>
@@ -2173,8 +2173,8 @@ const ReportsComponent = () => {
 
           {selectedReportType === 'debt' && isLargeScreen && (
             <View style={styles.tableSectionWeb}>
-                <View style={styles.sectionHeaderWeb}>
-                  <Text style={styles.sectionTitleWeb}>Rapport des dettes ({filteredDebtReportData.length})</Text>
+              <View style={styles.sectionHeaderWeb}>
+                <Text style={styles.sectionTitleWeb}>Rapport des dettes ({filteredDebtReportData.length})</Text>
                 <TouchableOpacity
                   style={styles.printButtonWeb}
                   onPress={loadDebtReportData}
@@ -2449,7 +2449,7 @@ const ReportsComponent = () => {
                   </View>
                 </View>
 
-                
+
 
                 <View style={styles.statCardWeb}>
                   <View style={styles.statIconWeb}>
@@ -2702,9 +2702,9 @@ const ReportsComponent = () => {
                             <Ionicons name="swap-vertical" size={20} color="#3B82F6" />
                             Mouvements de stock ({filteredStockMovementData.length})
                           </Text>
-                          
+
                         </View>
-                        
+
                         {/* Filtres et recherche */}
                         <View style={styles.stockFiltersContainerWeb}>
                           <View style={styles.stockFilterRowWeb}>
@@ -2831,7 +2831,7 @@ const ReportsComponent = () => {
                             )}
                           </View>
                         </View>
-                        
+
                         <View style={styles.tableContainerWeb}>
                           <View style={styles.tableHeaderWeb}>
                             <Text style={styles.tableHeaderTextWeb}>Date</Text>
@@ -4221,7 +4221,7 @@ const ReportsComponent = () => {
         {selectedReportType === 'stock' && (
           <>
             {/* Section Rapport des stocks Mobile */}
-              <View style={styles.stockReportSectionMobile}>
+            <View style={styles.stockReportSectionMobile}>
 
               {/* États de chargement et erreurs */}
               {stockLoading && (
@@ -4315,7 +4315,7 @@ const ReportsComponent = () => {
                           Mouvements de stock ({filteredStockMovementData.length})
                         </Text>
                       </View>
-                      
+
                       {/* Filtres et recherche Mobile */}
                       <View style={styles.stockFiltersContainerMobile}>
                         <View style={styles.stockFilterRowMobile}>
@@ -4437,7 +4437,7 @@ const ReportsComponent = () => {
                           )}
                         </View>
                       </View>
-                      
+
                       <View style={styles.transactionsListMobile}>
                         {filteredStockMovementData.map((item, index) => {
                           const isSortie = item.mouvementType?.toLowerCase() === 'sortie';
@@ -5048,7 +5048,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 8,
     padding: 20,
-    
+
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
