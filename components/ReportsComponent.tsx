@@ -977,10 +977,10 @@ const ReportsComponent = () => {
   };
 
   // Fonction pour imprimer les rapports en PDF
-  const handlePrintReport = (reportType: 'sales' | 'consumption' | 'stock') => {
+  const handlePrintReport = (reportType: 'sales' | 'consumption' | 'stock' | 'debt') => {
     const data = reportType === 'sales' ? filteredSellingReportData :
       reportType === 'consumption' ? consumptionReportData :
-        stockMovementData;
+        reportType === 'stock' ? stockMovementData : filteredDebtReportData;
 
     if (!data || data.length === 0) {
       alert('Aucune donnée à imprimer.');
@@ -1002,7 +1002,7 @@ const ReportsComponent = () => {
     try {
       const reportTitle = reportType === 'sales' ? 'Rapport de Vente' :
         reportType === 'consumption' ? 'Rapport de Consommation' :
-          'Rapport des Mouvements de Stock';
+          reportType === 'stock' ? 'Rapport des Mouvements de Stock' : 'Rapport des dettes';
       const currentDate = new Date().toLocaleDateString('fr-FR');
       const startDateFormatted = formatDateForDisplay(startDate);
       const endDateFormatted = formatDateForDisplay(endDate);
@@ -1103,7 +1103,7 @@ const ReportsComponent = () => {
   };
 
   // Fonction pour générer le HTML d'impression
-  const generatePrintHTML = (reportType: 'sales' | 'consumption' | 'stock', data: any[], reportTitle: string, currentDate: string, startDate: string, endDate: string) => {
+  const generatePrintHTML = (reportType: 'sales' | 'consumption' | 'stock' | 'debt', data: any[], reportTitle: string, currentDate: string, startDate: string, endDate: string) => {
     let tableHTML = '';
 
     if (reportType === 'stock') {
@@ -1178,7 +1178,7 @@ const ReportsComponent = () => {
           </tbody>
         </table>
       `;
-    } else {
+    } else if (reportType === 'consumption') {
       tableHTML = `
         <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
           <thead>
@@ -1209,6 +1209,47 @@ const ReportsComponent = () => {
                   ${new Date(item.firstSaleDate).toLocaleDateString('fr-FR')} ${new Date(item.firstSaleDate).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                   <br/>- ${new Date(item.lastSaleDate).toLocaleDateString('fr-FR')} ${new Date(item.lastSaleDate).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                 </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    } else {
+      tableHTML = `
+        <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+          <thead>
+            <tr style="background-color: #7C3AED; color: white;">
+              <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Code</th>
+              <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Client</th>
+              <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Utilisateur</th>
+              <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Dépôt</th>
+              <th style="border: 1px solid #ddd; padding: 8px; text-align: center;">Ventes</th>
+              <th style="border: 1px solid #ddd; padding: 8px; text-align: center;">Quantité</th>
+              <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">Crédit USD / CDF</th>
+              <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">Payé USD / CDF</th>
+              <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">Réduction USD / CDF</th>
+              <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data.map(item => `
+              <tr>
+                <td style="border: 1px solid #ddd; padding: 8px;">${item.numCode || '-'}</td>
+                <td style="border: 1px solid #ddd; padding: 8px;">${item.client || 'Anonyme'}</td>
+                <td style="border: 1px solid #ddd; padding: 8px;">${item.userName || ''}</td>
+                <td style="border: 1px solid #ddd; padding: 8px;">${item.depotCode || ''}</td>
+                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${item.nbVentes ?? '-'}</td>
+                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${item.qteVentes ?? '-'}</td>
+                <td style="border: 1px solid #ddd; padding: 8px; text-align: right; color: #EF4444;">
+                  $${(item.creditUsd ?? 0).toFixed(2)} / ${(item.creditCdf ?? 0).toLocaleString()} CDF
+                </td>
+                <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">
+                  $${(item.montantPayeUsd ?? 0).toFixed(2)} / ${(item.montantPayeCdf ?? 0).toLocaleString()} CDF
+                </td>
+                <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">
+                  $${(item.reductionUsd ?? 0).toFixed(2)} / ${(item.reductionCdf ?? 0).toLocaleString()} CDF
+                </td>
+                <td style="border: 1px solid #ddd; padding: 8px;">${formatDate(item.created)}</td>
               </tr>
             `).join('')}
           </tbody>
@@ -1320,12 +1361,18 @@ const ReportsComponent = () => {
             <p><strong>Total des revenus CDF:</strong> ${data.reduce((sum, item) => sum + (item.totalRevenueCdf || 0), 0).toLocaleString()} CDF</p>
             <p><strong>Quantité totale vendue:</strong> ${data.reduce((sum, item) => sum + (item.totalQuantitySold || 0), 0)}</p>
             <p><strong>Nombre total de ventes:</strong> ${data.reduce((sum, item) => sum + (item.numberOfSales || 0), 0)}</p>
-          ` : `
+          ` : reportType === 'stock' ? `
             <p><strong>Total des mouvements:</strong> ${data.length}</p>
             <p><strong>Sorties:</strong> ${data.filter(item => item.mouvementType?.toLowerCase() === 'sortie').length}</p>
             <p><strong>Entrées:</strong> ${data.filter(item => item.mouvementType?.toLowerCase() !== 'sortie').length}</p>
             <p><strong>Quantité totale (sorties):</strong> ${data.filter(item => item.mouvementType?.toLowerCase() === 'sortie').reduce((sum, item) => sum + (item.quantity || 0), 0)}</p>
             <p><strong>Quantité totale (entrées):</strong> ${data.filter(item => item.mouvementType?.toLowerCase() !== 'sortie').reduce((sum, item) => sum + (item.quantity || 0), 0)}</p>
+          ` : `
+            <p><strong>Factures en dette:</strong> ${data.length}</p>
+            <p><strong>Crédit total USD:</strong> $${data.reduce((sum, item) => sum + (item.creditUsd || 0), 0).toFixed(2)}</p>
+            <p><strong>Crédit total CDF:</strong> ${data.reduce((sum, item) => sum + (item.creditCdf || 0), 0).toLocaleString()} CDF</p>
+            <p><strong>Payé total USD:</strong> $${data.reduce((sum, item) => sum + (item.montantPayeUsd || 0), 0).toFixed(2)}</p>
+            <p><strong>Payé total CDF:</strong> ${data.reduce((sum, item) => sum + (item.montantPayeCdf || 0), 0).toLocaleString()} CDF</p>
           `}
         </div>
         
@@ -1944,10 +1991,10 @@ const ReportsComponent = () => {
                 </View>
               ) : (
                 <>
-                  <View style={[styles.stockSearchContainerWeb, { marginBottom: 5 }]}>
+                  <View style={[styles.stockSearchContainerWeb, { marginBottom: 2 }]}>
                     <Ionicons name="search" size={20} color="#6B7280" style={styles.searchIconWeb} />
                     <TextInput
-                      style={styles.stockSearchInputWeb}
+                      style={[styles.stockSearchInputWeb, { flex: 1 }]}
                       placeholder="Rechercher par code facture ou client..."
                       value={debtSearch}
                       onChangeText={setDebtSearch}
@@ -1958,6 +2005,14 @@ const ReportsComponent = () => {
                         <Ionicons name="close-circle" size={20} color="#6B7280" />
                       </TouchableOpacity>
                     )}
+                    <TouchableOpacity
+                      style={[styles.printButtonWeb, { marginLeft: 8, paddingHorizontal: 12, paddingVertical: 10 }]}
+                      onPress={() => handlePrintReport('debt')}
+                      disabled={debtReportLoading || filteredDebtReportData.length === 0}
+                    >
+                      <Ionicons name="print" size={18} color="#FFFFFF" />
+                      <Text style={styles.printButtonTextWeb}>Imprimer</Text>
+                    </TouchableOpacity>
                   </View>
 
                   {filteredDebtReportData.length === 0 ? (
@@ -3105,10 +3160,10 @@ const ReportsComponent = () => {
               </View>
             ) : (
               <>
-                <View style={[styles.stockSearchContainerMobile, { marginBottom: 5 }]}>
+                <View style={[styles.stockSearchContainerMobile, { marginBottom: 2 }]}>
                   <Ionicons name="search" size={18} color="#6B7280" style={styles.searchIconMobile} />
                   <TextInput
-                    style={styles.stockSearchInputMobile}
+                    style={[styles.stockSearchInputMobile, { flex: 1 }]}
                     placeholder="Rechercher par code facture ou client..."
                     value={debtSearch}
                     onChangeText={setDebtSearch}
@@ -3122,6 +3177,14 @@ const ReportsComponent = () => {
                       <Ionicons name="close-circle" size={18} color="#6B7280" />
                     </TouchableOpacity>
                   )}
+                  <TouchableOpacity
+                    style={[styles.printButtonMobile, { marginLeft: 8, paddingHorizontal: 10, paddingVertical: 8 }]}
+                    onPress={() => handlePrintReport('debt')}
+                    disabled={debtReportLoading || filteredDebtReportData.length === 0}
+                  >
+                    <Ionicons name="print" size={16} color="#FFFFFF" />
+                    <Text style={styles.printButtonTextMobile}>Imprimer</Text>
+                  </TouchableOpacity>
                 </View>
 
                 {filteredDebtReportData.length === 0 ? (
