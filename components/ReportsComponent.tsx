@@ -263,6 +263,7 @@ const ReportsComponent = () => {
   const [paymentObservation, setPaymentObservation] = useState<string>('');
   const [paymentSubmitting, setPaymentSubmitting] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [debtSearch, setDebtSearch] = useState<string>('');
 
   // États pour le taux de change
   const [exchangeRate, setExchangeRate] = useState<number>(2500); // Valeur par défaut
@@ -494,6 +495,15 @@ const ReportsComponent = () => {
   const toggleDebtDetails = (id: string) => {
     setExpandedDebtId(prev => (prev === id ? null : id));
   };
+
+  const filteredDebtReportData = useMemo(() => {
+    if (!debtSearch.trim()) return debtReportData;
+    const term = debtSearch.trim().toLowerCase();
+    return debtReportData.filter(item =>
+      (item.numCode || '').toLowerCase().includes(term) ||
+      (item.client || '').toLowerCase().includes(term)
+    );
+  }, [debtReportData, debtSearch]);
 
   const loadDebtPayments = async (factureId: string) => {
     setDebtPaymentsLoading(true);
@@ -1903,8 +1913,8 @@ const ReportsComponent = () => {
 
           {selectedReportType === 'debt' && isLargeScreen && (
             <View style={styles.tableSectionWeb}>
-              <View style={styles.sectionHeaderWeb}>
-                <Text style={styles.sectionTitleWeb}>Rapport des dettes ({debtReportData.length})</Text>
+                <View style={styles.sectionHeaderWeb}>
+                  <Text style={styles.sectionTitleWeb}>Rapport des dettes ({filteredDebtReportData.length})</Text>
                 <TouchableOpacity
                   style={styles.printButtonWeb}
                   onPress={loadDebtReportData}
@@ -1932,57 +1942,77 @@ const ReportsComponent = () => {
                     Chargement des données...
                   </Text>
                 </View>
-              ) : debtReportData.length === 0 ? (
-                <View style={styles.emptyStateWeb}>
-                  <Ionicons name="document-outline" size={48} color="#9CA3AF" />
-                  <Text style={styles.emptyStateTextWeb}>Aucune facture en dette trouvée</Text>
-                </View>
               ) : (
-                <View style={styles.tableWeb}>
-                  <View style={styles.tableHeaderWeb}>
-                    <Text style={styles.tableHeaderTextWeb}>Code</Text>
-                    <Text style={styles.tableHeaderTextWeb}>Client</Text>
-                    <Text style={styles.tableHeaderTextWeb}>Utilisateur</Text>
-                    <Text style={styles.tableHeaderTextWeb}>Dépôt</Text>
-                    <Text style={styles.tableHeaderTextWeb}>Ventes</Text>
-                    <Text style={styles.tableHeaderTextWeb}>Quantité</Text>
-                    <Text style={styles.tableHeaderTextWeb}>Crédit USD</Text>
-                    <Text style={[styles.tableHeaderTextWeb, { borderRightWidth: 0 }]}>Date</Text>
+                <>
+                  <View style={[styles.stockSearchContainerWeb, { marginBottom: 5 }]}>
+                    <Ionicons name="search" size={20} color="#6B7280" style={styles.searchIconWeb} />
+                    <TextInput
+                      style={styles.stockSearchInputWeb}
+                      placeholder="Rechercher par code facture ou client..."
+                      value={debtSearch}
+                      onChangeText={setDebtSearch}
+                      placeholderTextColor="#9CA3AF"
+                    />
+                    {debtSearch.length > 0 && (
+                      <TouchableOpacity onPress={() => setDebtSearch('')} style={styles.searchClearButtonWeb}>
+                        <Ionicons name="close-circle" size={20} color="#6B7280" />
+                      </TouchableOpacity>
+                    )}
                   </View>
 
-                  {debtReportData.map((item) => (
-                    <View key={item.id}>
-                      <TouchableOpacity style={styles.tableRowWeb} onPress={() => handleOpenDebtModal(item)}>
-                        <Text style={styles.tableCellWeb}>{item.numCode || '-'}</Text>
-                        <Text style={[styles.tableCellWeb, styles.descriptionCellWeb]}>{item.client || 'Anonyme'}</Text>
-                        <Text style={styles.tableCellWeb}>{item.userName}</Text>
-                        <Text style={styles.tableCellWeb}>{item.depotCode}</Text>
-                        <Text style={styles.tableCellWeb}>{item.nbVentes}</Text>
-                        <Text style={styles.tableCellWeb}>{item.qteVentes}</Text>
-                        <Text style={[styles.tableCellWeb, styles.amountCellWeb, { color: '#EF4444' }]}>
-                          ${item.creditUsd.toFixed(2)} / {item.creditCdf.toLocaleString()} CDF
-                        </Text>
-                        <Text style={[styles.tableCellWeb, { borderRightWidth: 0 }]}>
-                          {formatDate(item.created)}
-                        </Text>
-                      </TouchableOpacity>
-                      <View style={[styles.tableRowWeb, { backgroundColor: '#F9FAFB' }]}>
-                        <Text style={[styles.tableCellWeb, { flex: 1, textAlign: 'left' }]}>
-                          Total facture:{'\n'}
-                          ${item.taxationUsd.toFixed(2)} / {item.taxationCdf.toLocaleString()} CDF
-                        </Text>
-                        <Text style={[styles.tableCellWeb, { flex: 1, textAlign: 'left' }]}>
-                          Payé:{'\n'}
-                          ${item.montantPayeUsd.toFixed(2)} / {item.montantPayeCdf.toLocaleString()} CDF
-                        </Text>
-                        <Text style={[styles.tableCellWeb, { flex: 1, textAlign: 'left', borderRightWidth: 0 }]}>
-                          Réduction:{'\n'}
-                          ${item.reductionUsd.toFixed(2)} / {item.reductionCdf.toLocaleString()} CDF
-                        </Text>
-                      </View>
+                  {filteredDebtReportData.length === 0 ? (
+                    <View style={styles.emptyStateWeb}>
+                      <Ionicons name="document-outline" size={48} color="#9CA3AF" />
+                      <Text style={styles.emptyStateTextWeb}>Aucune facture en dette trouvée</Text>
                     </View>
-                  ))}
-                </View>
+                  ) : (
+                    <View style={styles.tableWeb}>
+                      <View style={styles.tableHeaderWeb}>
+                        <Text style={styles.tableHeaderTextWeb}>Code</Text>
+                        <Text style={styles.tableHeaderTextWeb}>Client</Text>
+                        <Text style={styles.tableHeaderTextWeb}>Utilisateur</Text>
+                        <Text style={styles.tableHeaderTextWeb}>Dépôt</Text>
+                        <Text style={styles.tableHeaderTextWeb}>Ventes</Text>
+                        <Text style={styles.tableHeaderTextWeb}>Quantité</Text>
+                        <Text style={styles.tableHeaderTextWeb}>Crédit USD</Text>
+                        <Text style={[styles.tableHeaderTextWeb, { borderRightWidth: 0 }]}>Date</Text>
+                      </View>
+
+                      {filteredDebtReportData.map((item) => (
+                        <View key={item.id}>
+                          <TouchableOpacity style={styles.tableRowWeb} onPress={() => handleOpenDebtModal(item)}>
+                            <Text style={styles.tableCellWeb}>{item.numCode || '-'}</Text>
+                            <Text style={[styles.tableCellWeb, styles.descriptionCellWeb]}>{item.client || 'Anonyme'}</Text>
+                            <Text style={styles.tableCellWeb}>{item.userName}</Text>
+                            <Text style={styles.tableCellWeb}>{item.depotCode}</Text>
+                            <Text style={styles.tableCellWeb}>{item.nbVentes}</Text>
+                            <Text style={styles.tableCellWeb}>{item.qteVentes}</Text>
+                            <Text style={[styles.tableCellWeb, styles.amountCellWeb, { color: '#EF4444' }]}>
+                              ${item.creditUsd.toFixed(2)} / {item.creditCdf.toLocaleString()} CDF
+                            </Text>
+                            <Text style={[styles.tableCellWeb, { borderRightWidth: 0 }]}>
+                              {formatDate(item.created)}
+                            </Text>
+                          </TouchableOpacity>
+                          <View style={[styles.tableRowWeb, { backgroundColor: '#F9FAFB' }]}>
+                            <Text style={[styles.tableCellWeb, { flex: 1, textAlign: 'left' }]}>
+                              Total facture:{'\n'}
+                              ${item.taxationUsd.toFixed(2)} / {item.taxationCdf.toLocaleString()} CDF
+                            </Text>
+                            <Text style={[styles.tableCellWeb, { flex: 1, textAlign: 'left' }]}>
+                              Payé:{'\n'}
+                              ${item.montantPayeUsd.toFixed(2)} / {item.montantPayeCdf.toLocaleString()} CDF
+                            </Text>
+                            <Text style={[styles.tableCellWeb, { flex: 1, textAlign: 'left', borderRightWidth: 0 }]}>
+                              Réduction:{'\n'}
+                              ${item.reductionUsd.toFixed(2)} / {item.reductionCdf.toLocaleString()} CDF
+                            </Text>
+                          </View>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </>
               )}
             </View>
           )}
@@ -3042,7 +3072,7 @@ const ReportsComponent = () => {
         {selectedReportType === 'debt' && (
           <View style={styles.listSectionMobile}>
             <View style={styles.sectionHeaderMobile}>
-              <Text style={styles.sectionTitleMobile}>Rapport des dettes ({debtReportData.length})</Text>
+              <Text style={styles.sectionTitleMobile}>Rapport des dettes ({filteredDebtReportData.length})</Text>
               <TouchableOpacity
                 style={styles.printButtonMobile}
                 onPress={loadDebtReportData}
@@ -3073,84 +3103,107 @@ const ReportsComponent = () => {
                   Chargement des données...
                 </Text>
               </View>
-            ) : debtReportData.length === 0 ? (
-              <View style={styles.emptyStateMobile}>
-                <Ionicons name="document-outline" size={32} color="#9CA3AF" />
-                <Text style={styles.emptyStateTextMobile}>Aucune facture en dette trouvée</Text>
-              </View>
             ) : (
-              <View style={styles.transactionsListMobile}>
-                {debtReportData.map((item) => (
-                  <TouchableOpacity key={item.id} style={styles.transactionItemMobile} onPress={() => handleOpenDebtModal(item)}>
-                    <View style={styles.transactionHeaderMobile}>
-                      <View style={styles.productInfoMobile}>
-                        <Text style={styles.transactionDescriptionMobile}>{item.numCode || 'Sans code'}</Text>
-                        <Text style={styles.transactionDateTextMobile}>
-                          {item.client || 'Client non renseigné'}
-                        </Text>
-                      </View>
-                      <Text style={[styles.transactionTotalMobile, { color: '#EF4444' }]}>
-                        ${item.creditUsd.toFixed(2)}
-                      </Text>
-                    </View>
+              <>
+                <View style={[styles.stockSearchContainerMobile, { marginBottom: 5 }]}>
+                  <Ionicons name="search" size={18} color="#6B7280" style={styles.searchIconMobile} />
+                  <TextInput
+                    style={styles.stockSearchInputMobile}
+                    placeholder="Rechercher par code facture ou client..."
+                    value={debtSearch}
+                    onChangeText={setDebtSearch}
+                    placeholderTextColor="#9CA3AF"
+                  />
+                  {debtSearch.length > 0 && (
+                    <TouchableOpacity
+                      onPress={() => setDebtSearch('')}
+                      style={styles.searchClearButtonMobile}
+                    >
+                      <Ionicons name="close-circle" size={18} color="#6B7280" />
+                    </TouchableOpacity>
+                  )}
+                </View>
 
-                    <View style={{ marginVertical: 8 }}>
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
-                        <Text style={{ fontSize: 12, color: '#6B7280', fontWeight: '500' }}>Utilisateur:</Text>
-                        <Text style={{ fontSize: 12, color: '#1F2937' }}>{item.userName}</Text>
-                      </View>
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
-                        <Text style={{ fontSize: 12, color: '#6B7280', fontWeight: '500' }}>Dépôt:</Text>
-                        <Text style={{ fontSize: 12, color: '#1F2937' }}>{item.depotCode}</Text>
-                      </View>
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
-                        <Text style={{ fontSize: 12, color: '#6B7280', fontWeight: '500' }}>Ventes / Qté:</Text>
-                        <Text style={{ fontSize: 12, color: '#1F2937' }}>{item.nbVentes} / {item.qteVentes}</Text>
-                      </View>
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                        <Text style={{ fontSize: 12, color: '#6B7280', fontWeight: '500' }}>Date:</Text>
-                        <Text style={{ fontSize: 12, color: '#1F2937' }}>{formatDate(item.created)}</Text>
-                      </View>
-                    </View>
+                {filteredDebtReportData.length === 0 ? (
+                  <View style={styles.emptyStateMobile}>
+                    <Ionicons name="document-outline" size={32} color="#9CA3AF" />
+                    <Text style={styles.emptyStateTextMobile}>Aucune facture en dette trouvée</Text>
+                  </View>
+                ) : (
+                  <View style={styles.transactionsListMobile}>
+                    {filteredDebtReportData.map((item) => (
+                      <TouchableOpacity key={item.id} style={styles.transactionItemMobile} onPress={() => handleOpenDebtModal(item)}>
+                        <View style={styles.transactionHeaderMobile}>
+                          <View style={styles.productInfoMobile}>
+                            <Text style={styles.transactionDescriptionMobile}>{item.numCode || 'Sans code'}</Text>
+                            <Text style={styles.transactionDateTextMobile}>
+                              {item.client || 'Client non renseigné'}
+                            </Text>
+                          </View>
+                          <Text style={[styles.transactionTotalMobile, { color: '#EF4444' }]}>
+                            ${item.creditUsd.toFixed(2)}
+                          </Text>
+                        </View>
 
-                    <View style={styles.transactionFooterMobile}>
-                      <View style={[styles.transactionTypeMobile, { backgroundColor: '#F59E0B' }]}>
-                        <Text style={styles.transactionTypeTextMobile}>Crédit</Text>
-                      </View>
-                      <View style={{ alignItems: 'flex-end' }}>
-                        <Text style={[styles.transactionAmountMobile, { color: '#EF4444' }]}>
-                          {item.creditCdf.toLocaleString()} CDF
-                        </Text>
-                        <Text style={[styles.transactionAmountMobile, { color: '#EF4444', fontSize: 14 }]}>
-                          ${item.creditUsd.toFixed(2)}
-                        </Text>
-                      </View>
-                    </View>
+                        <View style={{ marginVertical: 8 }}>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                            <Text style={{ fontSize: 12, color: '#6B7280', fontWeight: '500' }}>Utilisateur:</Text>
+                            <Text style={{ fontSize: 12, color: '#1F2937' }}>{item.userName}</Text>
+                          </View>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                            <Text style={{ fontSize: 12, color: '#6B7280', fontWeight: '500' }}>Dépôt:</Text>
+                            <Text style={{ fontSize: 12, color: '#1F2937' }}>{item.depotCode}</Text>
+                          </View>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                            <Text style={{ fontSize: 12, color: '#6B7280', fontWeight: '500' }}>Ventes / Qté:</Text>
+                            <Text style={{ fontSize: 12, color: '#1F2937' }}>{item.nbVentes} / {item.qteVentes}</Text>
+                          </View>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                            <Text style={{ fontSize: 12, color: '#6B7280', fontWeight: '500' }}>Date:</Text>
+                            <Text style={{ fontSize: 12, color: '#1F2937' }}>{formatDate(item.created)}</Text>
+                          </View>
+                        </View>
 
-                    {/* Détails supplémentaires */}
-                    <View style={styles.stockInfoMobile}>
-                      <View style={styles.stockRowMobile}>
-                        <Text style={styles.stockLabelMobile}>Total facture</Text>
-                        <Text style={styles.stockValueMobile}>
-                          ${item.taxationUsd.toFixed(2)} / {item.taxationCdf.toLocaleString()} CDF
-                        </Text>
-                      </View>
-                      <View style={styles.stockRowMobile}>
-                        <Text style={styles.stockLabelMobile}>Déjà payé</Text>
-                        <Text style={styles.stockValueMobile}>
-                          ${item.montantPayeUsd.toFixed(2)} / {item.montantPayeCdf.toLocaleString()} CDF
-                        </Text>
-                      </View>
-                      <View style={styles.stockRowMobile}>
-                        <Text style={styles.stockLabelMobile}>Réduction</Text>
-                        <Text style={styles.stockValueMobile}>
-                          ${item.reductionUsd.toFixed(2)} / {item.reductionCdf.toLocaleString()} CDF
-                        </Text>
-                      </View>
-                    </View>
-                  </TouchableOpacity>
-                ))}
-              </View>
+                        <View style={styles.transactionFooterMobile}>
+                          <View style={[styles.transactionTypeMobile, { backgroundColor: '#F59E0B' }]}>
+                            <Text style={styles.transactionTypeTextMobile}>Crédit</Text>
+                          </View>
+                          <View style={{ alignItems: 'flex-end' }}>
+                            <Text style={[styles.transactionAmountMobile, { color: '#EF4444' }]}>
+                              {item.creditCdf.toLocaleString()} CDF
+                            </Text>
+                            <Text style={[styles.transactionAmountMobile, { color: '#EF4444', fontSize: 14 }]}>
+                              ${item.creditUsd.toFixed(2)}
+                            </Text>
+                          </View>
+                        </View>
+
+                        {/* Détails supplémentaires */}
+                        <View style={styles.stockInfoMobile}>
+                          <View style={styles.stockRowMobile}>
+                            <Text style={styles.stockLabelMobile}>Total facture</Text>
+                            <Text style={styles.stockValueMobile}>
+                              ${item.taxationUsd.toFixed(2)} / {item.taxationCdf.toLocaleString()} CDF
+                            </Text>
+                          </View>
+                          <View style={styles.stockRowMobile}>
+                            <Text style={styles.stockLabelMobile}>Déjà payé</Text>
+                            <Text style={styles.stockValueMobile}>
+                              ${item.montantPayeUsd.toFixed(2)} / {item.montantPayeCdf.toLocaleString()} CDF
+                            </Text>
+                          </View>
+                          <View style={styles.stockRowMobile}>
+                            <Text style={styles.stockLabelMobile}>Réduction</Text>
+                            <Text style={styles.stockValueMobile}>
+                              ${item.reductionUsd.toFixed(2)} / {item.reductionCdf.toLocaleString()} CDF
+                            </Text>
+                          </View>
+                        </View>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+              </>
             )}
           </View>
         )}
