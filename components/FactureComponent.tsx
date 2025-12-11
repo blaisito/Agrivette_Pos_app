@@ -3032,10 +3032,7 @@ Voulez-vous confirmer la modification de cette facture ?`;
                   <Text style={styles.statValueWeb}>{filteredInvoices.length}</Text>
                   <Text style={styles.statLabelWeb}>Total factures</Text>
                 </View>
-                <View style={styles.statCardWeb}>
-                  <Text style={styles.statValueWeb}>{filteredInvoices.filter((inv: Invoice) => inv.status === 0).length}</Text>
-                  <Text style={styles.statLabelWeb}>En cours</Text>
-                </View>
+
                 <View style={styles.statCardWeb}>
                   <Text style={styles.statValueWeb}>{filteredInvoices.filter((inv: Invoice) => inv.status === 1).length}</Text>
                   <Text style={styles.statLabelWeb}>Terminées</Text>
@@ -3044,6 +3041,12 @@ Voulez-vous confirmer la modification de cette facture ?`;
                   <Text style={styles.statValueWeb}>{filteredInvoices.reduce((sum: number, inv: Invoice) => sum + (inv.amountPaidCdf || 0), 0).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}</Text>
                   <Text style={styles.statLabelWeb}>Total CDF</Text>
                 </View>
+                {(isTablet || isLargeScreen) && (
+                  <View style={styles.statCardWeb}>
+                    <Text style={styles.statValueWeb}>${filteredInvoices.reduce((sum: number, inv: Invoice) => sum + (inv.amountPaidUsd || 0), 0).toFixed(2)}</Text>
+                    <Text style={styles.statLabelWeb}>Total USD</Text>
+                  </View>
+                )}
                 <View style={styles.statCardWeb}>
                   <Text style={styles.statValueWeb}>{filteredInvoices.filter((inv: Invoice) => (inv.amountPaidCdf || 0) === 0 || (inv.amountPaidUsd || 0) === 0).length}</Text>
                   <Text style={styles.statLabelWeb}>Dette</Text>
@@ -4302,13 +4305,15 @@ Voulez-vous confirmer la modification de cette facture ?`;
               <Text style={styles.statLabelMobile}>Total</Text>
             </View>
             <View style={styles.statCardMobile}>
-              <Text style={styles.statValueMobile}>{filteredInvoices.filter((inv: Invoice) => inv.status === 0).length}</Text>
-              <Text style={styles.statLabelMobile}>En cours</Text>
-            </View>
-            <View style={styles.statCardMobile}>
               <Text style={styles.statValueMobile}>{filteredInvoices.reduce((sum: number, inv: Invoice) => sum + (inv.amountPaidCdf || 0), 0).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}</Text>
               <Text style={styles.statLabelMobile}>Total CDF</Text>
             </View>
+            {(isTablet || isLargeScreen) && (
+              <View style={styles.statCardMobile}>
+                <Text style={styles.statValueMobile}>${filteredInvoices.reduce((sum: number, inv: Invoice) => sum + (inv.amountPaidUsd || 0), 0).toFixed(2)}</Text>
+                <Text style={styles.statLabelMobile}>Total USD</Text>
+              </View>
+            )}
           </View>
 
           {/* Liste des factures ou Détails */}
