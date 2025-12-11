@@ -294,6 +294,12 @@ const ReportsComponent = () => {
   const [paymentReportError, setPaymentReportError] = useState<string | null>(null);
   const [paymentSearch, setPaymentSearch] = useState<string>('');
 
+  // États pour les dépenses
+  const [expensesLoading, setExpensesLoading] = useState(false);
+  const [expensesError, setExpensesError] = useState<string | null>(null);
+  const [totalExpensesUsd, setTotalExpensesUsd] = useState<number>(0);
+  const [totalExpensesCdf, setTotalExpensesCdf] = useState<number>(0);
+
   // États pour le taux de change
   const [exchangeRate, setExchangeRate] = useState<number>(2500); // Valeur par défaut
   const [exchangeRateLoading, setExchangeRateLoading] = useState(false);
@@ -566,6 +572,41 @@ const ReportsComponent = () => {
       setDebtPaymentsError('Erreur lors du chargement des paiements');
     } finally {
       setDebtPaymentsLoading(false);
+    }
+  };
+
+  // Fonction pour charger le total des dépenses (USD/CDF)
+  const loadExpensesTotals = async () => {
+    setExpensesLoading(true);
+    setExpensesError(null);
+    try {
+      const start = formatDateForStockMovement(startDate);
+      const end = formatDateForStockMovement(endDate);
+      const url = `https://www.restau3.somee.com/api/v1.0/Depense/get-by-date-range?startDate=${encodeURIComponent(start)}&endDate=${encodeURIComponent(end)}`;
+      const response = await fetch(url, { method: 'GET', headers: { accept: '*/*' } });
+      if (!response.ok) {
+        throw new Error(`Statut ${response.status}`);
+      }
+      const json = await response.json();
+      const list: any[] = Array.isArray(json?.data) ? json.data : [];
+      let usd = 0;
+      let cdf = 0;
+      list.forEach(item => {
+        if (item.devise === 2) {
+          usd += Number(item.amount) || 0;
+        } else if (item.devise === 1) {
+          cdf += Number(item.amount) || 0;
+        }
+      });
+      setTotalExpensesUsd(usd);
+      setTotalExpensesCdf(cdf);
+    } catch (error) {
+      console.error('Erreur lors du chargement des dépenses:', error);
+      setExpensesError('Erreur lors du chargement des dépenses');
+      setTotalExpensesUsd(0);
+      setTotalExpensesCdf(0);
+    } finally {
+      setExpensesLoading(false);
     }
   };
 
@@ -869,6 +910,7 @@ const ReportsComponent = () => {
     if (selectedReportType === 'sales') {
       loadSellingReportData();
       loadIntervalMetrics();
+      loadExpensesTotals();
     } else if (selectedReportType === 'consumption') {
       loadConsumptionReportData();
     } else if (selectedReportType === 'stock') {
@@ -1738,9 +1780,9 @@ const ReportsComponent = () => {
                   </View>
                   <View style={styles.statContentWeb}>
                     <Text style={styles.statValueWeb}>
-                      {intervalMetricsLoading ? '...' : intervalMetrics ? `$${intervalMetrics.totalFactureAmountAfterReductionUsd.toFixed(2)}` : '$0.00'}
+                      {expensesLoading ? '...' : `$${totalExpensesUsd.toFixed(2)}`}
                     </Text>
-                    <Text style={styles.statLabelWeb}>Montant facture après réduction USD</Text>
+                    <Text style={styles.statLabelWeb}>Total dépense USD</Text>
                   </View>
                 </View>
 
@@ -1750,9 +1792,9 @@ const ReportsComponent = () => {
                   </View>
                   <View style={styles.statContentWeb}>
                     <Text style={styles.statValueWeb}>
-                      {intervalMetricsLoading ? '...' : intervalMetrics ? intervalMetrics.totalFactureAmountAfterReductionCdf.toLocaleString() : '0'}
+                      {expensesLoading ? '...' : totalExpensesCdf.toLocaleString()}
                     </Text>
-                    <Text style={styles.statLabelWeb}>Montant facture après réduction CDF</Text>
+                    <Text style={styles.statLabelWeb}>Total dépense CDF</Text>
                   </View>
                 </View>
               </View>
@@ -2985,9 +3027,9 @@ const ReportsComponent = () => {
                   <Ionicons name="card" size={24} color="#8B5CF6" />
                 </View>
                 <Text style={styles.statValueModernMobile}>
-                  {intervalMetricsLoading ? '...' : intervalMetrics ? `$${intervalMetrics.totalFactureAmountAfterReductionUsd.toFixed(2)}` : '$0.00'}
+                  {expensesLoading ? '...' : `$${totalExpensesUsd.toFixed(2)}`}
                 </Text>
-                <Text style={styles.statLabelModernMobile}>Montant facture après réduction USD</Text>
+                <Text style={styles.statLabelModernMobile}>Total dépense USD</Text>
               </View>
 
               <View style={styles.statCardModernMobile}>
@@ -2995,9 +3037,9 @@ const ReportsComponent = () => {
                   <Ionicons name="card" size={24} color="#7C3AED" />
                 </View>
                 <Text style={styles.statValueModernMobile}>
-                  {intervalMetricsLoading ? '...' : intervalMetrics ? intervalMetrics.totalFactureAmountAfterReductionCdf.toLocaleString() : '0'}
+                  {expensesLoading ? '...' : totalExpensesCdf.toLocaleString()}
                 </Text>
-                <Text style={styles.statLabelModernMobile}>Montant facture après réduction CDF</Text>
+                <Text style={styles.statLabelModernMobile}>Total dépense CDF</Text>
               </View>
             </View>
 
