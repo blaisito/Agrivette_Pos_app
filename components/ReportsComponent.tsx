@@ -97,6 +97,29 @@ interface DebtReportData {
   created: string;
 }
 
+// Types pour les paiements de factures
+interface PaymentReportData {
+  id: string;
+  typePaiement: string;
+  factureId: string;
+  numFacture: string;
+  client: string;
+  reductionUsd: number;
+  reductionCdf: number;
+  dateCreatedFacture: string;
+  montantPayCdf: number;
+  montantPayUsd: number;
+  taux: number;
+  datePaiement: string;
+  remboursement: boolean;
+  userName: string;
+  nbVentes: number;
+  qteVentes: number;
+  taxationUsd: number;
+  taxationCdf: number;
+  depotCode: string;
+}
+
 // Composant Rapports
 const ReportsComponent = () => {
   const { width } = Dimensions.get('window');
@@ -108,7 +131,7 @@ const ReportsComponent = () => {
   const [pdfPreviewHtml, setPdfPreviewHtml] = useState<string>('');
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
-  const [selectedReportType, setSelectedReportType] = useState<'sales' | 'consumption' | 'stock' | 'debt'>('sales');
+  const [selectedReportType, setSelectedReportType] = useState<'sales' | 'consumption' | 'stock' | 'debt' | 'payment'>('sales');
   const [userDepotCode, setUserDepotCode] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [selectedDepotCode, setSelectedDepotCode] = useState<string | null>(null);
@@ -265,6 +288,12 @@ const ReportsComponent = () => {
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [debtSearch, setDebtSearch] = useState<string>('');
 
+  // États pour les paiements de factures
+  const [paymentReportData, setPaymentReportData] = useState<PaymentReportData[]>([]);
+  const [paymentReportLoading, setPaymentReportLoading] = useState(false);
+  const [paymentReportError, setPaymentReportError] = useState<string | null>(null);
+  const [paymentSearch, setPaymentSearch] = useState<string>('');
+
   // États pour le taux de change
   const [exchangeRate, setExchangeRate] = useState<number>(2500); // Valeur par défaut
   const [exchangeRateLoading, setExchangeRateLoading] = useState(false);
@@ -325,14 +354,15 @@ const ReportsComponent = () => {
 
   // Configuration des onglets de rapport
   const reportTabsConfig: Array<{
-    key: 'sales' | 'consumption' | 'stock' | 'debt';
+    key: 'sales' | 'consumption' | 'stock' | 'debt' | 'payment';
     label: string;
     icon: keyof typeof Ionicons.glyphMap;
   }> = [
       { key: 'sales', label: 'Ventes & Consommation', icon: 'trending-up' },
       { key: 'consumption', label: 'Rapport Consommation', icon: 'stats-chart' },
       { key: 'stock', label: 'Rapport des stocks', icon: 'cube' },
-      { key: 'debt', label: 'Rapport des dettes', icon: 'alert-circle' }
+      { key: 'debt', label: 'Rapport des dettes', icon: 'alert-circle' },
+      { key: 'payment', label: 'Rapport paiements facture', icon: 'card' }
     ];
 
   // Données et fonctions simplifiées
@@ -505,6 +535,17 @@ const ReportsComponent = () => {
     );
   }, [debtReportData, debtSearch]);
 
+  const filteredPaymentReportData = useMemo(() => {
+    if (!paymentSearch.trim()) return paymentReportData;
+    const term = paymentSearch.trim().toLowerCase();
+    return paymentReportData.filter(item =>
+      (item.numFacture || '').toLowerCase().includes(term) ||
+      (item.client || '').toLowerCase().includes(term) ||
+      (item.userName || '').toLowerCase().includes(term) ||
+      (item.depotCode || '').toLowerCase().includes(term)
+    );
+  }, [paymentReportData, paymentSearch]);
+
   const loadDebtPayments = async (factureId: string) => {
     setDebtPaymentsLoading(true);
     setDebtPaymentsError(null);
@@ -525,6 +566,30 @@ const ReportsComponent = () => {
       setDebtPaymentsError('Erreur lors du chargement des paiements');
     } finally {
       setDebtPaymentsLoading(false);
+    }
+  };
+
+  // Fonction pour charger le rapport des paiements de factures
+  const loadPaymentReportData = async () => {
+    setPaymentReportLoading(true);
+    setPaymentReportError(null);
+    try {
+      const start = formatDateForStockMovement(startDate);
+      const end = formatDateForStockMovement(endDate);
+      const url = `https://www.restau3.somee.com/api/v1.0/Report/facture-payment-report?startDate=${encodeURIComponent(start)}&endDate=${encodeURIComponent(end)}`;
+      const response = await fetch(url, { method: 'GET', headers: { accept: '*/*' } });
+      if (!response.ok) {
+        throw new Error(`Statut ${response.status}`);
+      }
+      const json = await response.json();
+      const list = Array.isArray(json?.data) ? json.data : [];
+      setPaymentReportData(list);
+    } catch (error) {
+      console.error('Erreur lors du chargement du rapport des paiements:', error);
+      setPaymentReportError('Erreur lors du chargement du rapport des paiements');
+      setPaymentReportData([]);
+    } finally {
+      setPaymentReportLoading(false);
     }
   };
 
@@ -810,6 +875,8 @@ const ReportsComponent = () => {
       loadStockData();
     } else if (selectedReportType === 'debt') {
       loadDebtReportData();
+    } else if (selectedReportType === 'payment') {
+      loadPaymentReportData();
     }
   }, [selectedReportType, dateRange]);
 
@@ -977,10 +1044,11 @@ const ReportsComponent = () => {
   };
 
   // Fonction pour imprimer les rapports en PDF
-  const handlePrintReport = (reportType: 'sales' | 'consumption' | 'stock' | 'debt') => {
+  const handlePrintReport = (reportType: 'sales' | 'consumption' | 'stock' | 'debt' | 'payment') => {
     const data = reportType === 'sales' ? filteredSellingReportData :
       reportType === 'consumption' ? consumptionReportData :
-        reportType === 'stock' ? stockMovementData : filteredDebtReportData;
+        reportType === 'stock' ? stockMovementData :
+          reportType === 'debt' ? filteredDebtReportData : filteredPaymentReportData;
 
     if (!data || data.length === 0) {
       alert('Aucune donnée à imprimer.');
@@ -1002,7 +1070,8 @@ const ReportsComponent = () => {
     try {
       const reportTitle = reportType === 'sales' ? 'Rapport de Vente' :
         reportType === 'consumption' ? 'Rapport de Consommation' :
-          reportType === 'stock' ? 'Rapport des Mouvements de Stock' : 'Rapport des dettes';
+          reportType === 'stock' ? 'Rapport des Mouvements de Stock' :
+            reportType === 'debt' ? 'Rapport des dettes' : 'Rapport des paiements facture';
       const currentDate = new Date().toLocaleDateString('fr-FR');
       const startDateFormatted = formatDateForDisplay(startDate);
       const endDateFormatted = formatDateForDisplay(endDate);
@@ -1103,7 +1172,7 @@ const ReportsComponent = () => {
   };
 
   // Fonction pour générer le HTML d'impression
-  const generatePrintHTML = (reportType: 'sales' | 'consumption' | 'stock' | 'debt', data: any[], reportTitle: string, currentDate: string, startDate: string, endDate: string) => {
+  const generatePrintHTML = (reportType: 'sales' | 'consumption' | 'stock' | 'debt' | 'payment', data: any[], reportTitle: string, currentDate: string, startDate: string, endDate: string) => {
     let tableHTML = '';
 
     if (reportType === 'stock') {
@@ -1208,6 +1277,45 @@ const ReportsComponent = () => {
                 <td style="border: 1px solid #ddd; padding: 8px;">
                   ${new Date(item.firstSaleDate).toLocaleDateString('fr-FR')} ${new Date(item.firstSaleDate).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                   <br/>- ${new Date(item.lastSaleDate).toLocaleDateString('fr-FR')} ${new Date(item.lastSaleDate).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    } else if (reportType === 'payment') {
+      tableHTML = `
+        <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+          <thead>
+            <tr style="background-color: #7C3AED; color: white;">
+              <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Facture</th>
+              <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Client</th>
+              <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Utilisateur</th>
+              <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Dépôt</th>
+              <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Type paiement</th>
+              <th style="border: 1px solid #ddd; padding: 8px; text-align: center;">Taux</th>
+              <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">Payé USD / CDF</th>
+              <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">Facture USD / CDF</th>
+              <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Date paiement</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data.map(item => `
+              <tr>
+                <td style="border: 1px solid #ddd; padding: 8px;">${item.numFacture || '-'}</td>
+                <td style="border: 1px solid #ddd; padding: 8px;">${item.client || 'Anonyme'}</td>
+                <td style="border: 1px solid #ddd; padding: 8px;">${item.userName || ''}</td>
+                <td style="border: 1px solid #ddd; padding: 8px;">${item.depotCode || ''}</td>
+                <td style="border: 1px solid #ddd; padding: 8px;">${item.typePaiement || ''}${item.remboursement ? ' (Remboursement)' : ''}</td>
+                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${item.taux ?? '-'}</td>
+                <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">
+                  $${(item.montantPayUsd ?? 0).toFixed(2)} / ${(item.montantPayCdf ?? 0).toLocaleString()} CDF
+                </td>
+                <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">
+                  $${(item.taxationUsd ?? 0).toFixed(2)} / ${(item.taxationCdf ?? 0).toLocaleString()} CDF
+                </td>
+                <td style="border: 1px solid #ddd; padding: 8px;">
+                  ${new Date(item.datePaiement).toLocaleDateString('fr-FR')} ${new Date(item.datePaiement).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                 </td>
               </tr>
             `).join('')}
@@ -1367,6 +1475,12 @@ const ReportsComponent = () => {
             <p><strong>Entrées:</strong> ${data.filter(item => item.mouvementType?.toLowerCase() !== 'sortie').length}</p>
             <p><strong>Quantité totale (sorties):</strong> ${data.filter(item => item.mouvementType?.toLowerCase() === 'sortie').reduce((sum, item) => sum + (item.quantity || 0), 0)}</p>
             <p><strong>Quantité totale (entrées):</strong> ${data.filter(item => item.mouvementType?.toLowerCase() !== 'sortie').reduce((sum, item) => sum + (item.quantity || 0), 0)}</p>
+          ` : reportType === 'payment' ? `
+            <p><strong>Nombre de paiements:</strong> ${data.length}</p>
+            <p><strong>Total payé USD:</strong> $${data.reduce((sum, item) => sum + (item.montantPayUsd || 0), 0).toFixed(2)}</p>
+            <p><strong>Total payé CDF:</strong> ${data.reduce((sum, item) => sum + (item.montantPayCdf || 0), 0).toLocaleString()} CDF</p>
+            <p><strong>Total facture USD:</strong> $${data.reduce((sum, item) => sum + (item.taxationUsd || 0), 0).toFixed(2)}</p>
+            <p><strong>Total facture CDF:</strong> ${data.reduce((sum, item) => sum + (item.taxationCdf || 0), 0).toLocaleString()} CDF</p>
           ` : `
             <p><strong>Factures en dette:</strong> ${data.length}</p>
             <p><strong>Crédit total USD:</strong> $${data.reduce((sum, item) => sum + (item.creditUsd || 0), 0).toFixed(2)}</p>
@@ -2068,6 +2182,103 @@ const ReportsComponent = () => {
                     </View>
                   )}
                 </>
+              )}
+            </View>
+          )}
+
+          {selectedReportType === 'payment' && isLargeScreen && (
+            <View style={styles.tableSectionWeb}>
+              <View style={styles.sectionHeaderWeb}>
+                <Text style={styles.sectionTitleWeb}>Rapport paiements facture ({filteredPaymentReportData.length})</Text>
+                <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                  <TouchableOpacity
+                    style={styles.printButtonWeb}
+                    onPress={loadPaymentReportData}
+                    disabled={paymentReportLoading}
+                  >
+                    <Ionicons name={paymentReportLoading ? 'hourglass-outline' : 'refresh-outline'} size={20} color="#FFFFFF" />
+                    <Text style={styles.printButtonTextWeb}>{paymentReportLoading ? 'Chargement...' : 'Actualiser'}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.printButtonWeb}
+                    onPress={() => handlePrintReport('payment')}
+                    disabled={paymentReportLoading || filteredPaymentReportData.length === 0}
+                  >
+                    <Ionicons name="print" size={20} color="#FFFFFF" />
+                    <Text style={styles.printButtonTextWeb}>Imprimer</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {paymentReportError && (
+                <View style={styles.errorContainerWeb}>
+                  <Ionicons name="alert-circle-outline" size={24} color="#EF4444" />
+                  <Text style={styles.errorTextWeb}>{paymentReportError}</Text>
+                  <TouchableOpacity style={styles.retryButtonWeb} onPress={loadPaymentReportData}>
+                    <Text style={styles.retryButtonTextWeb}>Réessayer</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              <View style={[styles.stockSearchContainerWeb, { marginBottom: 12 }]}>
+                <Ionicons name="search" size={20} color="#6B7280" style={styles.searchIconWeb} />
+                <TextInput
+                  style={[styles.stockSearchInputWeb, { flex: 1 }]}
+                  placeholder="Rechercher par facture, client, utilisateur ou dépôt..."
+                  value={paymentSearch}
+                  onChangeText={setPaymentSearch}
+                  placeholderTextColor="#9CA3AF"
+                />
+                {paymentSearch.length > 0 && (
+                  <TouchableOpacity onPress={() => setPaymentSearch('')} style={styles.searchClearButtonWeb}>
+                    <Ionicons name="close-circle" size={20} color="#6B7280" />
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {paymentReportLoading ? (
+                <View style={{ padding: 40, alignItems: 'center', justifyContent: 'center' }}>
+                  <Ionicons name="hourglass-outline" size={32} color="#6B7280" />
+                  <Text style={{ marginTop: 12, fontSize: 16, color: '#6B7280', fontWeight: '500' }}>
+                    Chargement des données...
+                  </Text>
+                </View>
+              ) : filteredPaymentReportData.length === 0 ? (
+                <View style={styles.emptyStateWeb}>
+                  <Ionicons name="document-outline" size={48} color="#9CA3AF" />
+                  <Text style={styles.emptyStateTextWeb}>Aucun paiement trouvé</Text>
+                </View>
+              ) : (
+                <View style={styles.tableWeb}>
+                  <View style={styles.tableHeaderWeb}>
+                    <Text style={styles.tableHeaderTextWeb}>Facture</Text>
+                    <Text style={styles.tableHeaderTextWeb}>Client</Text>
+                    <Text style={styles.tableHeaderTextWeb}>Utilisateur</Text>
+                    <Text style={styles.tableHeaderTextWeb}>Dépôt</Text>
+                    <Text style={styles.tableHeaderTextWeb}>Type</Text>
+                    <Text style={styles.tableHeaderTextWeb}>Payé USD / CDF</Text>
+                    <Text style={styles.tableHeaderTextWeb}>Facture USD / CDF</Text>
+                    <Text style={[styles.tableHeaderTextWeb, { borderRightWidth: 0 }]}>Date paiement</Text>
+                  </View>
+                  {filteredPaymentReportData.map(item => (
+                    <View key={item.id} style={styles.tableRowWeb}>
+                      <Text style={styles.tableCellWeb}>{item.numFacture || '-'}</Text>
+                      <Text style={[styles.tableCellWeb, styles.descriptionCellWeb]}>{item.client || 'Anonyme'}</Text>
+                      <Text style={styles.tableCellWeb}>{item.userName}</Text>
+                      <Text style={styles.tableCellWeb}>{item.depotCode}</Text>
+                      <Text style={styles.tableCellWeb}>{item.typePaiement}{item.remboursement ? ' (R)' : ''}</Text>
+                      <Text style={[styles.tableCellWeb, styles.amountCellWeb, { color: '#059669' }]}>
+                        ${item.montantPayUsd.toFixed(2)} / {item.montantPayCdf.toLocaleString()} CDF
+                      </Text>
+                      <Text style={[styles.tableCellWeb, styles.amountCellWeb, { color: '#3B82F6' }]}>
+                        ${item.taxationUsd.toFixed(2)} / {item.taxationCdf.toLocaleString()} CDF
+                      </Text>
+                      <Text style={[styles.tableCellWeb, { borderRightWidth: 0 }]}>
+                        {new Date(item.datePaiement).toLocaleDateString('fr-FR')} {new Date(item.datePaiement).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
               )}
             </View>
           )}
@@ -3267,6 +3478,120 @@ const ReportsComponent = () => {
                   </View>
                 )}
               </>
+            )}
+          </View>
+        )}
+
+        {selectedReportType === 'payment' && (
+          <View style={styles.listSectionMobile}>
+            <View style={styles.sectionHeaderMobile}>
+              <Text style={styles.sectionTitleMobile}>Rapport paiements facture ({filteredPaymentReportData.length})</Text>
+              <TouchableOpacity
+                style={styles.printButtonMobile}
+                onPress={loadPaymentReportData}
+                disabled={paymentReportLoading}
+              >
+                <Ionicons name={paymentReportLoading ? "hourglass-outline" : "refresh-outline"} size={16} color="#FFFFFF" />
+                <Text style={styles.printButtonTextMobile}>{paymentReportLoading ? '...' : 'Actualiser'}</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={[styles.stockSearchContainerMobile, { marginBottom: 8 }]}>
+              <Ionicons name="search" size={18} color="#6B7280" style={styles.searchIconMobile} />
+              <TextInput
+                style={[styles.stockSearchInputMobile, { flex: 1 }]}
+                placeholder="Rechercher par facture, client, utilisateur ou dépôt..."
+                value={paymentSearch}
+                onChangeText={setPaymentSearch}
+                placeholderTextColor="#9CA3AF"
+              />
+              {paymentSearch.length > 0 && (
+                <TouchableOpacity
+                  onPress={() => setPaymentSearch('')}
+                  style={styles.searchClearButtonMobile}
+                >
+                  <Ionicons name="close-circle" size={18} color="#6B7280" />
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                style={[styles.printButtonMobile, { marginLeft: 8, paddingHorizontal: 10, paddingVertical: 8 }]}
+                onPress={() => handlePrintReport('payment')}
+                disabled={paymentReportLoading || filteredPaymentReportData.length === 0}
+              >
+                <Ionicons name="print" size={16} color="#FFFFFF" />
+                <Text style={styles.printButtonTextMobile}>Imprimer</Text>
+              </TouchableOpacity>
+            </View>
+
+            {paymentReportError && (
+              <View style={styles.errorContainerMobile}>
+                <Ionicons name="alert-circle-outline" size={20} color="#EF4444" />
+                <Text style={styles.errorTextMobile}>{paymentReportError}</Text>
+                <TouchableOpacity
+                  style={styles.retryButtonMobile}
+                  onPress={loadPaymentReportData}
+                >
+                  <Text style={styles.retryButtonTextMobile}>Réessayer</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {paymentReportLoading ? (
+              <View style={{ padding: 32, alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="hourglass-outline" size={28} color="#6B7280" />
+                <Text style={{ marginTop: 10, fontSize: 14, color: '#6B7280', fontWeight: '500' }}>
+                  Chargement des données...
+                </Text>
+              </View>
+            ) : filteredPaymentReportData.length === 0 ? (
+              <View style={styles.emptyStateMobile}>
+                <Ionicons name="document-outline" size={32} color="#9CA3AF" />
+                <Text style={styles.emptyStateTextMobile}>Aucun paiement trouvé</Text>
+              </View>
+            ) : (
+              <View style={styles.transactionsListMobile}>
+                {filteredPaymentReportData.map((item) => (
+                  <View key={item.id} style={styles.transactionItemMobile}>
+                    <View style={styles.transactionHeaderMobile}>
+                      <View style={styles.productInfoMobile}>
+                        <Text style={styles.transactionDescriptionMobile}>{item.numFacture}</Text>
+                        <Text style={styles.transactionDateTextMobile}>
+                          {item.client || 'Anonyme'} • {item.userName}
+                        </Text>
+                        <Text style={[styles.transactionDateTextMobile, { fontSize: 12, color: '#6B7280', marginTop: 2 }]}>
+                          {item.depotCode} • {new Date(item.datePaiement).toLocaleDateString('fr-FR')} {new Date(item.datePaiement).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                        </Text>
+                      </View>
+                      <Text style={[styles.transactionTotalMobile, { color: '#059669' }]}>
+                        ${item.montantPayUsd.toFixed(2)}
+                      </Text>
+                    </View>
+
+                    <View style={{ marginVertical: 6 }}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                        <Text style={{ fontSize: 12, color: '#6B7280', fontWeight: '500' }}>Type:</Text>
+                        <Text style={{ fontSize: 12, color: '#1F2937' }}>{item.typePaiement}{item.remboursement ? ' (R)' : ''}</Text>
+                      </View>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                        <Text style={{ fontSize: 12, color: '#6B7280', fontWeight: '500' }}>Payé:</Text>
+                        <Text style={{ fontSize: 12, color: '#1F2937' }}>
+                          ${item.montantPayUsd.toFixed(2)} / {item.montantPayCdf.toLocaleString()} CDF
+                        </Text>
+                      </View>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                        <Text style={{ fontSize: 12, color: '#6B7280', fontWeight: '500' }}>Facture:</Text>
+                        <Text style={{ fontSize: 12, color: '#1F2937' }}>
+                          ${item.taxationUsd.toFixed(2)} / {item.taxationCdf.toLocaleString()} CDF
+                        </Text>
+                      </View>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                        <Text style={{ fontSize: 12, color: '#6B7280', fontWeight: '500' }}>Ventes / Qté:</Text>
+                        <Text style={{ fontSize: 12, color: '#1F2937' }}>{item.nbVentes} / {item.qteVentes}</Text>
+                      </View>
+                    </View>
+                  </View>
+                ))}
+              </View>
             )}
           </View>
         )}
