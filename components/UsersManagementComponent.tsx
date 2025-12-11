@@ -2,15 +2,15 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Dimensions, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import {
-    createUser,
-    deleteUser,
-    getClaimsFromRole,
-    getDepotCodes,
-    getRoleColor,
-    getRoleLabel,
-    getUserRoleFromClaims,
-    getUsers,
-    updateUser
+  createUser,
+  deleteUser,
+  getClaimsFromRole,
+  getDepotCodes,
+  getRoleColor,
+  getRoleLabel,
+  getUserRoleFromClaims,
+  getUsers,
+  updateUser
 } from '../api/userApi';
 import { useFetch } from '../hooks/useFetch';
 
@@ -21,6 +21,7 @@ interface User {
   claims: string[];
   createdAt?: string;
   lastLogin?: string;
+  depotCode?: string;
 }
 
 // Composant de gestion des utilisateurs
@@ -56,6 +57,7 @@ const UsersManagementComponent = () => {
         id: user.id || '',
         username: user.username || '',
         claims: user.claims || [],
+        depotCode: user.depotCode || '',
         createdAt: user.created ? user.created.split('T')[0] : new Date().toISOString().split('T')[0],
         lastLogin: user.updated ? user.updated.split('T')[0] : undefined
       }));
@@ -231,6 +233,13 @@ const UsersManagementComponent = () => {
               <Text style={styles.detailText}>Dernière connexion: {user.lastLogin}</Text>
             </View>
           )}
+
+        <View style={styles.detailRow}>
+          <Ionicons name="business" size={16} color="#6B7280" />
+          <Text style={styles.detailText}>
+            Dépôt: {user.depotCode || 'Non assigné'}
+          </Text>
+        </View>
           
           <View style={styles.detailRow}>
             <Ionicons name="shield" size={16} color="#6B7280" />
@@ -318,7 +327,6 @@ const UsersManagementComponent = () => {
               <Text style={styles.formLabel}>Rôle</Text>
               <View style={styles.radioGroup}>
                 {[
-                  { value: 'user', label: 'Utilisateur' },
                   { value: 'caissier', label: 'Caissier' },
                   { value: 'admin', label: 'Administrateur' }
                 ].map((option) => (
