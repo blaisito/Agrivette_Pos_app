@@ -948,6 +948,9 @@ const ReportsComponent = () => {
       filteredSellingReportData.reduce((sum, item) => sum + (item.subTotalCdf / item.taux), 0) / filteredSellingReportData.length : 0
   };
 
+  const realRevenueUsd = Math.max(0, sellingReportSummary.totalRevenueUsd - totalExpensesUsd);
+  const realRevenueCdf = Math.max(0, sellingReportSummary.totalRevenueCdf - totalExpensesCdf);
+
   // Calculate summary data for consumption report
   const consumptionReportSummary = {
     totalProducts: consumptionReportData.length,
@@ -1602,7 +1605,7 @@ const ReportsComponent = () => {
   if (isLargeScreen) {
     return (
       <View style={styles.containerWeb}>
-        <ScrollView style={[styles.containerWeb, { paddingHorizontal: 140 }]}>
+        <ScrollView style={[styles.containerWeb, { paddingHorizontal: 50 }]}>
           <Text style={styles.titleWeb}>Rapports</Text>
 
           {/* Navigation des tabs de rapport */}
@@ -1753,6 +1756,30 @@ const ReportsComponent = () => {
                     <Text style={styles.statLabelWeb}>Chiffre d'affaires CDF</Text>
                   </View>
                 </View>
+
+              <View style={styles.statCardWeb}>
+                <View style={styles.statIconWeb}>
+                  <Ionicons name="cash-outline" size={24} color="#0EA5E9" />
+                </View>
+                <View style={styles.statContentWeb}>
+                  <Text style={styles.statValueWeb}>
+                    {sellingReportLoading || expensesLoading ? '...' : `$${realRevenueUsd.toFixed(2)}`}
+                  </Text>
+                  <Text style={styles.statLabelWeb}>Chiffre d'affaires USD réel</Text>
+                </View>
+              </View>
+
+              <View style={styles.statCardWeb}>
+                <View style={styles.statIconWeb}>
+                  <Ionicons name="cash-outline" size={24} color="#0284C7" />
+                </View>
+                <View style={styles.statContentWeb}>
+                  <Text style={styles.statValueWeb}>
+                    {sellingReportLoading || expensesLoading ? '...' : realRevenueCdf.toLocaleString()}
+                  </Text>
+                  <Text style={styles.statLabelWeb}>Chiffre d'affaires CDF réel</Text>
+                </View>
+              </View>
 
                 <View style={styles.statCardWeb}>
                   <View style={styles.statIconWeb}>
@@ -3004,6 +3031,26 @@ const ReportsComponent = () => {
                 </View>
                 <Text style={styles.statValueModernMobile}>{sellingReportSummary.totalRevenueCdf.toLocaleString()}</Text>
                 <Text style={styles.statLabelModernMobile}>Chiffre d'affaires CDF</Text>
+              </View>
+
+              <View style={styles.statCardModernMobile}>
+                <View style={[styles.statIconModernMobile, { backgroundColor: '#E0F2FE' }]}>
+                  <Ionicons name="cash-outline" size={24} color="#0EA5E9" />
+                </View>
+                <Text style={styles.statValueModernMobile}>
+                  {sellingReportLoading || expensesLoading ? '...' : `$${realRevenueUsd.toFixed(2)}`}
+                </Text>
+                <Text style={styles.statLabelModernMobile}>Chiffre d'affaires USD réel</Text>
+              </View>
+
+              <View style={styles.statCardModernMobile}>
+                <View style={[styles.statIconModernMobile, { backgroundColor: '#E0F2FE' }]}>
+                  <Ionicons name="cash-outline" size={24} color="#0284C7" />
+                </View>
+                <Text style={styles.statValueModernMobile}>
+                  {sellingReportLoading || expensesLoading ? '...' : realRevenueCdf.toLocaleString()}
+                </Text>
+                <Text style={styles.statLabelModernMobile}>Chiffre d'affaires CDF réel</Text>
               </View>
 
               <View style={styles.statCardModernMobile}>
