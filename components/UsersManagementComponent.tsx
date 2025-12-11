@@ -4,7 +4,6 @@ import { ActivityIndicator, Alert, Dimensions, ScrollView, StyleSheet, Text, Tex
 import {
   createUser,
   deleteUser,
-  getClaimsFromRole,
   getDepotCodes,
   getRoleColor,
   getRoleLabel,
@@ -28,22 +27,22 @@ interface User {
 const UsersManagementComponent = () => {
   const { width } = Dimensions.get('window');
   const isLargeScreen = width > 768;
-  
+
   // États
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(false);
-  
+
   // États pour le formulaire (adaptés à l'API)
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [selectedRole, setSelectedRole] = useState<'admin' | 'caissier' | 'user'>('user');
+  const [selectedClaims, setSelectedClaims] = useState<string[]>([]);
   const [selectedDepotCode, setSelectedDepotCode] = useState<string | null>(null);
   const [availableDepotCodes, setAvailableDepotCodes] = useState<string[]>([]);
   const [depotCodesLoading, setDepotCodesLoading] = useState(false);
   const [depotCodesError, setDepotCodesError] = useState<string | null>(null);
-  
+
   // Récupération des utilisateurs depuis l'API
   const { data: usersData, loading: usersLoading, error: usersError, refetch: refetchUsers } = useFetch(getUsers);
   const [users, setUsers] = useState<User[]>([]);
@@ -99,7 +98,7 @@ const UsersManagementComponent = () => {
   const resetForm = () => {
     setUsername('');
     setPassword('');
-    setSelectedRole('user');
+    setSelectedClaims([]);
     setSelectedUser(null);
     setSelectedDepotCode(null);
   };
@@ -115,7 +114,11 @@ const UsersManagementComponent = () => {
     setSelectedUser(user);
     setUsername(user.username);
     setPassword('');
-    setSelectedRole(getUserRoleFromClaims(user.claims));
+    const role = getUserRoleFromClaims(user.claims);
+    const initialClaims: string[] = [];
+    if (role === 'admin') initialClaims.push('Admin');
+    if (role === 'caissier') initialClaims.push('Caissier');
+    setSelectedClaims(initialClaims);
     setShowEditModal(true);
   };
 
@@ -128,11 +131,10 @@ const UsersManagementComponent = () => {
 
     setLoading(true);
     try {
-      const claims = getClaimsFromRole(selectedRole);
       const userData = {
         username: username.trim(),
         password: password.trim(),
-        claims,
+        claims: selectedClaims.length > 0 ? selectedClaims : ['Admin'],
         depotCode: selectedDepotCode || null
       };
 
@@ -162,7 +164,7 @@ const UsersManagementComponent = () => {
       await updateUser(selectedUser.id, {
         username: username.trim()
       });
-      
+
       Alert.alert('Succès', 'Nom d\'utilisateur modifié avec succès');
       setShowEditModal(false);
       resetForm();
@@ -206,7 +208,7 @@ const UsersManagementComponent = () => {
     const userRole = getUserRoleFromClaims(user.claims);
     const roleLabel = getRoleLabel(userRole);
     const roleColor = getRoleColor(userRole);
-    
+
     return (
       <View key={user.id} style={styles.userCard}>
         <View style={styles.userHeader}>
@@ -220,13 +222,13 @@ const UsersManagementComponent = () => {
             </View>
           </View>
         </View>
-        
+
         <View style={styles.userDetails}>
           <View style={styles.detailRow}>
             <Ionicons name="calendar" size={16} color="#6B7280" />
             <Text style={styles.detailText}>Créé le {user.createdAt}</Text>
           </View>
-          
+
           {user.lastLogin && (
             <View style={styles.detailRow}>
               <Ionicons name="time" size={16} color="#6B7280" />
@@ -234,13 +236,13 @@ const UsersManagementComponent = () => {
             </View>
           )}
 
-        <View style={styles.detailRow}>
-          <Ionicons name="business" size={16} color="#6B7280" />
-          <Text style={styles.detailText}>
-            Dépôt: {user.depotCode || 'Non assigné'}
-          </Text>
-        </View>
-          
+          <View style={styles.detailRow}>
+            <Ionicons name="business" size={16} color="#6B7280" />
+            <Text style={styles.detailText}>
+              Dépôt: {user.depotCode || 'Non assigné'}
+            </Text>
+          </View>
+
           <View style={styles.detailRow}>
             <Ionicons name="shield" size={16} color="#6B7280" />
             <Text style={styles.detailText}>
@@ -248,7 +250,7 @@ const UsersManagementComponent = () => {
             </Text>
           </View>
         </View>
-        
+
         <View style={styles.userActions}>
           <TouchableOpacity
             style={styles.actionButton}
@@ -257,7 +259,7 @@ const UsersManagementComponent = () => {
             <Ionicons name="pencil" size={16} color="#3B82F6" />
             <Text style={styles.actionButtonText}>Modifier</Text>
           </TouchableOpacity>
-          
+
           {/* Suppression désactivée - API non supportée */}
           <TouchableOpacity
             style={[styles.actionButton, styles.deleteButton, styles.disabledButton]}
@@ -290,7 +292,7 @@ const UsersManagementComponent = () => {
             <Ionicons name="close" size={24} color="#6B7280" />
           </TouchableOpacity>
         </View>
-        
+
         <ScrollView style={styles.modalBody}>
           {isEdit && (
             <View style={styles.formGroup}>
@@ -298,7 +300,7 @@ const UsersManagementComponent = () => {
               <Text style={styles.userIdDisplay}>{selectedUser?.id}</Text>
             </View>
           )}
-          
+
           <View style={styles.formGroup}>
             <Text style={styles.formLabel}>Nom d'utilisateur *</Text>
             <TextInput
@@ -308,7 +310,7 @@ const UsersManagementComponent = () => {
               placeholder="Nom d'utilisateur"
             />
           </View>
-          
+
           {!isEdit && (
             <View style={styles.formGroup}>
               <Text style={styles.formLabel}>Mot de passe *</Text>
@@ -321,22 +323,30 @@ const UsersManagementComponent = () => {
               />
             </View>
           )}
-          
+
           {!isEdit && (
             <View style={styles.formGroup}>
               <Text style={styles.formLabel}>Rôle</Text>
               <View style={styles.radioGroup}>
                 {[
-                  { value: 'caissier', label: 'Caissier' },
-                  { value: 'admin', label: 'Administrateur' }
+                  { value: 'Caissier', label: 'Caissier' },
+                  { value: 'Admin', label: 'Administrateur' }
                 ].map((option) => (
                   <TouchableOpacity
                     key={option.value}
                     style={styles.radioOption}
-                    onPress={() => setSelectedRole(option.value as any)}
+                    onPress={() => {
+                      setSelectedClaims(prev => {
+                        const exists = prev.includes(option.value);
+                        if (exists) {
+                          return prev.filter(c => c !== option.value);
+                        }
+                        return [...prev, option.value];
+                      });
+                    }}
                   >
                     <View style={styles.radioButton}>
-                      {selectedRole === option.value && <View style={styles.radioButtonSelected} />}
+                      {selectedClaims.includes(option.value) && <View style={styles.radioButtonSelected} />}
                     </View>
                     <Text style={styles.radioLabel}>{option.label}</Text>
                   </TouchableOpacity>
@@ -394,7 +404,7 @@ const UsersManagementComponent = () => {
               </Text>
             </View>
           )}
-          
+
           {isEdit && (
             <View style={styles.formGroup}>
               <Text style={styles.formLabel}>Permissions actuelles</Text>
@@ -407,7 +417,7 @@ const UsersManagementComponent = () => {
             </View>
           )}
         </ScrollView>
-        
+
         <View style={styles.modalFooter}>
           <TouchableOpacity
             style={styles.cancelButton}
@@ -419,7 +429,7 @@ const UsersManagementComponent = () => {
           >
             <Text style={styles.cancelButtonText}>Annuler</Text>
           </TouchableOpacity>
-          
+
           <TouchableOpacity
             style={[styles.saveButton, loading && styles.disabledButton]}
             onPress={isEdit ? handleUpdateUser : handleCreateUser}
@@ -460,25 +470,25 @@ const UsersManagementComponent = () => {
             )}
           </Text>
         </View>
-        
+
         <View style={[styles.headerActions, isLargeScreen ? styles.headerActionsWeb : styles.headerActionsMobile]}>
           <TouchableOpacity
             style={[styles.refreshButton, isLargeScreen ? styles.refreshButtonWeb : styles.refreshButtonMobile]}
             onPress={() => refetchUsers()}
             disabled={usersLoading}
           >
-            <Ionicons 
-              name={usersLoading ? "hourglass" : "refresh"} 
-              size={isLargeScreen ? 20 : 16} 
-              color="#FFFFFF" 
+            <Ionicons
+              name={usersLoading ? "hourglass" : "refresh"}
+              size={isLargeScreen ? 20 : 16}
+              color="#FFFFFF"
             />
             <Text style={[styles.refreshButtonText, isLargeScreen ? styles.refreshButtonTextWeb : styles.refreshButtonTextMobile]}>
               {usersLoading ? 'Chargement...' : 'Actualiser'}
             </Text>
           </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={[styles.addButton, isLargeScreen ? styles.addButtonWeb : styles.addButtonMobile]} 
+
+          <TouchableOpacity
+            style={[styles.addButton, isLargeScreen ? styles.addButtonWeb : styles.addButtonMobile]}
             onPress={openAddModal}
           >
             <Ionicons name="person-add" size={isLargeScreen ? 20 : 16} color="#FFFFFF" />
@@ -488,7 +498,7 @@ const UsersManagementComponent = () => {
           </TouchableOpacity>
         </View>
       </View>
-      
+
       {/* Liste des utilisateurs */}
       <ScrollView style={styles.usersList} showsVerticalScrollIndicator={false}>
         {usersLoading ? (
@@ -525,7 +535,7 @@ const UsersManagementComponent = () => {
           </View>
         )}
       </ScrollView>
-      
+
       {/* Modals */}
       {showAddModal && renderModal(false)}
       {showEditModal && renderModal(true)}
@@ -538,7 +548,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8FAFC',
   },
-  
+
   // Loading
   loadingContainer: {
     flex: 1,
@@ -551,7 +561,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#6B7280',
   },
-  
+
   // Header
   header: {
     backgroundColor: '#FFFFFF',
@@ -661,7 +671,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginLeft: 4,
   },
-  
+
   // Users List
   usersList: {
     flex: 1,
@@ -670,7 +680,7 @@ const styles = StyleSheet.create({
   usersGrid: {
     gap: 16,
   },
-  
+
   // User Card
   userCard: {
     backgroundColor: '#FFFFFF',
@@ -772,7 +782,7 @@ const styles = StyleSheet.create({
   disabledButtonText: {
     color: '#9CA3AF',
   },
-  
+
   // Loading State
   loadingState: {
     alignItems: 'center',
@@ -784,7 +794,7 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     marginTop: 12,
   },
-  
+
   // Error State
   errorState: {
     alignItems: 'center',
@@ -819,7 +829,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
-  
+
   // Empty State
   emptyState: {
     alignItems: 'center',
@@ -838,7 +848,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 8,
   },
-  
+
   // Modal
   modalOverlay: {
     position: 'absolute',
