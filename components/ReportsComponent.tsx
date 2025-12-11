@@ -552,6 +552,15 @@ const ReportsComponent = () => {
     );
   }, [paymentReportData, paymentSearch]);
 
+  const paymentTotals = useMemo(() => {
+    const totalUsd = filteredPaymentReportData.reduce((sum, p) => sum + (p.montantPayUsd || 0), 0);
+    const totalCdf = filteredPaymentReportData.reduce((sum, p) => sum + (p.montantPayCdf || 0), 0);
+    return { totalUsd, totalCdf };
+  }, [filteredPaymentReportData]);
+
+  const realPaymentUsd = Math.max(0, paymentTotals.totalUsd - totalExpensesUsd);
+  const realPaymentCdf = Math.max(0, paymentTotals.totalCdf - totalExpensesCdf);
+
   const loadDebtPayments = async (factureId: string) => {
     setDebtPaymentsLoading(true);
     setDebtPaymentsError(null);
@@ -2285,6 +2294,83 @@ const ReportsComponent = () => {
                 </View>
               </View>
 
+              {/* Statistiques paiements facture */}
+              <View style={styles.mainStatsWeb}>
+                <View style={styles.statCardWeb}>
+                  <View style={styles.statIconWeb}>
+                    <Ionicons name="cash" size={24} color="#059669" />
+                  </View>
+                  <View style={styles.statContentWeb}>
+                    <Text style={styles.statValueWeb}>
+                      ${paymentTotals.totalUsd.toFixed(2)}
+                    </Text>
+                    <Text style={styles.statLabelWeb}>Total payé USD</Text>
+                  </View>
+                </View>
+
+                <View style={styles.statCardWeb}>
+                  <View style={styles.statIconWeb}>
+                    <Ionicons name="cash" size={24} color="#10B981" />
+                  </View>
+                  <View style={styles.statContentWeb}>
+                    <Text style={styles.statValueWeb}>
+                      {paymentTotals.totalCdf.toLocaleString()} CDF
+                    </Text>
+                    <Text style={styles.statLabelWeb}>Total payé CDF</Text>
+                  </View>
+                </View>
+
+                <View style={styles.statCardWeb}>
+                  <View style={styles.statIconWeb}>
+                    <Ionicons name="cash-outline" size={24} color="#0EA5E9" />
+                  </View>
+                  <View style={styles.statContentWeb}>
+                    <Text style={styles.statValueWeb}>
+                      ${totalExpensesUsd.toFixed(2)}
+                    </Text>
+                    <Text style={styles.statLabelWeb}>Total dépense USD</Text>
+                  </View>
+                </View>
+
+                <View style={styles.statCardWeb}>
+                  <View style={styles.statIconWeb}>
+                    <Ionicons name="cash-outline" size={24} color="#2563EB" />
+                  </View>
+                  <View style={styles.statContentWeb}>
+                    <Text style={styles.statValueWeb}>
+                      {totalExpensesCdf.toLocaleString()} CDF
+                    </Text>
+                    <Text style={styles.statLabelWeb}>Total dépense CDF</Text>
+                  </View>
+                </View>
+
+                
+
+                <View style={styles.statCardWeb}>
+                  <View style={styles.statIconWeb}>
+                    <Ionicons name="card" size={24} color="#0EA5E9" />
+                  </View>
+                  <View style={styles.statContentWeb}>
+                    <Text style={styles.statValueWeb}>
+                      ${realPaymentUsd.toFixed(2)}
+                    </Text>
+                    <Text style={styles.statLabelWeb}>Total réel USD</Text>
+                  </View>
+                </View>
+
+                <View style={styles.statCardWeb}>
+                  <View style={styles.statIconWeb}>
+                    <Ionicons name="card" size={24} color="#2563EB" />
+                  </View>
+                  <View style={styles.statContentWeb}>
+                    <Text style={styles.statValueWeb}>
+                      {realPaymentCdf.toLocaleString()} CDF
+                    </Text>
+                    <Text style={styles.statLabelWeb}>Total réel CDF</Text>
+                  </View>
+                </View>
+              </View>
+
               {paymentReportError && (
                 <View style={styles.errorContainerWeb}>
                   <Ionicons name="alert-circle-outline" size={24} color="#EF4444" />
@@ -3664,6 +3750,61 @@ const ReportsComponent = () => {
                 <Ionicons name={paymentReportLoading ? "hourglass-outline" : "refresh-outline"} size={16} color="#FFFFFF" />
                 <Text style={styles.printButtonTextMobile}>{paymentReportLoading ? '...' : 'Actualiser'}</Text>
               </TouchableOpacity>
+            </View>
+
+            {/* Statistiques paiements facture - Mobile/Tablet */}
+            <View style={styles.statsGridMobile}>
+              <View style={styles.statCardModernMobile}>
+                <View style={[styles.statIconModernMobile, { backgroundColor: '#DCFCE7' }]}>
+                  <Ionicons name="cash" size={24} color="#059669" />
+                </View>
+                <Text style={styles.statValueModernMobile}>${paymentTotals.totalUsd.toFixed(2)}</Text>
+                <Text style={styles.statLabelModernMobile}>Total payé USD</Text>
+              </View>
+
+              <View style={styles.statCardModernMobile}>
+                <View style={[styles.statIconModernMobile, { backgroundColor: '#ECFDF3' }]}>
+                  <Ionicons name="cash" size={24} color="#10B981" />
+                </View>
+                <Text style={styles.statValueModernMobile}>{paymentTotals.totalCdf.toLocaleString()} CDF</Text>
+                <Text style={styles.statLabelModernMobile}>Total payé CDF</Text>
+              </View>
+
+              <View style={styles.statCardModernMobile}>
+                <View style={[styles.statIconModernMobile, { backgroundColor: '#E0F2FE' }]}>
+                  <Ionicons name="card" size={24} color="#0EA5E9" />
+                </View>
+                <Text style={styles.statValueModernMobile}>
+                  ${realPaymentUsd.toFixed(2)}
+                </Text>
+                <Text style={styles.statLabelModernMobile}>Total réel USD</Text>
+              </View>
+
+              <View style={styles.statCardModernMobile}>
+                <View style={[styles.statIconModernMobile, { backgroundColor: '#DBEAFE' }]}>
+                  <Ionicons name="card" size={24} color="#2563EB" />
+                </View>
+                <Text style={styles.statValueModernMobile}>
+                  {realPaymentCdf.toLocaleString()} CDF
+                </Text>
+                <Text style={styles.statLabelModernMobile}>Total réel CDF</Text>
+              </View>
+
+              <View style={styles.statCardModernMobile}>
+                <View style={[styles.statIconModernMobile, { backgroundColor: '#FEF3C7' }]}>
+                  <Ionicons name="cash-outline" size={24} color="#0EA5E9" />
+                </View>
+                <Text style={styles.statValueModernMobile}>${totalExpensesUsd.toFixed(2)}</Text>
+                <Text style={styles.statLabelModernMobile}>Total dépense USD</Text>
+              </View>
+
+              <View style={styles.statCardModernMobile}>
+                <View style={[styles.statIconModernMobile, { backgroundColor: '#F3E8FF' }]}>
+                  <Ionicons name="cash-outline" size={24} color="#7C3AED" />
+                </View>
+                <Text style={styles.statValueModernMobile}>{totalExpensesCdf.toLocaleString()} CDF</Text>
+                <Text style={styles.statLabelModernMobile}>Total dépense CDF</Text>
+              </View>
             </View>
 
             <View style={[styles.stockSearchContainerMobile, { marginBottom: 8 }]}>
