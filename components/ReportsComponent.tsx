@@ -252,6 +252,17 @@ const ReportsComponent = () => {
   const [debtReportLoading, setDebtReportLoading] = useState(false);
   const [debtReportError, setDebtReportError] = useState<string | null>(null);
   const [expandedDebtId, setExpandedDebtId] = useState<string | null>(null);
+  const [selectedDebt, setSelectedDebt] = useState<DebtReportData | null>(null);
+  const [showDebtModal, setShowDebtModal] = useState(false);
+  const [debtPayments, setDebtPayments] = useState<any[]>([]);
+  const [debtPaymentsLoading, setDebtPaymentsLoading] = useState(false);
+  const [debtPaymentsError, setDebtPaymentsError] = useState<string | null>(null);
+  const [debtPaymentTab, setDebtPaymentTab] = useState<'list' | 'pay'>('list');
+  const [paymentDevise, setPaymentDevise] = useState<1 | 2>(1); // 1=USD, 2=CDF
+  const [paymentAmount, setPaymentAmount] = useState<string>('');
+  const [paymentObservation, setPaymentObservation] = useState<string>('');
+  const [paymentSubmitting, setPaymentSubmitting] = useState(false);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
 
   // États pour le taux de change
   const [exchangeRate, setExchangeRate] = useState<number>(2500); // Valeur par défaut
@@ -455,6 +466,8 @@ const ReportsComponent = () => {
     setDebtReportLoading(true);
     setDebtReportError(null);
     setExpandedDebtId(null);
+    setSelectedDebt(null);
+    setShowDebtModal(false);
 
     try {
       const response = await fetch('https://www.restau3.somee.com/api/v1.0/Report/facture-credit-report', {
@@ -480,6 +493,95 @@ const ReportsComponent = () => {
 
   const toggleDebtDetails = (id: string) => {
     setExpandedDebtId(prev => (prev === id ? null : id));
+  };
+
+  const loadDebtPayments = async (factureId: string) => {
+    setDebtPaymentsLoading(true);
+    setDebtPaymentsError(null);
+    try {
+      const response = await fetch(`https://www.restau3.somee.com/api/v1.0/Facture/payments/${factureId}`, {
+        method: 'GET',
+        headers: { accept: '*/*' }
+      });
+      if (!response.ok) {
+        throw new Error(`Statut ${response.status}`);
+      }
+      const json = await response.json();
+      const list = Array.isArray(json?.data) ? json.data : [];
+      setDebtPayments(list);
+    } catch (error: any) {
+      console.error('Erreur lors du chargement des paiements de facture:', error);
+      setDebtPayments([]);
+      setDebtPaymentsError('Erreur lors du chargement des paiements');
+    } finally {
+      setDebtPaymentsLoading(false);
+    }
+  };
+
+  const handleOpenDebtModal = (item: DebtReportData) => {
+    setSelectedDebt(item);
+    setShowDebtModal(true);
+    setDebtPaymentTab('list');
+    setPaymentDevise(1);
+    setPaymentAmount('');
+    setPaymentObservation('');
+    setPaymentError(null);
+    loadDebtPayments(item.id);
+  };
+
+  const handleSubmitDebtPayment = async () => {
+    if (!selectedDebt) return;
+    setPaymentError(null);
+    const amountNum = parseFloat(paymentAmount);
+    if (isNaN(amountNum) || amountNum <= 0) {
+      setPaymentError('Montant invalide');
+      return;
+    }
+
+    if (paymentDevise === 1 && amountNum > selectedDebt.creditUsd) {
+      setPaymentError('Montant USD supérieur au crédit restant');
+      return;
+    }
+    if (paymentDevise === 2 && amountNum > selectedDebt.creditCdf) {
+      setPaymentError('Montant CDF supérieur au crédit restant');
+      return;
+    }
+
+    setPaymentSubmitting(true);
+    try {
+      const body = {
+        factureId: selectedDebt.id,
+        amount: amountNum,
+        devise: paymentDevise,
+        taux: exchangeRate,
+        observation: paymentObservation
+      };
+
+      const response = await fetch('https://www.restau3.somee.com/api/v1.0/Facture/payments/add', {
+        method: 'POST',
+        headers: {
+          accept: '*/*',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || `Statut ${response.status}`);
+      }
+
+      await loadDebtPayments(selectedDebt.id);
+      await loadDebtReportData(); // rafraîchir les crédits
+      setPaymentAmount('');
+      setPaymentObservation('');
+      setDebtPaymentTab('list');
+    } catch (error: any) {
+      console.error('Erreur lors de l\'ajout du paiement:', error);
+      setPaymentError('Erreur lors de l\'ajout du paiement');
+    } finally {
+      setPaymentSubmitting(false);
+    }
   };
 
   // Fonction pour charger les données de stock
@@ -1850,7 +1952,7 @@ const ReportsComponent = () => {
 
                   {debtReportData.map((item) => (
                     <View key={item.id}>
-                      <View style={styles.tableRowWeb}>
+                      <TouchableOpacity style={styles.tableRowWeb} onPress={() => handleOpenDebtModal(item)}>
                         <Text style={styles.tableCellWeb}>{item.numCode || '-'}</Text>
                         <Text style={[styles.tableCellWeb, styles.descriptionCellWeb]}>{item.client || 'Anonyme'}</Text>
                         <Text style={styles.tableCellWeb}>{item.userName}</Text>
@@ -1863,7 +1965,7 @@ const ReportsComponent = () => {
                         <Text style={[styles.tableCellWeb, { borderRightWidth: 0 }]}>
                           {formatDate(item.created)}
                         </Text>
-                      </View>
+                      </TouchableOpacity>
                       <View style={[styles.tableRowWeb, { backgroundColor: '#F9FAFB' }]}>
                         <Text style={[styles.tableCellWeb, { flex: 1, textAlign: 'left' }]}>
                           Total facture:{'\n'}
@@ -2222,6 +2324,169 @@ const ReportsComponent = () => {
                     </ScrollView>
                   )}
                 </View>
+              </View>
+            </View>
+          </Modal>
+        )}
+        {showDebtModal && selectedDebt && (
+          <Modal
+            visible={showDebtModal}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setShowDebtModal(false)}
+          >
+            <View style={styles.pdfOverlayBackdrop}>
+              <View style={[styles.pdfOverlayContainer, { maxWidth: 900 }]}>
+                <View style={styles.pdfOverlayHeader}>
+                  <Text style={styles.pdfOverlayTitle}>Paiements facture {selectedDebt.numCode || ''}</Text>
+                  <View style={styles.pdfOverlayActions}>
+                    <TouchableOpacity style={styles.pdfOverlayCloseButton} onPress={() => setShowDebtModal(false)}>
+                      <Ionicons name="close" size={22} color="#6B7280" />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+                  <TouchableOpacity
+                    style={[
+                      styles.reportTabButtonWeb,
+                      debtPaymentTab === 'list' && styles.reportTabButtonWebActive
+                    ]}
+                    onPress={() => setDebtPaymentTab('list')}
+                  >
+                    <Ionicons name="list" size={18} color={debtPaymentTab === 'list' ? '#FFFFFF' : '#6B7280'} />
+                    <Text style={[
+                      styles.reportTabButtonTextWeb,
+                      debtPaymentTab === 'list' && styles.reportTabButtonTextWebActive
+                    ]}>Paiements</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.reportTabButtonWeb,
+                      debtPaymentTab === 'pay' && styles.reportTabButtonWebActive
+                    ]}
+                    onPress={() => setDebtPaymentTab('pay')}
+                  >
+                    <Ionicons name="card" size={18} color={debtPaymentTab === 'pay' ? '#FFFFFF' : '#6B7280'} />
+                    <Text style={[
+                      styles.reportTabButtonTextWeb,
+                      debtPaymentTab === 'pay' && styles.reportTabButtonTextWebActive
+                    ]}>Effectuer un paiement</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {debtPaymentTab === 'list' ? (
+                  <View style={{ flex: 1 }}>
+                    {debtPaymentsLoading ? (
+                      <View style={{ padding: 20, alignItems: 'center' }}>
+                        <Ionicons name="hourglass-outline" size={28} color="#6B7280" />
+                        <Text style={{ marginTop: 8, color: '#6B7280', fontWeight: '500' }}>Chargement...</Text>
+                      </View>
+                    ) : debtPaymentsError ? (
+                      <View style={styles.errorContainerWeb}>
+                        <Ionicons name="alert-circle-outline" size={24} color="#EF4444" />
+                        <Text style={styles.errorTextWeb}>{debtPaymentsError}</Text>
+                        <TouchableOpacity style={styles.retryButtonWeb} onPress={() => loadDebtPayments(selectedDebt.id)}>
+                          <Text style={styles.retryButtonTextWeb}>Réessayer</Text>
+                        </TouchableOpacity>
+                      </View>
+                    ) : debtPayments.length === 0 ? (
+                      <View style={styles.emptyStateWeb}>
+                        <Ionicons name="document-outline" size={32} color="#9CA3AF" />
+                        <Text style={styles.emptyStateTextWeb}>Aucun paiement trouvé</Text>
+                      </View>
+                    ) : (
+                      <View style={styles.tableWeb}>
+                        <View style={styles.tableHeaderWeb}>
+                          <Text style={styles.tableHeaderTextWeb}>Montant</Text>
+                          <Text style={styles.tableHeaderTextWeb}>Taux</Text>
+                          <Text style={styles.tableHeaderTextWeb}>Observation</Text>
+                          <Text style={[styles.tableHeaderTextWeb, { borderRightWidth: 0 }]}>Date</Text>
+                        </View>
+                        {debtPayments.map((p: any) => (
+                          <View key={p.id} style={styles.tableRowWeb}>
+                            <Text style={styles.tableCellWeb}>
+                              ${(p.amountUsd ?? p.amount ?? 0).toFixed ? (p.amountUsd ?? p.amount ?? 0).toFixed(2) : (p.amountUsd ?? p.amount ?? 0)} / {(p.amountCdf ?? 0).toLocaleString()} CDF
+                            </Text>
+                            <Text style={styles.tableCellWeb}>{p.taux ?? '-'}</Text>
+                            <Text style={[styles.tableCellWeb, styles.descriptionCellWeb]}>{p.observation || '-'}</Text>
+                            <Text style={[styles.tableCellWeb, { borderRightWidth: 0 }]}>{formatDate(p.created)}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    )}
+                  </View>
+                ) : (
+                  <View style={{ gap: 12 }}>
+                    <View style={{ flexDirection: 'row', gap: 12 }}>
+                      <TouchableOpacity
+                        style={[
+                          styles.depotChipWeb,
+                          paymentDevise === 1 && styles.depotChipWebActive
+                        ]}
+                        onPress={() => setPaymentDevise(1)}
+                      >
+                        <Text style={[
+                          styles.depotChipTextWeb,
+                          paymentDevise === 1 && styles.depotChipTextWebActive
+                        ]}>USD</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[
+                          styles.depotChipWeb,
+                          paymentDevise === 2 && styles.depotChipWebActive
+                        ]}
+                        onPress={() => setPaymentDevise(2)}
+                      >
+                        <Text style={[
+                          styles.depotChipTextWeb,
+                          paymentDevise === 2 && styles.depotChipTextWebActive
+                        ]}>CDF</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <View>
+                      <Text style={styles.filterLabelWeb}>Montant (reste {paymentDevise === 1 ? `${selectedDebt.creditUsd.toFixed(2)} USD` : `${selectedDebt.creditCdf.toLocaleString()} CDF`})</Text>
+                      <TextInput
+                        style={[styles.dateInputWeb, { textAlign: 'left' }]}
+                        keyboardType="numeric"
+                        placeholder="0"
+                        value={paymentAmount}
+                        onChangeText={(val) => {
+                          let next = val;
+                          const parsed = parseFloat(val);
+                          const max = paymentDevise === 1 ? selectedDebt.creditUsd : selectedDebt.creditCdf;
+                          if (!isNaN(parsed) && parsed > max) {
+                            next = max.toString();
+                          }
+                          if (!isNaN(parsed) && parsed < 0) {
+                            next = '0';
+                          }
+                          setPaymentAmount(next);
+                        }}
+                      />
+                    </View>
+                    <View>
+                      <Text style={styles.filterLabelWeb}>Observation</Text>
+                      <TextInput
+                        style={[styles.dateInputWeb, { textAlign: 'left' }]}
+                        placeholder="Note"
+                        value={paymentObservation}
+                        onChangeText={setPaymentObservation}
+                      />
+                    </View>
+                    {paymentError && (
+                      <Text style={{ color: '#EF4444', fontSize: 13 }}>{paymentError}</Text>
+                    )}
+                    <TouchableOpacity
+                      style={[styles.printButtonWeb, { backgroundColor: paymentSubmitting ? '#A78BFA' : '#7C3AED' }]}
+                      onPress={handleSubmitDebtPayment}
+                      disabled={paymentSubmitting}
+                    >
+                      <Ionicons name="checkmark" size={18} color="#FFFFFF" />
+                      <Text style={styles.printButtonTextWeb}>{paymentSubmitting ? 'Envoi...' : 'Valider le paiement'}</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
               </View>
             </View>
           </Modal>
