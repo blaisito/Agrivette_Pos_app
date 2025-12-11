@@ -962,6 +962,7 @@ const ReportsComponent = () => {
 
   // Filtrer les données de mouvement de stock
   const filteredStockMovementData = useMemo(() => {
+    const selectedDepotNormalized = (selectedDepotCode ?? '').trim().toLowerCase();
     return stockMovementData.filter(item => {
       // Filtre par type de mouvement
       const mouvementMatch = stockMovementFilter === 'all' || 
@@ -971,10 +972,15 @@ const ReportsComponent = () => {
       // Filtre par recherche de nom de produit
       const searchMatch = !stockMovementSearch || 
         item.productName?.toLowerCase().includes(stockMovementSearch.toLowerCase());
+
+      // Filtre par dépôt
+      const depotMatch =
+        selectedDepotNormalized === '' ||
+        (item.depotCode || '').trim().toLowerCase() === selectedDepotNormalized;
       
-      return mouvementMatch && searchMatch;
+      return mouvementMatch && searchMatch && depotMatch;
     });
-  }, [stockMovementData, stockMovementFilter, stockMovementSearch]);
+  }, [stockMovementData, stockMovementFilter, stockMovementSearch, selectedDepotCode]);
 
   // Fonction pour sélectionner une transaction
   const selectTransaction = (transaction: any) => {
@@ -2358,24 +2364,27 @@ const ReportsComponent = () => {
               <View style={styles.stockReportSectionWeb}>
                 <View style={[styles.sectionHeaderWeb, { marginBottom: 12 }]}>
                   <Text style={[styles.sectionTitleWeb, { visibility: 'hidden' }]}>Rapport des stocks{stockMovementData.length}</Text>
-                  <TouchableOpacity
-                    style={styles.printButtonWeb}
-                    onPress={loadStockData}
-                    disabled={stockLoading}
-                  >
-                    <Ionicons name={stockLoading ? "hourglass-outline" : "refresh-outline"} size={20} color="#FFFFFF" />
-                    <Text style={styles.printButtonTextWeb}>{stockLoading ? 'Chargement...' : 'Actualiser'}</Text>
-                  </TouchableOpacity>
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <TouchableOpacity
+                      style={styles.printButtonWeb}
+                      onPress={loadStockData}
+                      disabled={stockLoading}
+                    >
+                      <Ionicons name={stockLoading ? "hourglass-outline" : "refresh-outline"} size={20} color="#FFFFFF" />
+                      <Text style={styles.printButtonTextWeb}>{stockLoading ? 'Chargement...' : 'Actualiser'}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.printButtonWeb}
+                      onPress={() => handlePrintReport('stock')}
+                      disabled={stockLoading || filteredStockMovementData.length === 0}
+                    >
+                      <Ionicons name="print" size={20} color="#FFFFFF" />
+                      <Text style={styles.printButtonTextWeb}>Imprimer</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
 
-                {/* États de chargement et erreurs */}
-                {stockLoading && (
-                  <View style={styles.loadingContainerWeb}>
-                    <Ionicons name="hourglass-outline" size={48} color="#3B82F6" />
-                    <Text style={styles.loadingTextWeb}>Chargement des données de stock...</Text>
-                  </View>
-                )}
-
+                {/* États d'erreur */}
                 {stockError && (
                   <View style={styles.errorContainerWeb}>
                     <Ionicons name="alert-circle-outline" size={24} color="#EF4444" />
@@ -2455,13 +2464,7 @@ const ReportsComponent = () => {
                             <Ionicons name="swap-vertical" size={20} color="#3B82F6" />
                             Mouvements de stock ({filteredStockMovementData.length})
                           </Text>
-                          <TouchableOpacity
-                            style={styles.printButtonWeb}
-                            onPress={() => handlePrintReport('stock')}
-                          >
-                            <Ionicons name="print" size={20} color="#FFFFFF" />
-                            <Text style={styles.printButtonTextWeb}>Imprimer PDF</Text>
-                          </TouchableOpacity>
+                          
                         </View>
                         
                         {/* Filtres et recherche */}
@@ -2513,22 +2516,80 @@ const ReportsComponent = () => {
                               </TouchableOpacity>
                             </View>
                           </View>
+
+                          {/* Sélecteur de dépôt pour les mouvements de stock */}
+                          <View style={styles.stockFilterRowWeb}>
+                            <Text style={styles.filterLabelWeb}>Dépôt:</Text>
+                            {isAdmin ? (
+                              depotCodesLoading ? (
+                                <Text style={styles.depotHelperText}>Chargement des dépôts...</Text>
+                              ) : depotCodesError ? (
+                                <Text style={[styles.depotHelperText, styles.depotHelperTextError]}>
+                                  {depotCodesError}
+                                </Text>
+                              ) : depotCodes.length === 0 ? (
+                                <Text style={styles.depotHelperText}>Aucun dépôt disponible.</Text>
+                              ) : (
+                                <View style={styles.stockFilterChipsWeb}>
+                                  {['', ...depotCodes].map(code => {
+                                    const isSelected = selectedDepotCode === code;
+                                    const displayText = code === '' ? 'Tous' : code;
+                                    return (
+                                      <TouchableOpacity
+                                        key={code === '' ? 'all-stock' : code}
+                                        style={[
+                                          styles.stockFilterChipWeb,
+                                          isSelected && styles.stockFilterChipWebActive
+                                        ]}
+                                        onPress={() => setSelectedDepotCode(code)}
+                                      >
+                                        <Text
+                                          style={[
+                                            styles.stockFilterChipTextWeb,
+                                            isSelected && styles.stockFilterChipTextWebActive
+                                          ]}
+                                        >
+                                          {displayText}
+                                        </Text>
+                                      </TouchableOpacity>
+                                    );
+                                  })}
+                                </View>
+                              )
+                            ) : (
+                              <View style={styles.depotBadgeWeb}>
+                                <Ionicons name="business" size={16} color="#4C1D95" />
+                                <Text style={styles.depotBadgeTextWeb}>
+                                  {userDepotCode || 'Aucun dépôt assigné'}
+                                </Text>
+                              </View>
+                            )}
+                          </View>
+
                           <View style={styles.stockSearchContainerWeb}>
                             <Ionicons name="search" size={20} color="#6B7280" style={styles.searchIconWeb} />
-                            <TextInput
-                              style={styles.stockSearchInputWeb}
-                              placeholder="Rechercher par nom de produit..."
-                              value={stockMovementSearch}
-                              onChangeText={setStockMovementSearch}
-                              placeholderTextColor="#9CA3AF"
-                            />
-                            {stockMovementSearch.length > 0 && (
-                              <TouchableOpacity
-                                onPress={() => setStockMovementSearch('')}
-                                style={styles.searchClearButtonWeb}
-                              >
-                                <Ionicons name="close-circle" size={20} color="#6B7280" />
-                              </TouchableOpacity>
+                            {stockLoading ? (
+                              <Text style={[styles.stockSearchInputWeb, { flex: 1, color: '#6B7280' }]}>
+                                Chargement des données...
+                              </Text>
+                            ) : (
+                              <>
+                                <TextInput
+                                  style={styles.stockSearchInputWeb}
+                                  placeholder="Rechercher par nom de produit..."
+                                  value={stockMovementSearch}
+                                  onChangeText={setStockMovementSearch}
+                                  placeholderTextColor="#9CA3AF"
+                                />
+                                {stockMovementSearch.length > 0 && (
+                                  <TouchableOpacity
+                                    onPress={() => setStockMovementSearch('')}
+                                    style={styles.searchClearButtonWeb}
+                                  >
+                                    <Ionicons name="close-circle" size={20} color="#6B7280" />
+                                  </TouchableOpacity>
+                                )}
+                              </>
                             )}
                           </View>
                         </View>
@@ -2925,22 +2986,42 @@ const ReportsComponent = () => {
             </TouchableOpacity>
           </View>
 
-          {/* Bouton pour charger les données de stock */}
+          {/* Boutons Stock (Charger / Actualiser / PDF) */}
           {selectedReportType === 'stock' && (
-            <TouchableOpacity
-              style={styles.loadStockButtonMobile}
-              onPress={loadStockData}
-              disabled={stockLoading}
-            >
-              <Ionicons
-                name={stockLoading ? "hourglass-outline" : "refresh-outline"}
-                size={18}
-                color="#FFFFFF"
-              />
-              <Text style={styles.loadStockButtonTextMobile}>
-                {stockLoading ? 'Chargement...' : 'Charger les données de stock'}
-              </Text>
-            </TouchableOpacity>
+            <View style={styles.loadStockButtonsRowMobile}>
+              <TouchableOpacity
+                style={[styles.loadStockButtonMobile, { flex: 1 }]}
+                onPress={loadStockData}
+                disabled={stockLoading}
+              >
+                <Ionicons
+                  name={stockLoading ? "hourglass-outline" : "refresh-outline"}
+                  size={18}
+                  color="#FFFFFF"
+                />
+                <Text style={styles.loadStockButtonTextMobile}>
+                  {stockLoading ? 'Chargement...' : 'Charger les données'}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.printButtonMobile, { flex: 1 }]}
+                onPress={loadStockData}
+                disabled={stockLoading}
+              >
+                <Ionicons name={stockLoading ? "hourglass-outline" : "refresh-outline"} size={16} color="#FFFFFF" />
+                <Text style={styles.printButtonTextMobile}>{stockLoading ? '...' : 'Actualiser'}</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.printButtonMobile, { flex: 1 }]}
+                onPress={() => handlePrintReport('stock')}
+                disabled={stockLoading || filteredStockMovementData.length === 0}
+              >
+                <Ionicons name="print" size={16} color="#FFFFFF" />
+                <Text style={styles.printButtonTextMobile}>PDF</Text>
+              </TouchableOpacity>
+            </View>
           )}
         </View>
 
@@ -3688,18 +3769,7 @@ const ReportsComponent = () => {
         {selectedReportType === 'stock' && (
           <>
             {/* Section Rapport des stocks Mobile */}
-            <View style={styles.stockReportSectionMobile}>
-              <View style={styles.sectionHeaderMobile}>
-                <Text style={[styles.sectionTitleMobile, { visibility: 'hidden' }]}>Rapport des stocks{stockMovementData.length}</Text>
-                <TouchableOpacity
-                  style={styles.printButtonMobile}
-                  onPress={loadStockData}
-                  disabled={stockLoading}
-                >
-                  <Ionicons name={stockLoading ? "hourglass-outline" : "refresh-outline"} size={16} color="#FFFFFF" />
-                  <Text style={styles.printButtonTextMobile}>{stockLoading ? '...' : 'Actualiser'}</Text>
-                </TouchableOpacity>
-              </View>
+              <View style={styles.stockReportSectionMobile}>
 
               {/* États de chargement et erreurs */}
               {stockLoading && (
@@ -3792,13 +3862,6 @@ const ReportsComponent = () => {
                           <Ionicons name="swap-vertical" size={16} color="#3B82F6" />
                           Mouvements de stock ({filteredStockMovementData.length})
                         </Text>
-                        <TouchableOpacity
-                          style={styles.printButtonMobile}
-                          onPress={() => handlePrintReport('stock')}
-                        >
-                          <Ionicons name="print" size={16} color="#FFFFFF" />
-                          <Text style={styles.printButtonTextMobile}>PDF</Text>
-                        </TouchableOpacity>
                       </View>
                       
                       {/* Filtres et recherche Mobile */}
@@ -3850,22 +3913,75 @@ const ReportsComponent = () => {
                             </TouchableOpacity>
                           </ScrollView>
                         </View>
+                        <View style={styles.stockFilterRowMobile}>
+                          <Text style={styles.filterLabelMobile}>Dépôt:</Text>
+                          {isAdmin ? (
+                            depotCodesLoading ? (
+                              <Text style={styles.depotHelperTextMobile}>Chargement...</Text>
+                            ) : depotCodesError ? (
+                              <Text style={[styles.depotHelperTextMobile, styles.depotHelperTextError]}>{depotCodesError}</Text>
+                            ) : depotCodes.length === 0 ? (
+                              <Text style={styles.depotHelperTextMobile}>Aucun dépôt</Text>
+                            ) : (
+                              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.stockFilterChipsScrollMobile}>
+                                {['', ...depotCodes].map(code => {
+                                  const isSelected = selectedDepotCode === code;
+                                  const displayText = code === '' ? 'Tous' : code;
+                                  return (
+                                    <TouchableOpacity
+                                      key={code === '' ? 'all-stock-mobile' : code}
+                                      style={[
+                                        styles.stockFilterChipMobile,
+                                        isSelected && styles.stockFilterChipMobileActive
+                                      ]}
+                                      onPress={() => setSelectedDepotCode(code)}
+                                    >
+                                      <Text
+                                        style={[
+                                          styles.stockFilterChipTextMobile,
+                                          isSelected && styles.stockFilterChipTextMobileActive
+                                        ]}
+                                      >
+                                        {displayText}
+                                      </Text>
+                                    </TouchableOpacity>
+                                  );
+                                })}
+                              </ScrollView>
+                            )
+                          ) : (
+                            <View style={styles.depotBadgeMobile}>
+                              <Ionicons name="business" size={16} color="#4C1D95" />
+                              <Text style={styles.depotBadgeTextMobile}>
+                                {userDepotCode || 'Aucun dépôt assigné'}
+                              </Text>
+                            </View>
+                          )}
+                        </View>
                         <View style={styles.stockSearchContainerMobile}>
                           <Ionicons name="search" size={18} color="#6B7280" style={styles.searchIconMobile} />
-                          <TextInput
-                            style={styles.stockSearchInputMobile}
-                            placeholder="Rechercher par produit..."
-                            value={stockMovementSearch}
-                            onChangeText={setStockMovementSearch}
-                            placeholderTextColor="#9CA3AF"
-                          />
-                          {stockMovementSearch.length > 0 && (
-                            <TouchableOpacity
-                              onPress={() => setStockMovementSearch('')}
-                              style={styles.searchClearButtonMobile}
-                            >
-                              <Ionicons name="close-circle" size={18} color="#6B7280" />
-                            </TouchableOpacity>
+                          {stockLoading ? (
+                            <Text style={[styles.stockSearchInputMobile, { flex: 1, color: '#6B7280' }]}>
+                              Chargement des données...
+                            </Text>
+                          ) : (
+                            <>
+                              <TextInput
+                                style={styles.stockSearchInputMobile}
+                                placeholder="Rechercher par produit..."
+                                value={stockMovementSearch}
+                                onChangeText={setStockMovementSearch}
+                                placeholderTextColor="#9CA3AF"
+                              />
+                              {stockMovementSearch.length > 0 && (
+                                <TouchableOpacity
+                                  onPress={() => setStockMovementSearch('')}
+                                  style={styles.searchClearButtonMobile}
+                                >
+                                  <Ionicons name="close-circle" size={18} color="#6B7280" />
+                                </TouchableOpacity>
+                              )}
+                            </>
                           )}
                         </View>
                       </View>
@@ -4631,6 +4747,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#7C3AED',
     paddingHorizontal: 12,
     paddingVertical: 8,
+    height: 44,
     borderRadius: 6,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -6328,14 +6445,20 @@ const styles = StyleSheet.create({
     backgroundColor: '#3B82F6',
     paddingVertical: 12,
     paddingHorizontal: 16,
+    height: 44,
     borderRadius: 8,
-    marginTop: 12,
     gap: 6,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
     elevation: 1,
+  },
+  loadStockButtonsRowMobile: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+    alignItems: 'stretch',
   },
   loadStockButtonTextMobile: {
     color: '#FFFFFF',
