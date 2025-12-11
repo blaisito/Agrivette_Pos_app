@@ -542,15 +542,18 @@ const ReportsComponent = () => {
   }, [debtReportData, debtSearch]);
 
   const filteredPaymentReportData = useMemo(() => {
-    if (!paymentSearch.trim()) return paymentReportData;
     const term = paymentSearch.trim().toLowerCase();
-    return paymentReportData.filter(item =>
-      (item.numFacture || '').toLowerCase().includes(term) ||
-      (item.client || '').toLowerCase().includes(term) ||
-      (item.userName || '').toLowerCase().includes(term) ||
-      (item.depotCode || '').toLowerCase().includes(term)
-    );
-  }, [paymentReportData, paymentSearch]);
+    const depotNorm = (selectedDepotCode ?? '').trim().toLowerCase();
+    return paymentReportData.filter(item => {
+      const searchMatch = !term ||
+        (item.numFacture || '').toLowerCase().includes(term) ||
+        (item.client || '').toLowerCase().includes(term) ||
+        (item.userName || '').toLowerCase().includes(term) ||
+        (item.depotCode || '').toLowerCase().includes(term);
+      const depotMatch = depotNorm === '' || (item.depotCode || '').trim().toLowerCase() === depotNorm;
+      return searchMatch && depotMatch;
+    });
+  }, [paymentReportData, paymentSearch, selectedDepotCode]);
 
   const paymentTotals = useMemo(() => {
     const totalUsd = filteredPaymentReportData.reduce((sum, p) => sum + (p.montantPayUsd || 0), 0);
@@ -2371,6 +2374,53 @@ const ReportsComponent = () => {
                 </View>
               </View>
 
+              {/* Sélecteur de dépôt (admin seulement) */}
+              {isAdmin ? (
+                <View style={{ marginTop: 12, marginBottom: 12 }}>
+                  <Text style={styles.filterLabelWeb}>Dépôt</Text>
+                  {depotCodesLoading ? (
+                    <Text style={styles.depotHelperText}>Chargement des dépôts...</Text>
+                  ) : depotCodesError ? (
+                    <Text style={[styles.depotHelperText, styles.depotHelperTextError]}>{depotCodesError}</Text>
+                  ) : depotCodes.length === 0 ? (
+                    <Text style={styles.depotHelperText}>Aucun dépôt disponible.</Text>
+                  ) : (
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+                      {['', ...depotCodes].map(code => {
+                        const isSelected = selectedDepotCode === code;
+                        const display = code === '' ? 'Tous' : code;
+                        return (
+                          <TouchableOpacity
+                            key={code === '' ? 'all-payment' : code}
+                            style={[
+                              styles.stockFilterChipWeb,
+                              isSelected && styles.stockFilterChipWebActive
+                            ]}
+                            onPress={() => setSelectedDepotCode(code)}
+                          >
+                            <Text
+                              style={[
+                                styles.stockFilterChipTextWeb,
+                                isSelected && styles.stockFilterChipTextWebActive
+                              ]}
+                            >
+                              {display}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  )}
+                </View>
+              ) : (
+                <View style={[styles.depotBadgeWeb, { marginTop: 12 }]}>
+                  <Ionicons name="business" size={16} color="#4C1D95" />
+                  <Text style={styles.depotBadgeTextWeb}>
+                    {userDepotCode || 'Aucun dépôt assigné'}
+                  </Text>
+                </View>
+              )}
+
               {paymentReportError && (
                 <View style={styles.errorContainerWeb}>
                   <Ionicons name="alert-circle-outline" size={24} color="#EF4444" />
@@ -3805,6 +3855,68 @@ const ReportsComponent = () => {
                 <Text style={styles.statValueModernMobile}>{totalExpensesCdf.toLocaleString()} CDF</Text>
                 <Text style={styles.statLabelModernMobile}>Total dépense CDF</Text>
               </View>
+            </View>
+
+            {/* Sélecteur de dépôt - Mobile/Tablet */}
+            <View style={{ marginHorizontal: 16, marginBottom: 10 }}>
+              <Text style={styles.sectionTitleMobile}>Dépôt</Text>
+              {isAdmin ? (
+                depotCodesLoading ? (
+                  <Text style={styles.depotHelperTextMobile}>Chargement des dépôts...</Text>
+                ) : depotCodesError ? (
+                  <Text style={[styles.depotHelperTextMobile, styles.depotHelperTextError]}>{depotCodesError}</Text>
+                ) : depotCodes.length === 0 ? (
+                  <Text style={styles.depotHelperTextMobile}>Aucun dépôt disponible.</Text>
+                ) : (
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.depotChipsScrollMobile}>
+                    <TouchableOpacity
+                      style={[
+                        styles.depotChipMobile,
+                        selectedDepotCode === '' && styles.depotChipMobileActive,
+                      ]}
+                      onPress={() => setSelectedDepotCode('')}
+                    >
+                      <Text
+                        style={[
+                          styles.depotChipTextMobile,
+                          selectedDepotCode === '' && styles.depotChipTextMobileActive,
+                        ]}
+                      >
+                        Tous
+                      </Text>
+                    </TouchableOpacity>
+                    {depotCodes.map(code => {
+                      const isSelected = selectedDepotCode === code;
+                      return (
+                        <TouchableOpacity
+                          key={code}
+                          style={[
+                            styles.depotChipMobile,
+                            isSelected && styles.depotChipMobileActive,
+                          ]}
+                          onPress={() => setSelectedDepotCode(code)}
+                        >
+                          <Text
+                            style={[
+                              styles.depotChipTextMobile,
+                              isSelected && styles.depotChipTextMobileActive,
+                            ]}
+                          >
+                            {code}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                )
+              ) : (
+                <View style={styles.depotBadgeMobile}>
+                  <Ionicons name="business" size={16} color="#4C1D95" />
+                  <Text style={styles.depotBadgeTextMobile}>
+                    {userDepotCode || 'Aucun dépôt assigné'}
+                  </Text>
+                </View>
+              )}
             </View>
 
             <View style={[styles.stockSearchContainerMobile, { marginBottom: 8 }]}>
