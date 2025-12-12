@@ -1403,33 +1403,7 @@ ${orderDetails}
               {/* Formulaire de commande */}
               <View style={styles.actionsContainer}>
                 <View style={styles.formContainer}>
-                  <View style={styles.amountToggleRow}>
-                    <Text style={styles.formLabel}>Montant en</Text>
-                    <View style={styles.amountToggleSwitch}>
-                      <Text
-                        style={[
-                          styles.amountToggleOption,
-                          !useUsdAmounts && styles.amountToggleOptionActive
-                        ]}
-                      >
-                        CDF
-                      </Text>
-                      <Switch
-                        value={useUsdAmounts}
-                        onValueChange={setUseUsdAmounts}
-                        trackColor={{ false: '#E5E7EB', true: '#34D399' }}
-                        thumbColor={useUsdAmounts ? '#059669' : '#FFFFFF'}
-                      />
-                      <Text
-                        style={[
-                          styles.amountToggleOption,
-                          useUsdAmounts && styles.amountToggleOptionActive
-                        ]}
-                      >
-                        USD
-                      </Text>
-                    </View>
-                  </View>
+                  {/* Switcher de devise caché - USD par défaut */}
 
                   {/* Réduction */}
                   <View style={styles.formField}>
@@ -1862,33 +1836,7 @@ ${orderDetails}
             {/* Formulaire de commande */}
             <View style={styles.actionsContainer}>
               <View style={styles.formContainer}>
-                <View style={styles.amountToggleRow}>
-                  <Text style={styles.formLabel}>Montant en</Text>
-                  <View style={styles.amountToggleSwitch}>
-                    <Text
-                      style={[
-                        styles.amountToggleOption,
-                        !useUsdAmounts && styles.amountToggleOptionActive
-                      ]}
-                    >
-                      CDF
-                    </Text>
-                    <Switch
-                      value={useUsdAmounts}
-                      onValueChange={setUseUsdAmounts}
-                      trackColor={{ false: '#E5E7EB', true: '#34D399' }}
-                      thumbColor={useUsdAmounts ? '#059669' : '#FFFFFF'}
-                    />
-                    <Text
-                      style={[
-                        styles.amountToggleOption,
-                        useUsdAmounts && styles.amountToggleOptionActive
-                      ]}
-                    >
-                      USD
-                    </Text>
-                  </View>
-                </View>
+                {/* Switcher de devise caché - USD par défaut */}
 
                 <View style={styles.amountRowMobile}>
                   <View style={styles.amountFieldMobile}>
@@ -2388,19 +2336,7 @@ ${orderDetails}
                 </View>
               </View>
               {/* Montants */}
-              <View style={{ marginBottom: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Text style={{ color: '#374151', fontWeight: '500' }}>Montant en</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <Text style={{ color: useUsdAmounts ? '#6B7280' : '#1F2937', fontWeight: !useUsdAmounts ? '600' : '500' }}>CDF</Text>
-                  <Switch
-                    value={useUsdAmounts}
-                    onValueChange={setUseUsdAmounts}
-                    trackColor={{ false: '#E5E7EB', true: '#34D399' }}
-                    thumbColor={useUsdAmounts ? '#059669' : '#FFFFFF'}
-                  />
-                  <Text style={{ color: useUsdAmounts ? '#1F2937' : '#6B7280', fontWeight: useUsdAmounts ? '600' : '500' }}>USD</Text>
-                </View>
-              </View>
+              {/* Switcher de devise caché - USD par défaut */}
               <View style={{ marginBottom: 10 }}>
                 <Text style={{ color: '#374151', marginBottom: 4, fontWeight: '500' }}>Montant CDF</Text>
                 <TextInput
