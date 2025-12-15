@@ -234,15 +234,20 @@ const POSComponent = ({ onCartItemCountChange }: POSComponentProps) => {
   };
 
   const handleAmountCdfChange = (value: string) => {
-    if (useUsdAmounts) {
+    // Laisser l'utilisateur saisir, mais plafonner au TOTAL FINAL (CDF)
+    const trimmed = value.trim();
+    if (trimmed === '') {
       setAmountCdf('');
       return;
     }
-    const maxValue = Math.max(0, total);
-    const result = clampNumericInput(value, maxValue, 0);
-    if (result !== null) {
-      setAmountCdf(result);
+    const sanitized = trimmed.replace(',', '.');
+    const parsed = Number(sanitized);
+    if (Number.isNaN(parsed)) {
+      return;
     }
+    const maxValue = Math.max(0, total);
+    const clamped = Math.min(Math.floor(parsed), maxValue);
+    setAmountCdf(clamped.toString());
   };
 
   const handleAmountUsdChange = (value: string) => {
@@ -380,6 +385,21 @@ const POSComponent = ({ onCartItemCountChange }: POSComponentProps) => {
       setAmountUsd(totalFinalUsd.toFixed(2));
     }
   }, [orderItems, totalFinalUsd, useUsdAmounts]);
+
+  // Quand le panier est vide, remettre les montants à zéro
+  useEffect(() => {
+    if (orderItems.length === 0) {
+      setAmountCdf('0');
+      setAmountUsd('0');
+    }
+  }, [orderItems]);
+
+  // Initialiser Montant CDF avec le TOTAL FINAL de la facture (valeur numérique)
+  useEffect(() => {
+    if (total > 0) {
+      setAmountCdf(total.toFixed(0));
+    }
+  }, [total]);
 
   // Ajout d'images pour chaque item du menu
   const menuItems = [
@@ -1423,17 +1443,14 @@ ${orderDetails}
                     <View style={styles.amountFieldWeb}>
                       <Text style={styles.formLabel}>Montant CDF</Text>
                       <TextInput
-                        style={[
-                          styles.formInput,
-                          useUsdAmounts && styles.disabledInput
-                        ]}
+                      style={styles.formInput}
                         placeholder="0"
                         placeholderTextColor="#9CA3AF"
                         keyboardType="numeric"
                         value={amountCdf}
                         onChangeText={handleAmountCdfChange}
-                        editable={!useUsdAmounts}
-                        selectTextOnFocus={!useUsdAmounts}
+                      editable
+                      selectTextOnFocus
                       />
                     </View>
                     <View style={styles.amountFieldWeb}>
