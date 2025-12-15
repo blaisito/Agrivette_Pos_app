@@ -233,22 +233,7 @@ const POSComponent = ({ onCartItemCountChange }: POSComponentProps) => {
     return basePriceUsd * (rate || 0);
   };
 
-  const handleAmountCdfChange = (value: string) => {
-    // Laisser l'utilisateur saisir, mais plafonner au TOTAL FINAL (CDF)
-    const trimmed = value.trim();
-    if (trimmed === '') {
-      setAmountCdf('');
-      return;
-    }
-    const sanitized = trimmed.replace(',', '.');
-    const parsed = Number(sanitized);
-    if (Number.isNaN(parsed)) {
-      return;
-    }
-    const maxValue = Math.max(0, total);
-    const clamped = Math.min(Math.floor(parsed), maxValue);
-    setAmountCdf(clamped.toString());
-  };
+  // Montant CDF est maintenant fixe à 0 dans l'UI (non modifiable par l'utilisateur)
 
   const handleAmountUsdChange = (value: string) => {
     if (!useUsdAmounts) {
@@ -1443,14 +1428,12 @@ ${orderDetails}
                     <View style={styles.amountFieldWeb}>
                       <Text style={styles.formLabel}>Montant CDF</Text>
                       <TextInput
-                      style={styles.formInput}
+                        style={styles.formInput}
                         placeholder="0"
                         placeholderTextColor="#9CA3AF"
                         keyboardType="numeric"
-                        value={amountCdf}
-                        onChangeText={handleAmountCdfChange}
-                      editable
-                      selectTextOnFocus
+                        value="0"
+                        editable={false}
                       />
                     </View>
                     <View style={styles.amountFieldWeb}>
@@ -1861,15 +1844,13 @@ ${orderDetails}
                     <TextInput
                       style={[
                         styles.formInput,
-                        useUsdAmounts && styles.disabledInput
+                        styles.disabledInput
                       ]}
                       placeholder="0"
                       placeholderTextColor="#9CA3AF"
                       keyboardType="numeric"
-                      value={amountCdf}
-                      onChangeText={handleAmountCdfChange}
-                      editable={!useUsdAmounts}
-                      selectTextOnFocus={!useUsdAmounts}
+                      value="0"
+                      editable={false}
                     />
                   </View>
                   <View style={styles.amountFieldMobile}>
@@ -2357,21 +2338,19 @@ ${orderDetails}
               <View style={{ marginBottom: 10 }}>
                 <Text style={{ color: '#374151', marginBottom: 4, fontWeight: '500' }}>Montant CDF</Text>
                 <TextInput
-                  value={amountCdf}
-                  onChangeText={setAmountCdf}
+                  value="0"
                   placeholder="0"
                   placeholderTextColor="#9CA3AF"
                   keyboardType="numeric"
-                  editable={!useUsdAmounts}
-                  selectTextOnFocus={!useUsdAmounts}
+                  editable={false}
                   style={{
                     borderWidth: 1,
                     borderColor: '#E5E7EB',
                     borderRadius: 6,
                     padding: 10,
                     fontSize: 15,
-                    color: useUsdAmounts ? '#9CA3AF' : '#222',
-                    backgroundColor: useUsdAmounts ? '#F3F4F6' : '#FFFFFF',
+                    color: '#9CA3AF',
+                    backgroundColor: '#F3F4F6',
                   }}
                 />
               </View>
