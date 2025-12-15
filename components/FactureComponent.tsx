@@ -525,15 +525,26 @@ const FactureComponent = ({ onInvoiceCountChange }: FactureComponentProps) => {
       try {
         // Déterminer le depotCode à utiliser
         // Si admin : utiliser selectedDepotCode, sinon utiliser userDepotCode
-        const depotCodeToUse: string | undefined = isAdmin ? (selectedDepotCode ?? undefined) : (userDepotCode ?? undefined);
+        const depotCodeToUse: string | undefined = isAdmin
+          ? (selectedDepotCode ?? undefined)
+          : (userDepotCode ?? undefined);
+
+        // Pour les non-admins, on exige un depotCode pour éviter les retours non filtrés
+        if (!isAdmin && !depotCodeToUse) {
+          throw new Error('Aucun depotCode trouvé pour l’utilisateur non admin.');
+        }
 
         // Try the date range API first
 
         response = await getFacturesByDateRange(start, end, depotCodeToUse as any);
 
       } catch (dateRangeError) {
-        // Fallback to getAllFactures if date range API fails
-        response = await getAllFactures();
+        // Fallback to getAllFactures uniquement pour les admins
+        if (isAdmin) {
+          response = await getAllFactures();
+        } else {
+          throw dateRangeError;
+        }
       }
 
       // Handle the API response structure - it might be wrapped in a data property
@@ -621,6 +632,10 @@ const FactureComponent = ({ onInvoiceCountChange }: FactureComponentProps) => {
   // Fetch data when component mounts or date range changes or depot code changes
   useEffect(() => {
     const loadInvoices = async () => {
+      // Pour les non-admins, attendre d’avoir userDepotCode pour éviter un call sans filtre
+      if (!isAdmin && !userDepotCode) {
+        return;
+      }
       try {
         const response = await fetchInvoicesByDateRange(startDate, endDate);
         if (response && Array.isArray(response)) {
