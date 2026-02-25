@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Dimensions, FlatList, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import * as XLSX from 'xlsx';
 import { createCategory, deleteCategory, getCategories, updateCategory } from '../api/categoryApi';
 import { createProduct, getProductById, getProducts, updateProduct } from '../api/productApi';
 import { getProductStockHistory, reapprovisionStock, sortieStock, transferStock } from '../api/stockApi';
@@ -31,10 +32,10 @@ const ProductRowWeb = React.memo(({
         </View>
         <View>
           <Text style={styles.productNameWeb}>{product.productName}</Text>
-          <Text style={[styles.productUnitWeb, {flex: 1, maxWidth: '30%'}]}>{product.description || 'Aucune description'}</Text>
+          <Text style={[styles.productUnitWeb, { flex: 1, maxWidth: '30%' }]}>{product.description || 'Aucune description'}</Text>
         </View>
       </View>
-      <Text style={[styles.categoryCellWeb, {flex: 1}]}>{product.category?.categoryName || 'N/A'}</Text>
+      <Text style={[styles.categoryCellWeb, { flex: 1 }]}>{product.category?.categoryName || 'N/A'}</Text>
       <Text style={styles.priceCellWeb}>${product.priceUsd}</Text>
       <Text style={styles.priceCellWeb}>{product.priceCdf} CDF</Text>
       <View style={styles.expirationCellWeb}>
@@ -55,14 +56,14 @@ const ProductRowWeb = React.memo(({
         >
           <Ionicons name="time-outline" size={16} color="#2563EB" />
         </TouchableOpacity>
-        <TouchableOpacity 
-          style={styles.actionButtonWeb} 
+        <TouchableOpacity
+          style={styles.actionButtonWeb}
           onPress={() => onEdit(product)}
         >
           <Ionicons name="create-outline" size={16} color="#3B82F6" />
         </TouchableOpacity>
-        <TouchableOpacity 
-          style={[styles.actionButtonWeb, styles.deleteButtonWeb]} 
+        <TouchableOpacity
+          style={[styles.actionButtonWeb, styles.deleteButtonWeb]}
           onPress={() => {
             if (typeof window !== 'undefined' && typeof window.alert === 'function') {
               window.alert('Fonction de suppression à implémenter');
@@ -86,12 +87,12 @@ const ProductRowWeb = React.memo(({
 });
 
 // Composant ProductItemMobile mémorisé pour optimiser les performances
-const ProductItemMobile = React.memo(({ 
-  product, 
-  onEdit, 
-  onHistory, 
-  formatDateTime, 
-  isExpiringWithinSixMonths 
+const ProductItemMobile = React.memo(({
+  product,
+  onEdit,
+  onHistory,
+  formatDateTime,
+  isExpiringWithinSixMonths
 }: {
   product: any;
   onEdit: (product: any) => void;
@@ -100,7 +101,7 @@ const ProductItemMobile = React.memo(({
   isExpiringWithinSixMonths: (dateString?: string | null) => boolean;
 }) => {
   const isExpiringSoon = isExpiringWithinSixMonths(product.expirationDate);
-  
+
   return (
     <View style={styles.productCardMobile}>
       <View style={styles.productHeaderMobile}>
@@ -118,7 +119,7 @@ const ProductItemMobile = React.memo(({
           >
             <Ionicons name="time-outline" size={22} color="#2563EB" />
           </TouchableOpacity>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.editIconMobile}
             onPress={() => onEdit(product)}
           >
@@ -175,7 +176,7 @@ const ProductItemMobile = React.memo(({
 const InventoryComponent = () => {
   const { width } = Dimensions.get('window');
   const isLargeScreen = width > 768; // Tablette = 768px, donc > 768px = desktop/large screen
-  
+
   const [activeTab, setActiveTab] = useState<'products' | 'categories' | 'product-management'>('products');
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
@@ -189,7 +190,7 @@ const InventoryComponent = () => {
     () => (effectiveDepotForProducts ? { depotCode: effectiveDepotForProducts } : null),
     [effectiveDepotForProducts]
   );
-  
+
   // Hooks pour les données API
   const { data: categoriesData, loading: categoriesLoading, error: categoriesError, refetch: refetchCategories } = useFetch(getCategories);
   const { data: productsData, loading: productsLoading, error: productsError, refetch: refetchProducts } = useFetch(getProducts, productFetchParams as any);
@@ -210,7 +211,7 @@ const InventoryComponent = () => {
     loadUserDepot();
   }, []);
   const { execute: executeApi, loading: apiLoading, error: apiError } = useApi();
-  
+
   // Types pour éviter les erreurs TypeScript
   const categories = categoriesData || [];
   const products = productsData || [];
@@ -228,24 +229,24 @@ const InventoryComponent = () => {
   const filteredProducts: any[] = useMemo(() => {
     return products.filter((product: any) => {
       // Filtre par recherche
-      const matchesSearch = debouncedSearchQuery === '' || 
+      const matchesSearch = debouncedSearchQuery === '' ||
         product.productName.toLowerCase().includes(debouncedSearchQuery.toLowerCase());
-      
+
       // Filtre par catégorie
-      const matchesCategory = selectedCategory === 'Toutes' || 
+      const matchesCategory = selectedCategory === 'Toutes' ||
         product.category?.categoryName === selectedCategory;
-      
+
       return matchesSearch && matchesCategory;
     });
   }, [products, debouncedSearchQuery, selectedCategory]);
-  
+
   // État pour le formulaire de catégorie (conforme aux DTOs)
   const [newCategory, setNewCategory] = useState({
     categoryName: '', // Conforme à NewCategoryDto
     description: ''   // Conforme à NewCategoryDto
   });
   const [editingCategory, setEditingCategory] = useState<any>(null);
-  
+
   // Fonctions pour la gestion des catégories
   const handleCreateCategory = async () => {
     if (!newCategory.categoryName.trim()) {
@@ -538,7 +539,7 @@ const InventoryComponent = () => {
     priceCdf: '', // Prix en CDF
     minimalStock: '', // Stock minimum
     imageBase64: 'UkVTVE9NQU5BR0VSQVBQ', // Valeur par défaut valide
-  expirationDate: '' // Date d'expiration
+    expirationDate: '' // Date d'expiration
   });
   const [editingProduct, setEditingProduct] = useState<any>(null);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
@@ -551,7 +552,7 @@ const InventoryComponent = () => {
   });
   const [historyDepotCode, setHistoryDepotCode] = useState<string>('');
   const [historyProduct, setHistoryProduct] = useState<any>(null);
-  
+
   // États pour le formulaire de stock
   const [stockQuantity, setStockQuantity] = useState('');
   const [stockObservation, setStockObservation] = useState('');
@@ -876,8 +877,8 @@ const InventoryComponent = () => {
           sorties: Array.isArray(payload.soties)
             ? payload.soties
             : Array.isArray(payload.sorties)
-            ? payload.sorties
-            : []
+              ? payload.sorties
+              : []
         });
       } catch (error: any) {
         console.error("Erreur lors du chargement de l'historique de stock:", error);
@@ -892,7 +893,7 @@ const InventoryComponent = () => {
       loadHistory();
     }
   }, [showHistoryModal, historyDepotCode, historyProduct, isAdmin, userDepotCode, depotOptions]);
-  
+
   // Liste des produits avec images (du POSComponent)
   const menuItems = [
     {
@@ -1112,7 +1113,7 @@ const InventoryComponent = () => {
 
   const filteredItems = inventoryItems.filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         item.category.toLowerCase().includes(searchQuery.toLowerCase());
+      item.category.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = selectedCategory === 'Toutes' || item.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
@@ -1146,28 +1147,56 @@ const InventoryComponent = () => {
     return date.toLocaleString();
   };
 
-const toIsoWithZulu = (dateString?: string) => {
-  if (!dateString) {
-    return '';
-  }
-  const date = new Date(dateString);
-  if (Number.isNaN(date.getTime())) {
-    return '';
-  }
-  return date.toISOString();
-};
+  const toIsoWithZulu = (dateString?: string) => {
+    if (!dateString) {
+      return '';
+    }
+    const date = new Date(dateString);
+    if (Number.isNaN(date.getTime())) {
+      return '';
+    }
+    return date.toISOString();
+  };
 
-const isExpiringWithinSixMonths = (dateString?: string | null) => {
-  if (!dateString) return false;
-  const expiration = new Date(dateString);
-  if (Number.isNaN(expiration.getTime())) return false;
+  const isExpiringWithinSixMonths = (dateString?: string | null) => {
+    if (!dateString) return false;
+    const expiration = new Date(dateString);
+    if (Number.isNaN(expiration.getTime())) return false;
 
-  const today = new Date();
-  const sixMonthsAhead = new Date(today);
-  sixMonthsAhead.setMonth(sixMonthsAhead.getMonth() + 6);
+    const today = new Date();
+    const sixMonthsAhead = new Date(today);
+    sixMonthsAhead.setMonth(sixMonthsAhead.getMonth() + 6);
 
-  return expiration <= sixMonthsAhead;
-};
+    return expiration <= sixMonthsAhead;
+  };
+
+  const handleExportToExcel = () => {
+    const rows = filteredProducts.map((p: any) => ({
+      'Nom produit': p.productName || '',
+      'Description': p.description || '',
+      'Catégorie': p.category?.categoryName || 'N/A',
+      'Prix USD': p.priceUsd ?? '',
+      'Prix CDF': p.priceCdf ?? '',
+      'Date expiration': formatDateTime(p.expirationDate),
+      'Stock': p.inStock ?? 0,
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Produits');
+    const fileName = `produits_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      const buffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      a.click();
+      URL.revokeObjectURL(url);
+    } else {
+      Alert.alert('Export Excel', 'L\'export est disponible sur la version web. Ouvrez l\'application dans un navigateur pour exporter.');
+    }
+  };
 
   const openCategoryModal = () => {
     setShowCategoryModal(true);
@@ -1423,9 +1452,8 @@ const isExpiringWithinSixMonths = (dateString?: string | null) => {
     }
 
     const productLabel = editingProduct?.name || editingProduct?.productName || 'ce produit';
-    const message = `Êtes-vous sûr de vouloir ${actionText} ${quantity} unité(s) du stock pour "${productLabel}" ?${stockObservation ? `\n\nObservation: ${stockObservation}` : ''}\n\nDépôt: ${depotLabel}${
-      action === 'add' ? `\n\nDate d'expiration: ${formatDateTime(adjustExpirationDate)}` : ''
-    }`;
+    const message = `Êtes-vous sûr de vouloir ${actionText} ${quantity} unité(s) du stock pour "${productLabel}" ?${stockObservation ? `\n\nObservation: ${stockObservation}` : ''}\n\nDépôt: ${depotLabel}${action === 'add' ? `\n\nDate d'expiration: ${formatDateTime(adjustExpirationDate)}` : ''
+      }`;
 
     const isWeb = typeof window !== 'undefined' && typeof window.confirm === 'function';
 
@@ -1634,7 +1662,7 @@ const isExpiringWithinSixMonths = (dateString?: string | null) => {
         if (file) {
           const reader = new FileReader();
           reader.onload = (event: any) => {
-            setNewProduct({...newProduct, imageBase64: event.target.result});
+            setNewProduct({ ...newProduct, imageBase64: event.target.result });
           };
           reader.readAsDataURL(file);
         }
@@ -1678,25 +1706,25 @@ const isExpiringWithinSixMonths = (dateString?: string | null) => {
     mobileLabel: string;
     icon: keyof typeof Ionicons.glyphMap;
   }> = [
-    {
-      key: 'products',
-      label: 'Liste des produits',
-      mobileLabel: 'Produits',
-      icon: 'list'
-    },
-    {
-      key: 'categories',
-      label: 'Gestion catégories',
-      mobileLabel: 'Catégories',
-      icon: 'folder'
-    },
-    {
-      key: 'product-management',
-      label: 'Gestion des produits',
-      mobileLabel: 'Gestion',
-      icon: 'settings'
-    }
-  ];
+      {
+        key: 'products',
+        label: 'Liste des produits',
+        mobileLabel: 'Produits',
+        icon: 'list'
+      },
+      {
+        key: 'categories',
+        label: 'Gestion catégories',
+        mobileLabel: 'Catégories',
+        icon: 'folder'
+      },
+      {
+        key: 'product-management',
+        label: 'Gestion des produits',
+        mobileLabel: 'Gestion',
+        icon: 'settings'
+      }
+    ];
 
   const openStockModal = (product: any) => {
     setSelectedProduct(product);
@@ -1717,10 +1745,10 @@ const isExpiringWithinSixMonths = (dateString?: string | null) => {
     if (selectedProduct && stockChange) {
       const change = parseInt(stockChange);
       if (!isNaN(change) && change > 0) {
-        const newQuantity = action === 'increase' 
-          ? selectedProduct.quantity + change 
+        const newQuantity = action === 'increase'
+          ? selectedProduct.quantity + change
           : selectedProduct.quantity - change;
-        
+
         if (newQuantity >= 0) {
           // Ici on pourrait mettre à jour la base de données
           closeStockModal();
@@ -1740,7 +1768,7 @@ const isExpiringWithinSixMonths = (dateString?: string | null) => {
 
   const currentHistoryItems = historyTab === 'reaprovision' ? historyData.reaprovision : historyData.sorties;
   const historyDepotDisplay = historyDepotCode || (!isAdmin ? userDepotCode || '' : '');
-const historyModal = (
+  const historyModal = (
     <Modal
       visible={showHistoryModal}
       onRequestClose={closeHistoryModal}
@@ -1848,9 +1876,8 @@ const historyModal = (
                 {historyLoading
                   ? 'Chargement en cours...'
                   : historyError
-                  ? 'Erreur de chargement'
-                  : `Total ${historyTab === 'reaprovision' ? 'approvisionnements' : 'sorties'} : ${
-                      currentHistoryItems.length
+                    ? 'Erreur de chargement'
+                    : `Total ${historyTab === 'reaprovision' ? 'approvisionnements' : 'sorties'} : ${currentHistoryItems.length
                     }`}
               </Text>
               <Text style={styles.historySummaryCount}>
@@ -1934,94 +1961,104 @@ const historyModal = (
   if (isLargeScreen) {
     return (
       <>
-        <ScrollView style={[styles.containerWeb, {paddingHorizontal: 140}]}>
+        <ScrollView style={[styles.containerWeb, { paddingHorizontal: 140 }]}>
           <Text style={styles.titleWeb}>Inventaire</Text>
-        
-        {/* Onglets */}
-        <View style={styles.tabsPillContainerWeb}>
-          {inventoryTabsConfig.map((tab) => (
-            <TouchableOpacity
-              key={tab.key}
-              style={[
-                styles.tabButtonWeb,
-                activeTab === tab.key && styles.tabButtonWebActive
-              ]}
-              onPress={() => setActiveTab(tab.key)}
-            >
-              <Ionicons
-                name={tab.icon}
-                size={18}
-                color={activeTab === tab.key ? '#FFFFFF' : '#6B7280'}
-              />
-              <Text
+
+          {/* Onglets */}
+          <View style={styles.tabsPillContainerWeb}>
+            {inventoryTabsConfig.map((tab) => (
+              <TouchableOpacity
+                key={tab.key}
                 style={[
-                  styles.tabButtonTextWeb,
-                  activeTab === tab.key && styles.tabButtonTextWebActive
+                  styles.tabButtonWeb,
+                  activeTab === tab.key && styles.tabButtonWebActive
                 ]}
+                onPress={() => setActiveTab(tab.key)}
               >
-                {tab.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* Contenu des onglets */}
-        {activeTab === 'products' && (
-          <View>
-            {/* États de chargement et erreurs */}
-            {(categoriesLoading || productsLoading) && (
-              <View style={styles.loadingContainerWeb}>
-                <ActivityIndicator size="large" color="#3B82F6" />
-                <Text style={styles.loadingTextWeb}>Chargement des données...</Text>
-              </View>
-            )}
-
-            {(categoriesError || productsError) && (
-              <View style={styles.errorContainerWeb}>
-                <Ionicons name="alert-circle-outline" size={24} color="#EF4444" />
-                <Text style={styles.errorTextWeb}>{categoriesError || productsError}</Text>
-                <TouchableOpacity 
-                  style={styles.retryButtonWeb} 
-                  onPress={() => {
-                    refetchCategories();
-                    refetchProducts();
-                  }}
+                <Ionicons
+                  name={tab.icon}
+                  size={18}
+                  color={activeTab === tab.key ? '#FFFFFF' : '#6B7280'}
+                />
+                <Text
+                  style={[
+                    styles.tabButtonTextWeb,
+                    activeTab === tab.key && styles.tabButtonTextWebActive
+                  ]}
                 >
-                  <Text style={styles.retryButtonTextWeb}>Réessayer</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {!categoriesLoading && !productsLoading && !categoriesError && !productsError && (
-              <>
-            {/* Barre de recherche et filtres */}
-        <View style={styles.searchContainerWeb}>
-          <View style={styles.searchBarWeb}>
-            <Ionicons name="search" size={20} color="#6B7280" />
-            <TextInput 
-              placeholder="Rechercher un produit..." 
-              style={styles.searchInputWeb}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              placeholderTextColor="#9CA3AF"
-            />
+                  {tab.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
           </View>
-          <TouchableOpacity 
-            style={styles.refreshButtonWeb}
-            onPress={() => {
-              refetchCategories();
-              refetchProducts();
-            }}
-            disabled={categoriesLoading || productsLoading}
-          >
-            {(categoriesLoading || productsLoading) ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : (
-              <Ionicons name="refresh" size={20} color="#FFFFFF" />
-            )}
-          </TouchableOpacity>
-        </View>
-        {/* Filtres par dépôt 
+
+          {/* Contenu des onglets */}
+          {activeTab === 'products' && (
+            <View>
+              {/* États de chargement et erreurs */}
+              {(categoriesLoading || productsLoading) && (
+                <View style={styles.loadingContainerWeb}>
+                  <ActivityIndicator size="large" color="#3B82F6" />
+                  <Text style={styles.loadingTextWeb}>Chargement des données...</Text>
+                </View>
+              )}
+
+              {(categoriesError || productsError) && (
+                <View style={styles.errorContainerWeb}>
+                  <Ionicons name="alert-circle-outline" size={24} color="#EF4444" />
+                  <Text style={styles.errorTextWeb}>{categoriesError || productsError}</Text>
+                  <TouchableOpacity
+                    style={styles.retryButtonWeb}
+                    onPress={() => {
+                      refetchCategories();
+                      refetchProducts();
+                    }}
+                  >
+                    <Text style={styles.retryButtonTextWeb}>Réessayer</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {!categoriesLoading && !productsLoading && !categoriesError && !productsError && (
+                <>
+                  {/* Barre de recherche et filtres */}
+                  <View style={styles.searchContainerWeb}>
+                    <View style={styles.searchBarWeb}>
+                      <Ionicons name="search" size={20} color="#6B7280" />
+                      <TextInput
+                        placeholder="Rechercher un produit..."
+                        style={styles.searchInputWeb}
+                        value={searchQuery}
+                        onChangeText={setSearchQuery}
+                        placeholderTextColor="#9CA3AF"
+                      />
+                    </View>
+
+                    <TouchableOpacity
+                      style={styles.refreshButtonWeb}
+                      onPress={() => {
+                        refetchCategories();
+                        refetchProducts();
+                      }}
+                      disabled={categoriesLoading || productsLoading}
+                    >
+                      {(categoriesLoading || productsLoading) ? (
+                        <ActivityIndicator size="small" color="#FFFFFF" />
+                      ) : (
+                        <Ionicons name="refresh" size={20} color="#FFFFFF" />
+                      )}
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[styles.refreshButtonWeb, { backgroundColor: '#059669', flexDirection: 'row' }]}
+                      onPress={handleExportToExcel}
+                      disabled={filteredProducts.length === 0}
+                    >
+                      <Ionicons name="document-text-outline" size={20} color="#FFFFFF" />
+                      <Text style={styles.excelButtonTextWeb}>Excel</Text>
+                    </TouchableOpacity>
+                  </View>
+                  {/* Filtres par dépôt
         <View style={[styles.depotFilterWrapperWeb, {visibility: 'hidden'}]}>
           <Text style={styles.depotFilterLabelWeb}>Filtrer par dépôt</Text>
           {isAdmin ? (
@@ -2067,63 +2104,63 @@ const historyModal = (
           )}
         </View>*/}
 
-              {/* Filtres par dépôt */}
-              <View style={styles.depotFilterWrapperMobile}>
-                <Text style={styles.depotFilterLabelMobile}>Filtrer par dépôt</Text>
-                {isAdmin ? (
-                  depotCodesLoading ? (
-                    <View style={styles.depotFilterLoadingMobile}>
-                      <ActivityIndicator size="small" color="#7C3AED" />
-                      <Text style={styles.depotFilterInfoTextMobile}>Chargement des dépôts...</Text>
-                    </View>
-                  ) : depotOptions.length > 0 ? (
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                      <View style={styles.depotFilterChipsMobile}>
-                        {depotOptions.map((code) => (
-                          <TouchableOpacity
-                            key={code}
-                            style={[
-                              styles.depotFilterChipMobile,
-                              selectedDepotFilter === code && styles.depotFilterChipActiveMobile
-                            ]}
-                            onPress={() => setSelectedDepotFilter(code)}
-                          >
-                            <Text
-                              style={[
-                                styles.depotFilterChipTextMobile,
-                                selectedDepotFilter === code && styles.depotFilterChipTextActiveMobile
-                              ]}
-                            >
-                              {code}
-                            </Text>
-                          </TouchableOpacity>
-                        ))}
+                  {/* Filtres par dépôt */}
+                  <View style={styles.depotFilterWrapperMobile}>
+                    <Text style={styles.depotFilterLabelMobile}>Filtrer par dépôt</Text>
+                    {isAdmin ? (
+                      depotCodesLoading ? (
+                        <View style={styles.depotFilterLoadingMobile}>
+                          <ActivityIndicator size="small" color="#7C3AED" />
+                          <Text style={styles.depotFilterInfoTextMobile}>Chargement des dépôts...</Text>
+                        </View>
+                      ) : depotOptions.length > 0 ? (
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                          <View style={styles.depotFilterChipsMobile}>
+                            {depotOptions.map((code) => (
+                              <TouchableOpacity
+                                key={code}
+                                style={[
+                                  styles.depotFilterChipMobile,
+                                  selectedDepotFilter === code && styles.depotFilterChipActiveMobile
+                                ]}
+                                onPress={() => setSelectedDepotFilter(code)}
+                              >
+                                <Text
+                                  style={[
+                                    styles.depotFilterChipTextMobile,
+                                    selectedDepotFilter === code && styles.depotFilterChipTextActiveMobile
+                                  ]}
+                                >
+                                  {code}
+                                </Text>
+                              </TouchableOpacity>
+                            ))}
+                          </View>
+                        </ScrollView>
+                      ) : (
+                        <Text style={styles.depotFilterInfoTextMobile}>Aucun dépôt disponible.</Text>
+                      )
+                    ) : (
+                      <View style={styles.depotFilterInfoMobile}>
+                        <Ionicons name="business-outline" size={16} color="#2563EB" />
+                        <Text style={styles.depotFilterInfoTextMobile}>
+                          Dépôt actif : {userDepotCode || 'Non défini'}
+                        </Text>
                       </View>
-                    </ScrollView>
-                  ) : (
-                    <Text style={styles.depotFilterInfoTextMobile}>Aucun dépôt disponible.</Text>
-                  )
-                ) : (
-                  <View style={styles.depotFilterInfoMobile}>
-                    <Ionicons name="business-outline" size={16} color="#2563EB" />
-                    <Text style={styles.depotFilterInfoTextMobile}>
-                      Dépôt actif : {userDepotCode || 'Non défini'}
-                    </Text>
+                    )}
                   </View>
-                )}
-              </View>
 
-              {/* Filtres par catégorie */}
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryFiltersWeb}>
-                  <TouchableOpacity
-                    style={[
-                      styles.categoryFilterWeb,
+                  {/* Filtres par catégorie */}
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryFiltersWeb}>
+                    <TouchableOpacity
+                      style={[
+                        styles.categoryFilterWeb,
                         selectedCategory === 'Toutes' && styles.categoryFilterActiveWeb
-                    ]}
+                      ]}
                       onPress={() => setSelectedCategory('Toutes')}
-                  >
-                    <Text style={[
-                      styles.categoryFilterTextWeb,
+                    >
+                      <Text style={[
+                        styles.categoryFilterTextWeb,
                         selectedCategory === 'Toutes' && styles.categoryFilterTextActiveWeb
                       ]}>
                         Toutes
@@ -2143,264 +2180,264 @@ const historyModal = (
                           selectedCategory === category.categoryName && styles.categoryFilterTextActiveWeb
                         ]}>
                           {category.categoryName}
-                    </Text>
-          </TouchableOpacity>
-                ))}
-              </ScrollView>
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
 
-              {/* Table des produits */}
-                <View style={styles.tableContainerWeb}>
-                  <View style={styles.tableHeaderWeb}>
-                    <Text style={styles.tableHeaderTextWeb}>Produit</Text>
-                    <Text style={styles.tableHeaderTextWeb}>Catégorie</Text>
-                    <Text style={styles.tableHeaderTextWeb}>Prix USD</Text>
-                    <Text style={styles.tableHeaderTextWeb}>Prix CDF</Text>
-                    <Text style={styles.tableHeaderTextWeb}>Expiration</Text>
-                    <Text style={styles.tableHeaderTextWeb}>Stock</Text>
-                    <Text style={styles.tableHeaderTextWeb}>Actions</Text>
-                  </View>
-                  
-                  {filteredProducts.length === 0 ? (
-                    <View style={styles.emptyStateWeb}>
-                      <Ionicons name="cube-outline" size={48} color="#9CA3AF" />
-                      <Text style={styles.emptyStateTextWeb}>Aucun produit trouvé</Text>
-                      <Text style={styles.emptyStateSubtextWeb}>Commencez par créer un produit</Text>
-                    </View>
-                  ) : (
-                    filteredProducts.map((product: any) => (
-                      <ProductRowWeb
-                        key={product.id}
-                        product={product}
-                        onEdit={selectProductForEdit}
-                        onHistory={openHistoryModal}
-                        formatDateTime={formatDateTime}
-                        isExpiringWithinSixMonths={isExpiringWithinSixMonths}
-                      />
-                    ))
-                  )}
-                </View>
-
-                
-              </>
-            )}
-          </View>
-        )}
-
-        {activeTab === 'categories' && (
-          <View>
-            {/* États de chargement et erreurs */}
-            {categoriesLoading && (
-              <View style={styles.loadingContainerWeb}>
-                <ActivityIndicator size="large" color="#3B82F6" />
-                <Text style={styles.loadingTextWeb}>Chargement des catégories...</Text>
-              </View>
-            )}
-
-            {categoriesError && (
-              <View style={styles.errorContainerWeb}>
-                <Ionicons name="alert-circle-outline" size={24} color="#EF4444" />
-                <Text style={styles.errorTextWeb}>{categoriesError}</Text>
-                <TouchableOpacity 
-                  style={styles.retryButtonWeb} 
-                  onPress={() => refetchCategories()}
-                >
-                  <Text style={styles.retryButtonTextWeb}>Réessayer</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {!categoriesLoading && !categoriesError && (
-              <>
-            {/* Formulaire de catégorie */}
-            <View style={styles.formContainerWeb}>
-              <Text style={styles.formTitleWeb}>
-                {editingCategory ? 'Modifier la catégorie' : 'Créer une nouvelle catégorie'}
-              </Text>
-              
-                <View style={styles.formGroupWeb}>
-                    <Text style={styles.formLabelWeb}>Nom de la catégorie *</Text>
-                  <TextInput
-                    style={styles.formInputWeb}
-                      value={newCategory.categoryName}
-                      onChangeText={(text) => setNewCategory({...newCategory, categoryName: text})}
-                    placeholder="Ex: Boissons"
-                    placeholderTextColor="#9CA3AF"
-                  />
-                </View>
-              
-              <View style={styles.formGroupWeb}>
-                <Text style={styles.formLabelWeb}>Description</Text>
-                <TextInput
-                  style={[styles.formInputWeb, styles.textAreaWeb]}
-                  value={newCategory.description}
-                  onChangeText={(text) => setNewCategory({...newCategory, description: text})}
-                  placeholder="Description de la catégorie..."
-                  placeholderTextColor="#9CA3AF"
-                  multiline
-                  numberOfLines={3}
-                />
-              </View>
-              
-              <View style={styles.formActionsWeb}>
-                {editingCategory && (
-                <TouchableOpacity 
-                    style={styles.cancelButtonWeb} 
-                    onPress={() => {
-                      setEditingCategory(null);
-                          setNewCategory({ categoryName: '', description: '' });
-                    }}
-                  >
-                    <Text style={styles.cancelButtonTextWeb}>Annuler</Text>
-                </TouchableOpacity>
-                )}
-                <TouchableOpacity 
-                      style={[styles.submitButtonWeb, apiLoading && styles.disabledButtonWeb]} 
-                      onPress={editingCategory ? handleUpdateCategory : handleCreateCategory}
-                      disabled={apiLoading}
-                >
-                      {apiLoading ? (
-                        <ActivityIndicator size="small" color="#FFFFFF" />
-                      ) : (
-                  <Text style={styles.submitButtonTextWeb}>
-                    {editingCategory ? 'Mettre à jour' : 'Créer'}
-                  </Text>
-                      )}
-                </TouchableOpacity>
-              </View>
-              </View>
-
-            {/* Table des catégories */}
-            <View style={styles.tableContainerWeb}>
-              <View style={styles.tableHeaderWeb}>
-                <Text style={styles.tableHeaderTextWeb}>Nom</Text>
-                <Text style={styles.tableHeaderTextWeb}>Description</Text>
-                <Text style={styles.tableHeaderTextWeb}>Actions</Text>
+                  {/* Table des produits */}
+                  <View style={styles.tableContainerWeb}>
+                    <View style={styles.tableHeaderWeb}>
+                      <Text style={styles.tableHeaderTextWeb}>Produit</Text>
+                      <Text style={styles.tableHeaderTextWeb}>Catégorie</Text>
+                      <Text style={styles.tableHeaderTextWeb}>Prix USD</Text>
+                      <Text style={styles.tableHeaderTextWeb}>Prix CDF</Text>
+                      <Text style={styles.tableHeaderTextWeb}>Expiration</Text>
+                      <Text style={styles.tableHeaderTextWeb}>Stock</Text>
+                      <Text style={styles.tableHeaderTextWeb}>Actions</Text>
                     </View>
 
-                  {categories && categories.length === 0 ? (
-                    <View style={styles.emptyStateWeb}>
-                      <Ionicons name="folder-outline" size={48} color="#9CA3AF" />
-                      <Text style={styles.emptyStateTextWeb}>Aucune catégorie trouvée</Text>
-                      <Text style={styles.emptyStateSubtextWeb}>Commencez par créer une catégorie</Text>
-                    </View>
-                  ) : (
-                    categories?.map((category: any) => (
-                <View key={category.id} style={styles.tableRowWeb}>
-                        <Text style={styles.categoryNameWeb}>{category.categoryName}</Text>
-                  <Text style={styles.categoryDescriptionWeb}>{category.description}</Text>
-                  <View style={styles.actionsCellWeb}>
-                        <TouchableOpacity 
-                      style={styles.actionButtonWeb} 
-                      onPress={() => editCategory(category)}
-                    >
-                      <Ionicons name="create-outline" size={16} color="#3B82F6" />
-                        </TouchableOpacity>
-                          <TouchableOpacity 
-                            style={[styles.actionButtonWeb, styles.deleteButtonWeb]} 
-                            onPress={() => handleDeleteCategory(category)}
-                          >
-                            <Ionicons name="trash-outline" size={16} color="#EF4444" />
-                        </TouchableOpacity>
+                    {filteredProducts.length === 0 ? (
+                      <View style={styles.emptyStateWeb}>
+                        <Ionicons name="cube-outline" size={48} color="#9CA3AF" />
+                        <Text style={styles.emptyStateTextWeb}>Aucun produit trouvé</Text>
+                        <Text style={styles.emptyStateSubtextWeb}>Commencez par créer un produit</Text>
                       </View>
-                          </View>
-                    ))
-                  )}
-            </View>
-              </>
-            )}
-          </View>
-        )}
+                    ) : (
+                      filteredProducts.map((product: any) => (
+                        <ProductRowWeb
+                          key={product.id}
+                          product={product}
+                          onEdit={selectProductForEdit}
+                          onHistory={openHistoryModal}
+                          formatDateTime={formatDateTime}
+                          isExpiringWithinSixMonths={isExpiringWithinSixMonths}
+                        />
+                      ))
+                    )}
+                  </View>
 
-        {activeTab === 'product-management' && (
-          <View>
-            {/* Formulaire de produit */}
-            <View style={styles.formContainerWeb}>
-              <Text style={styles.formTitleWeb}>
-                {editingProduct ? 'Modifier le produit' : 'Créer un nouveau produit'}
-              </Text>
-              
-              {/* Sélecteur de catégories */}
-              <View style={styles.categorySelectorContainerWeb}>
-                <Text style={styles.categorySelectorLabelWeb}>Sélectionner une catégorie :</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categorySelectorWeb}>
-                   {categories.map((category: any) => (
-                    <TouchableOpacity
-                      key={category.id}
-                      style={[
-                        styles.categorySelectorItemWeb,
-                         { backgroundColor: '#3B82F620', borderColor: '#3B82F6' },
-                         newProduct.categoryId === category.id && styles.categorySelectorItemActiveWeb
-                      ]}
-                       onPress={() => selectCategoryForProduct(category)}
-                    >
-                       <View style={[styles.categorySelectorColorWeb, { backgroundColor: '#3B82F6' }]} />
-                      <Text style={[
-                        styles.categorySelectorTextWeb,
-                         { color: '#3B82F6' },
-                         newProduct.categoryId === category.id && styles.categorySelectorTextActiveWeb
-                      ]}>
-                         {category.categoryName}
-                      </Text>
-                </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-              
-               {/* Champ catégorie sélectionnée (lecture seule) */}
+
+                </>
+              )}
+            </View>
+          )}
+
+          {activeTab === 'categories' && (
+            <View>
+              {/* États de chargement et erreurs */}
+              {categoriesLoading && (
+                <View style={styles.loadingContainerWeb}>
+                  <ActivityIndicator size="large" color="#3B82F6" />
+                  <Text style={styles.loadingTextWeb}>Chargement des catégories...</Text>
+                </View>
+              )}
+
+              {categoriesError && (
+                <View style={styles.errorContainerWeb}>
+                  <Ionicons name="alert-circle-outline" size={24} color="#EF4444" />
+                  <Text style={styles.errorTextWeb}>{categoriesError}</Text>
+                  <TouchableOpacity
+                    style={styles.retryButtonWeb}
+                    onPress={() => refetchCategories()}
+                  >
+                    <Text style={styles.retryButtonTextWeb}>Réessayer</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {!categoriesLoading && !categoriesError && (
+                <>
+                  {/* Formulaire de catégorie */}
+                  <View style={styles.formContainerWeb}>
+                    <Text style={styles.formTitleWeb}>
+                      {editingCategory ? 'Modifier la catégorie' : 'Créer une nouvelle catégorie'}
+                    </Text>
+
+                    <View style={styles.formGroupWeb}>
+                      <Text style={styles.formLabelWeb}>Nom de la catégorie *</Text>
+                      <TextInput
+                        style={styles.formInputWeb}
+                        value={newCategory.categoryName}
+                        onChangeText={(text) => setNewCategory({ ...newCategory, categoryName: text })}
+                        placeholder="Ex: Boissons"
+                        placeholderTextColor="#9CA3AF"
+                      />
+                    </View>
+
+                    <View style={styles.formGroupWeb}>
+                      <Text style={styles.formLabelWeb}>Description</Text>
+                      <TextInput
+                        style={[styles.formInputWeb, styles.textAreaWeb]}
+                        value={newCategory.description}
+                        onChangeText={(text) => setNewCategory({ ...newCategory, description: text })}
+                        placeholder="Description de la catégorie..."
+                        placeholderTextColor="#9CA3AF"
+                        multiline
+                        numberOfLines={3}
+                      />
+                    </View>
+
+                    <View style={styles.formActionsWeb}>
+                      {editingCategory && (
+                        <TouchableOpacity
+                          style={styles.cancelButtonWeb}
+                          onPress={() => {
+                            setEditingCategory(null);
+                            setNewCategory({ categoryName: '', description: '' });
+                          }}
+                        >
+                          <Text style={styles.cancelButtonTextWeb}>Annuler</Text>
+                        </TouchableOpacity>
+                      )}
+                      <TouchableOpacity
+                        style={[styles.submitButtonWeb, apiLoading && styles.disabledButtonWeb]}
+                        onPress={editingCategory ? handleUpdateCategory : handleCreateCategory}
+                        disabled={apiLoading}
+                      >
+                        {apiLoading ? (
+                          <ActivityIndicator size="small" color="#FFFFFF" />
+                        ) : (
+                          <Text style={styles.submitButtonTextWeb}>
+                            {editingCategory ? 'Mettre à jour' : 'Créer'}
+                          </Text>
+                        )}
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
+                  {/* Table des catégories */}
+                  <View style={styles.tableContainerWeb}>
+                    <View style={styles.tableHeaderWeb}>
+                      <Text style={styles.tableHeaderTextWeb}>Nom</Text>
+                      <Text style={styles.tableHeaderTextWeb}>Description</Text>
+                      <Text style={styles.tableHeaderTextWeb}>Actions</Text>
+                    </View>
+
+                    {categories && categories.length === 0 ? (
+                      <View style={styles.emptyStateWeb}>
+                        <Ionicons name="folder-outline" size={48} color="#9CA3AF" />
+                        <Text style={styles.emptyStateTextWeb}>Aucune catégorie trouvée</Text>
+                        <Text style={styles.emptyStateSubtextWeb}>Commencez par créer une catégorie</Text>
+                      </View>
+                    ) : (
+                      categories?.map((category: any) => (
+                        <View key={category.id} style={styles.tableRowWeb}>
+                          <Text style={styles.categoryNameWeb}>{category.categoryName}</Text>
+                          <Text style={styles.categoryDescriptionWeb}>{category.description}</Text>
+                          <View style={styles.actionsCellWeb}>
+                            <TouchableOpacity
+                              style={styles.actionButtonWeb}
+                              onPress={() => editCategory(category)}
+                            >
+                              <Ionicons name="create-outline" size={16} color="#3B82F6" />
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              style={[styles.actionButtonWeb, styles.deleteButtonWeb]}
+                              onPress={() => handleDeleteCategory(category)}
+                            >
+                              <Ionicons name="trash-outline" size={16} color="#EF4444" />
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+                      ))
+                    )}
+                  </View>
+                </>
+              )}
+            </View>
+          )}
+
+          {activeTab === 'product-management' && (
+            <View>
+              {/* Formulaire de produit */}
+              <View style={styles.formContainerWeb}>
+                <Text style={styles.formTitleWeb}>
+                  {editingProduct ? 'Modifier le produit' : 'Créer un nouveau produit'}
+                </Text>
+
+                {/* Sélecteur de catégories */}
+                <View style={styles.categorySelectorContainerWeb}>
+                  <Text style={styles.categorySelectorLabelWeb}>Sélectionner une catégorie :</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categorySelectorWeb}>
+                    {categories.map((category: any) => (
+                      <TouchableOpacity
+                        key={category.id}
+                        style={[
+                          styles.categorySelectorItemWeb,
+                          { backgroundColor: '#3B82F620', borderColor: '#3B82F6' },
+                          newProduct.categoryId === category.id && styles.categorySelectorItemActiveWeb
+                        ]}
+                        onPress={() => selectCategoryForProduct(category)}
+                      >
+                        <View style={[styles.categorySelectorColorWeb, { backgroundColor: '#3B82F6' }]} />
+                        <Text style={[
+                          styles.categorySelectorTextWeb,
+                          { color: '#3B82F6' },
+                          newProduct.categoryId === category.id && styles.categorySelectorTextActiveWeb
+                        ]}>
+                          {category.categoryName}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+
+                {/* Champ catégorie sélectionnée (lecture seule) */}
                 <View style={styles.formGroupWeb}>
-                 <Text style={styles.formLabelWeb}>Catégorie sélectionnée</Text>
+                  <Text style={styles.formLabelWeb}>Catégorie sélectionnée</Text>
                   <TextInput
-                   style={[styles.formInputWeb, styles.readOnlyInputWeb]}
-                   value={(categories as any[]).find((cat: any) => cat.id === newProduct.categoryId)?.categoryName || 'Aucune catégorie sélectionnée'}
-                   placeholder="Sélectionnez une catégorie ci-dessus"
+                    style={[styles.formInputWeb, styles.readOnlyInputWeb]}
+                    value={(categories as any[]).find((cat: any) => cat.id === newProduct.categoryId)?.categoryName || 'Aucune catégorie sélectionnée'}
+                    placeholder="Sélectionnez une catégorie ci-dessus"
                     placeholderTextColor="#9CA3AF"
-                   editable={false}
+                    editable={false}
                   />
                 </View>
-                
+
                 <View style={styles.formGroupWeb}>
-                 <Text style={styles.formLabelWeb}>Nom du produit *</Text>
+                  <Text style={styles.formLabelWeb}>Nom du produit *</Text>
                   <TextInput
                     style={styles.formInputWeb}
-                   value={newProduct.productName}
-                   onChangeText={(text) => setNewProduct({...newProduct, productName: text})}
-                   placeholder="Ex: Pizza Margherita"
+                    value={newProduct.productName}
+                    onChangeText={(text) => setNewProduct({ ...newProduct, productName: text })}
+                    placeholder="Ex: Pizza Margherita"
                     placeholderTextColor="#9CA3AF"
                   />
                 </View>
-                
-              <View style={styles.formRowWeb}>
-                <View style={styles.formGroupWeb}>
-                   <Text style={styles.formLabelWeb}>Prix (USD) *</Text>
-                  <TextInput
-                    style={styles.formInputWeb}
-                     value={newProduct.priceUsd}
-                     onChangeText={(text) => setNewProduct({...newProduct, priceUsd: text})}
-                    placeholder="0.00"
-                    placeholderTextColor="#9CA3AF"
-                    keyboardType="numeric"
-                  />
+
+                <View style={styles.formRowWeb}>
+                  <View style={styles.formGroupWeb}>
+                    <Text style={styles.formLabelWeb}>Prix (USD) *</Text>
+                    <TextInput
+                      style={styles.formInputWeb}
+                      value={newProduct.priceUsd}
+                      onChangeText={(text) => setNewProduct({ ...newProduct, priceUsd: text })}
+                      placeholder="0.00"
+                      placeholderTextColor="#9CA3AF"
+                      keyboardType="numeric"
+                    />
+                  </View>
+
+                  <View style={[styles.formGroupWeb, { display: 'none' }]}>
+                    <Text style={styles.formLabelWeb}>Prix (CDF)</Text>
+                    <TextInput
+                      style={styles.formInputWeb}
+                      value={newProduct.priceCdf}
+                      onChangeText={(text) => setNewProduct({ ...newProduct, priceCdf: text })}
+                      placeholder="0.00"
+                      placeholderTextColor="#9CA3AF"
+                      keyboardType="numeric"
+                    />
+                  </View>
                 </View>
-                
-                <View style={[styles.formGroupWeb, { display: 'none' }]}>
-                   <Text style={styles.formLabelWeb}>Prix (CDF)</Text>
-                  <TextInput
-                    style={styles.formInputWeb}
-                     value={newProduct.priceCdf}
-                     onChangeText={(text) => setNewProduct({...newProduct, priceCdf: text})}
-                     placeholder="0.00"
-                    placeholderTextColor="#9CA3AF"
-                     keyboardType="numeric"
-                  />
-                </View>
-                </View>
-                
+
                 <View style={styles.formGroupWeb}>
                   <Text style={styles.formLabelWeb}>Stock minimum</Text>
                   <TextInput
                     style={styles.formInputWeb}
-                   value={newProduct.minimalStock}
-                   onChangeText={(text) => setNewProduct({...newProduct, minimalStock: text})}
+                    value={newProduct.minimalStock}
+                    onChangeText={(text) => setNewProduct({ ...newProduct, minimalStock: text })}
                     placeholder="0"
                     placeholderTextColor="#9CA3AF"
                     keyboardType="numeric"
@@ -2436,307 +2473,160 @@ const historyModal = (
                     }}
                   />
                 </View>
-                
-              <View style={styles.formGroupWeb}>
-                <Text style={styles.formLabelWeb}>Description</Text>
+
+                <View style={styles.formGroupWeb}>
+                  <Text style={styles.formLabelWeb}>Description</Text>
                   <TextInput
-                  style={[styles.formInputWeb, styles.textAreaWeb]}
+                    style={[styles.formInputWeb, styles.textAreaWeb]}
                     value={newProduct.description}
-                    onChangeText={(text) => setNewProduct({...newProduct, description: text})}
-                  placeholder="Description du produit..."
+                    onChangeText={(text) => setNewProduct({ ...newProduct, description: text })}
+                    placeholder="Description du produit..."
                     placeholderTextColor="#9CA3AF"
                     multiline
                     numberOfLines={3}
                   />
                 </View>
-                
-              <View style={styles.formActionsWeb}>
-                {editingProduct && (
-                  <TouchableOpacity 
-                    style={styles.cancelButtonWeb} 
-                    onPress={() => {
-                      setEditingProduct(null);
-                      setNewProduct({
-                        productName: '',
-                        categoryId: '',
-                        description: '',
-                        priceUsd: '',
-                        priceCdf: '',
-                        minimalStock: '',
-                        imageBase64: 'UkVTVE9NQU5BR0VSQVBQ',
-                        expirationDate: ''
-                      });
-                    }}
-                  >
-                    <Text style={styles.cancelButtonTextWeb}>Annuler</Text>
-                  </TouchableOpacity>
-                )}
+
+                <View style={styles.formActionsWeb}>
+                  {editingProduct && (
                     <TouchableOpacity
-                   style={[styles.submitButtonWeb, apiLoading && styles.disabledButtonWeb]} 
-                   onPress={handleSubmitProduct}
-                   disabled={apiLoading}
-                 >
-                   {apiLoading ? (
-                     <ActivityIndicator size="small" color="#FFFFFF" />
-                   ) : (
-                     <Text style={styles.submitButtonTextWeb}>
-                       {editingProduct ? 'Modifier' : 'Créer'}
-                     </Text>
-                   )}
+                      style={styles.cancelButtonWeb}
+                      onPress={() => {
+                        setEditingProduct(null);
+                        setNewProduct({
+                          productName: '',
+                          categoryId: '',
+                          description: '',
+                          priceUsd: '',
+                          priceCdf: '',
+                          minimalStock: '',
+                          imageBase64: 'UkVTVE9NQU5BR0VSQVBQ',
+                          expirationDate: ''
+                        });
+                      }}
+                    >
+                      <Text style={styles.cancelButtonTextWeb}>Annuler</Text>
                     </TouchableOpacity>
-                </View>
-              </View>
-              
-            {/* Formulaire de gestion de stock */}
-            {editingProduct && (
-              <View style={styles.stockFormContainerWeb}>
-                <Text style={styles.stockFormTitleWeb}>Gestion du stock</Text>
-
-                {/* Affichage du stock actuel */}
-                <View style={styles.currentStockInfoWeb}>
-                  <View style={styles.currentStockItemWeb}>
-                    <Text style={styles.currentStockLabelWeb}>Stock actuel</Text>
-                    <Text style={styles.currentStockValueWeb}>
-                      {stockManagementTab === 'transfer'
-                        ? `Source : ${sourceProductLoading
-                            ? '...'
-                            : sourceProductError
-                            ? '—'
-                            : sourceProductInfo
-                            ? sourceProductInfo.inStock
-                            : editingProduct.inStock || 0}`
-                        : adjustProductLoading
-                        ? 'Chargement...'
-                        : adjustProductError
-                        ? '—'
-                        : adjustProductInfo
-                        ? `${adjustProductInfo.inStock} unités`
-                        : editingProduct.inStock || 0}
-                    </Text>
-                    {stockManagementTab === 'adjust' && adjustProductError && (
-                      <Text style={styles.stockErrorTextWeb}>{adjustProductError}</Text>
-                    )}
-                  </View>
-                  <View style={styles.currentStockItemWeb}>
-                    <Text style={styles.currentStockLabelWeb}>
-                      {stockManagementTab === 'transfer'
-                        ? destinationProductLoading
-                          ? 'Stock destination (chargement...)'
-                          : destinationProductError
-                          ? 'Stock destination indisponible'
-                          : destinationProductInfo
-                          ? destinationProductInfo.productName
-                          : transferDepotCode
-                          ? 'Stock destination indisponible'
-                          : 'Sélectionnez un dépôt de destination'
-                        : 'Stock minimum'}
-                    </Text>
-                    <Text style={styles.currentStockValueWeb}>
-                      Destination:
-                      {stockManagementTab === 'transfer'
-                        ? destinationProductLoading
-                          ? '...'
-                          : destinationProductError
-                          ? '—'
-                          : destinationProductInfo
-                          ? destinationProductInfo.inStock
-                          : '-'
-                        : editingProduct.minimalStock || 0}
-                    </Text>
-                  </View>
-                </View>
-                
-                {stockManagementTab === 'transfer' && sourceProductError ? (
-                  <Text style={styles.stockErrorTextWeb}>{sourceProductError}</Text>
-                ) : null}
-                {stockManagementTab === 'transfer' && destinationProductError ? (
-                  <Text style={styles.stockErrorTextWeb}>{destinationProductError}</Text>
-                ) : null}
-
-                <View style={styles.stockTabsWeb}>
+                  )}
                   <TouchableOpacity
-                    style={[
-                      styles.stockTabButtonWeb,
-                      stockManagementTab === 'adjust' && styles.stockTabButtonActiveWeb
-                    ]}
-                    onPress={() => setStockManagementTab('adjust')}
+                    style={[styles.submitButtonWeb, apiLoading && styles.disabledButtonWeb]}
+                    onPress={handleSubmitProduct}
+                    disabled={apiLoading}
                   >
-                    <Text
-                      style={[
-                        styles.stockTabButtonTextWeb,
-                        stockManagementTab === 'adjust' && styles.stockTabButtonTextActiveWeb
-                      ]}
-                    >
-                      Ajuster le stock
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      styles.stockTabButtonWeb,
-                      stockManagementTab === 'transfer' && styles.stockTabButtonActiveWeb
-                    ]}
-                    onPress={() => setStockManagementTab('transfer')}
-                  >
-                    <Text
-                      style={[
-                        styles.stockTabButtonTextWeb,
-                        stockManagementTab === 'transfer' && styles.stockTabButtonTextActiveWeb
-                      ]}
-                    >
-                      Transférer le stock
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-
-                {stockManagementTab === 'adjust' ? (
-                  <>
-                    {isAdmin ? (
-                        <>
-                          <Text style={styles.stockFormLabelWeb}>Dépôt source *</Text>
-                          {depotCodesLoading ? (
-                            <View style={styles.depotLoadingContainerWeb}>
-                              <ActivityIndicator size="small" color="#3B82F6" />
-                              <Text style={styles.depotLoadingTextWeb}>Chargement des dépôts...</Text>
-                            </View>
-                          ) : depotOptions.length > 0 ? (
-                            <View style={styles.depotChipsContainerWeb}>
-                              {depotOptions.map((code) => (
-                                <TouchableOpacity
-                                  key={code}
-                                  style={[
-                                    styles.depotChipWeb,
-                                    transferSourceDepotCode === code && styles.depotChipActiveWeb
-                                  ]}
-                                  onPress={() => {setTransferSourceDepotCode(code); setStockDepotCode(code);}}
-                                >
-                                  <Text
-                                    style={[
-                                      styles.depotChipTextWeb,
-                                      transferSourceDepotCode === code && styles.depotChipTextActiveWeb
-                                    ]}
-                                  >
-                                    {code}
-                                  </Text>
-                                </TouchableOpacity>
-                              ))}
-                            </View>
-                          ) : (
-                            <Text style={styles.stockHelperTextWeb}>
-                              Aucun dépôt disponible pour le transfert.
-                            </Text>
-                          )}
-                        </>
-                      ) : (
-                        <>
-                          <Text style={styles.stockFormLabelWeb}>Dépôt source</Text>
-                          <Text style={styles.stockHelperTextWeb}>
-                            {userDepotCode
-                              ? `Le transfert partira du dépôt ${userDepotCode}.`
-                              : 'Code dépôt de l’utilisateur introuvable.'}
-                          </Text>
-                        </>
-                      )}
-
-                    <View style={styles.stockFormRowWeb}>
-                      <View style={styles.stockFormGroupWeb}>
-                        <Text style={styles.stockFormLabelWeb}>Quantité *</Text>
-                        <TextInput
-                          style={styles.stockFormInputWeb}
-                          value={stockQuantity}
-                          onChangeText={setStockQuantity}
-                          placeholder="Entrez la quantité"
-                          placeholderTextColor="#9CA3AF"
-                          keyboardType="numeric"
-                        />
-                      </View>
-
-                      <View style={styles.stockFormGroupWeb}>
-                        <Text style={styles.stockFormLabelWeb}>Observation</Text>
-                        <TextInput
-                          style={styles.stockFormInputWeb}
-                          value={stockObservation}
-                          onChangeText={setStockObservation}
-                          placeholder="Observation (optionnel)"
-                          placeholderTextColor="#9CA3AF"
-                        />
-                      </View>
-                    </View>
-
-                    <View style={styles.stockFormGroupWeb}>
-                      <Text style={styles.stockFormLabelWeb}>Date d'expiration</Text>
-                      <TextInput
-                        style={[styles.stockFormInputWeb,{marginBottom: 10}]}
-                        value={adjustExpirationDate}
-                        onChangeText={setAdjustExpirationDate}
-                        placeholder="Sélectionnez une date"
-                        placeholderTextColor="#9CA3AF"
-                        onFocus={(event) => {
-                          if (Platform.OS === 'web') {
-                            const target = event?.target as unknown as HTMLInputElement | undefined;
-                            if (target) {
-                              target.type = 'datetime-local';
-                            }
-                          }
-                        }}
-                        onBlur={(event) => {
-                          if (Platform.OS === 'web') {
-                            const target = event?.target as unknown as HTMLInputElement | undefined;
-                            if (target) {
-                              target.type = 'text';
-                            }
-                          }
-                        }}
-                      />
-                    </View>
-
-                    <View style={styles.stockFormActionsWeb}>
-                      <TouchableOpacity 
-                        style={[styles.stockAddButtonWeb, stockLoading && styles.disabledButtonWeb]} 
-                        onPress={() => confirmStockAction('add')}
-                        disabled={stockLoading}
-                      >
-                        {stockLoading ? (
-                          <ActivityIndicator size="small" color="#FFFFFF" />
-                        ) : (
-                          <Ionicons name="add" size={20} color="#FFFFFF" />
-                        )}
-                        <Text style={styles.stockButtonTextWeb}>Ajouter au stock</Text>
-                      </TouchableOpacity>
-                      
-                      <TouchableOpacity 
-                        style={[
-                          styles.stockRemoveButtonWeb, 
-                          (stockLoading || (editingProduct.inStock || 0) === 0) && styles.disabledButtonWeb
-                        ]} 
-                        onPress={() => confirmStockAction('remove')}
-                        disabled={stockLoading || (editingProduct.inStock || 0) === 0}
-                      >
-                        {stockLoading ? (
-                          <ActivityIndicator size="small" color="#FFFFFF" />
-                        ) : (
-                          <Ionicons name="remove" size={20} color="#FFFFFF" />
-                        )}
-                        <Text style={styles.stockButtonTextWeb}>
-                          {(editingProduct.inStock || 0) === 0 ? 'Stock vide' : 'Retirer du stock'}
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                    {stockFeedback && (
-                      <Text
-                        style={[
-                          styles.stockFeedbackTextWeb,
-                          stockFeedback.type === 'error'
-                            ? styles.stockFeedbackErrorWeb
-                            : styles.stockFeedbackSuccessWeb
-                        ]}
-                      >
-                        {stockFeedback.message}
+                    {apiLoading ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                      <Text style={styles.submitButtonTextWeb}>
+                        {editingProduct ? 'Modifier' : 'Créer'}
                       </Text>
                     )}
-                  </>
-                ) : (
-                  <View style={styles.transferFormWeb}>
-                    <View style={styles.transferDepotSectionWeb}>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Formulaire de gestion de stock */}
+              {editingProduct && (
+                <View style={styles.stockFormContainerWeb}>
+                  <Text style={styles.stockFormTitleWeb}>Gestion du stock</Text>
+
+                  {/* Affichage du stock actuel */}
+                  <View style={styles.currentStockInfoWeb}>
+                    <View style={styles.currentStockItemWeb}>
+                      <Text style={styles.currentStockLabelWeb}>Stock actuel</Text>
+                      <Text style={styles.currentStockValueWeb}>
+                        {stockManagementTab === 'transfer'
+                          ? `Source : ${sourceProductLoading
+                            ? '...'
+                            : sourceProductError
+                              ? '—'
+                              : sourceProductInfo
+                                ? sourceProductInfo.inStock
+                                : editingProduct.inStock || 0}`
+                          : adjustProductLoading
+                            ? 'Chargement...'
+                            : adjustProductError
+                              ? '—'
+                              : adjustProductInfo
+                                ? `${adjustProductInfo.inStock} unités`
+                                : editingProduct.inStock || 0}
+                      </Text>
+                      {stockManagementTab === 'adjust' && adjustProductError && (
+                        <Text style={styles.stockErrorTextWeb}>{adjustProductError}</Text>
+                      )}
+                    </View>
+                    <View style={styles.currentStockItemWeb}>
+                      <Text style={styles.currentStockLabelWeb}>
+                        {stockManagementTab === 'transfer'
+                          ? destinationProductLoading
+                            ? 'Stock destination (chargement...)'
+                            : destinationProductError
+                              ? 'Stock destination indisponible'
+                              : destinationProductInfo
+                                ? destinationProductInfo.productName
+                                : transferDepotCode
+                                  ? 'Stock destination indisponible'
+                                  : 'Sélectionnez un dépôt de destination'
+                          : 'Stock minimum'}
+                      </Text>
+                      <Text style={styles.currentStockValueWeb}>
+                        Destination:
+                        {stockManagementTab === 'transfer'
+                          ? destinationProductLoading
+                            ? '...'
+                            : destinationProductError
+                              ? '—'
+                              : destinationProductInfo
+                                ? destinationProductInfo.inStock
+                                : '-'
+                          : editingProduct.minimalStock || 0}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {stockManagementTab === 'transfer' && sourceProductError ? (
+                    <Text style={styles.stockErrorTextWeb}>{sourceProductError}</Text>
+                  ) : null}
+                  {stockManagementTab === 'transfer' && destinationProductError ? (
+                    <Text style={styles.stockErrorTextWeb}>{destinationProductError}</Text>
+                  ) : null}
+
+                  <View style={styles.stockTabsWeb}>
+                    <TouchableOpacity
+                      style={[
+                        styles.stockTabButtonWeb,
+                        stockManagementTab === 'adjust' && styles.stockTabButtonActiveWeb
+                      ]}
+                      onPress={() => setStockManagementTab('adjust')}
+                    >
+                      <Text
+                        style={[
+                          styles.stockTabButtonTextWeb,
+                          stockManagementTab === 'adjust' && styles.stockTabButtonTextActiveWeb
+                        ]}
+                      >
+                        Ajuster le stock
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.stockTabButtonWeb,
+                        stockManagementTab === 'transfer' && styles.stockTabButtonActiveWeb
+                      ]}
+                      onPress={() => setStockManagementTab('transfer')}
+                    >
+                      <Text
+                        style={[
+                          styles.stockTabButtonTextWeb,
+                          stockManagementTab === 'transfer' && styles.stockTabButtonTextActiveWeb
+                        ]}
+                      >
+                        Transférer le stock
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {stockManagementTab === 'adjust' ? (
+                    <>
                       {isAdmin ? (
                         <>
                           <Text style={styles.stockFormLabelWeb}>Dépôt source *</Text>
@@ -2754,7 +2644,7 @@ const historyModal = (
                                     styles.depotChipWeb,
                                     transferSourceDepotCode === code && styles.depotChipActiveWeb
                                   ]}
-                                  onPress={() => setTransferSourceDepotCode(code)}
+                                  onPress={() => { setTransferSourceDepotCode(code); setStockDepotCode(code); }}
                                 >
                                   <Text
                                     style={[
@@ -2783,94 +2673,241 @@ const historyModal = (
                           </Text>
                         </>
                       )}
-                    </View>
-                    <View style={styles.transferDepotSectionWeb}>
-                      <Text style={styles.stockFormLabelWeb}>Dépôt de destination *</Text>
-                      {depotCodesLoading ? (
-                        <View style={styles.depotLoadingContainerWeb}>
-                          <ActivityIndicator size="small" color="#3B82F6" />
-                          <Text style={styles.depotLoadingTextWeb}>Chargement des dépôts...</Text>
+
+                      <View style={styles.stockFormRowWeb}>
+                        <View style={styles.stockFormGroupWeb}>
+                          <Text style={styles.stockFormLabelWeb}>Quantité *</Text>
+                          <TextInput
+                            style={styles.stockFormInputWeb}
+                            value={stockQuantity}
+                            onChangeText={setStockQuantity}
+                            placeholder="Entrez la quantité"
+                            placeholderTextColor="#9CA3AF"
+                            keyboardType="numeric"
+                          />
                         </View>
-                      ) : destinationDepotCodes.length > 0 ? (
-                        <View style={styles.depotChipsContainerWeb}>
-                          {destinationDepotCodes.map((code) => (
-                            <TouchableOpacity
-                              key={code}
-                              style={[
-                                styles.depotChipWeb,
-                                transferDepotCode === code && styles.depotChipActiveWeb
-                              ]}
-                              onPress={() => setTransferDepotCode(code)}
-                            >
-                              <Text
-                                style={[
-                                  styles.depotChipTextWeb,
-                                  transferDepotCode === code && styles.depotChipTextActiveWeb
-                                ]}
-                              >
-                                {code}
-                              </Text>
-                            </TouchableOpacity>
-                          ))}
+
+                        <View style={styles.stockFormGroupWeb}>
+                          <Text style={styles.stockFormLabelWeb}>Observation</Text>
+                          <TextInput
+                            style={styles.stockFormInputWeb}
+                            value={stockObservation}
+                            onChangeText={setStockObservation}
+                            placeholder="Observation (optionnel)"
+                            placeholderTextColor="#9CA3AF"
+                          />
                         </View>
-                      ) : (
-                        <Text style={styles.stockHelperTextWeb}>
-                          Aucun dépôt disponible pour le transfert.
+                      </View>
+
+                      <View style={styles.stockFormGroupWeb}>
+                        <Text style={styles.stockFormLabelWeb}>Date d'expiration</Text>
+                        <TextInput
+                          style={[styles.stockFormInputWeb, { marginBottom: 10 }]}
+                          value={adjustExpirationDate}
+                          onChangeText={setAdjustExpirationDate}
+                          placeholder="Sélectionnez une date"
+                          placeholderTextColor="#9CA3AF"
+                          onFocus={(event) => {
+                            if (Platform.OS === 'web') {
+                              const target = event?.target as unknown as HTMLInputElement | undefined;
+                              if (target) {
+                                target.type = 'datetime-local';
+                              }
+                            }
+                          }}
+                          onBlur={(event) => {
+                            if (Platform.OS === 'web') {
+                              const target = event?.target as unknown as HTMLInputElement | undefined;
+                              if (target) {
+                                target.type = 'text';
+                              }
+                            }
+                          }}
+                        />
+                      </View>
+
+                      <View style={styles.stockFormActionsWeb}>
+                        <TouchableOpacity
+                          style={[styles.stockAddButtonWeb, stockLoading && styles.disabledButtonWeb]}
+                          onPress={() => confirmStockAction('add')}
+                          disabled={stockLoading}
+                        >
+                          {stockLoading ? (
+                            <ActivityIndicator size="small" color="#FFFFFF" />
+                          ) : (
+                            <Ionicons name="add" size={20} color="#FFFFFF" />
+                          )}
+                          <Text style={styles.stockButtonTextWeb}>Ajouter au stock</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={[
+                            styles.stockRemoveButtonWeb,
+                            (stockLoading || (editingProduct.inStock || 0) === 0) && styles.disabledButtonWeb
+                          ]}
+                          onPress={() => confirmStockAction('remove')}
+                          disabled={stockLoading || (editingProduct.inStock || 0) === 0}
+                        >
+                          {stockLoading ? (
+                            <ActivityIndicator size="small" color="#FFFFFF" />
+                          ) : (
+                            <Ionicons name="remove" size={20} color="#FFFFFF" />
+                          )}
+                          <Text style={styles.stockButtonTextWeb}>
+                            {(editingProduct.inStock || 0) === 0 ? 'Stock vide' : 'Retirer du stock'}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                      {stockFeedback && (
+                        <Text
+                          style={[
+                            styles.stockFeedbackTextWeb,
+                            stockFeedback.type === 'error'
+                              ? styles.stockFeedbackErrorWeb
+                              : styles.stockFeedbackSuccessWeb
+                          ]}
+                        >
+                          {stockFeedback.message}
                         </Text>
                       )}
-                      {depotCodesError && (
-                        <Text style={styles.stockErrorTextWeb}>{depotCodesError}</Text>
-                      )}
-                    </View>
-
-                    <View style={styles.stockFormRowWeb}>
-                      <View style={styles.stockFormGroupWeb}>
-                        <Text style={styles.stockFormLabelWeb}>Quantité *</Text>
-                        <TextInput
-                          style={styles.stockFormInputWeb}
-                          value={transferQuantity}
-                          onChangeText={setTransferQuantity}
-                          placeholder="Entrez la quantité"
-                          placeholderTextColor="#9CA3AF"
-                          keyboardType="numeric"
-                        />
-                      </View>
-
-                      <View style={styles.stockFormGroupWeb}>
-                        <Text style={styles.stockFormLabelWeb}>Observation</Text>
-                        <TextInput
-                          style={styles.stockFormInputWeb}
-                          value={transferObservation}
-                          onChangeText={setTransferObservation}
-                          placeholder="Observation (optionnel)"
-                          placeholderTextColor="#9CA3AF"
-                        />
-                      </View>
-                    </View>
-
-                    <View style={styles.stockFormActionsWeb}>
-                      <TouchableOpacity
-                        style={[
-                          styles.stockTransferButtonWeb, 
-                          (transferLoading || destinationDepotCodes.length === 0) && styles.disabledButtonWeb
-                        ]}
-                        onPress={confirmTransferStock}
-                        disabled={transferLoading || destinationDepotCodes.length === 0}
-                      >
-                        {transferLoading ? (
-                          <ActivityIndicator size="small" color="#FFFFFF" />
+                    </>
+                  ) : (
+                    <View style={styles.transferFormWeb}>
+                      <View style={styles.transferDepotSectionWeb}>
+                        {isAdmin ? (
+                          <>
+                            <Text style={styles.stockFormLabelWeb}>Dépôt source *</Text>
+                            {depotCodesLoading ? (
+                              <View style={styles.depotLoadingContainerWeb}>
+                                <ActivityIndicator size="small" color="#3B82F6" />
+                                <Text style={styles.depotLoadingTextWeb}>Chargement des dépôts...</Text>
+                              </View>
+                            ) : depotOptions.length > 0 ? (
+                              <View style={styles.depotChipsContainerWeb}>
+                                {depotOptions.map((code) => (
+                                  <TouchableOpacity
+                                    key={code}
+                                    style={[
+                                      styles.depotChipWeb,
+                                      transferSourceDepotCode === code && styles.depotChipActiveWeb
+                                    ]}
+                                    onPress={() => setTransferSourceDepotCode(code)}
+                                  >
+                                    <Text
+                                      style={[
+                                        styles.depotChipTextWeb,
+                                        transferSourceDepotCode === code && styles.depotChipTextActiveWeb
+                                      ]}
+                                    >
+                                      {code}
+                                    </Text>
+                                  </TouchableOpacity>
+                                ))}
+                              </View>
+                            ) : (
+                              <Text style={styles.stockHelperTextWeb}>
+                                Aucun dépôt disponible pour le transfert.
+                              </Text>
+                            )}
+                          </>
                         ) : (
-                          <Ionicons name="repeat-outline" size={20} color="#FFFFFF" />
+                          <>
+                            <Text style={styles.stockFormLabelWeb}>Dépôt source</Text>
+                            <Text style={styles.stockHelperTextWeb}>
+                              {userDepotCode
+                                ? `Le transfert partira du dépôt ${userDepotCode}.`
+                                : 'Code dépôt de l’utilisateur introuvable.'}
+                            </Text>
+                          </>
                         )}
-                        <Text style={styles.stockButtonTextWeb}>Transférer</Text>
-                      </TouchableOpacity>
+                      </View>
+                      <View style={styles.transferDepotSectionWeb}>
+                        <Text style={styles.stockFormLabelWeb}>Dépôt de destination *</Text>
+                        {depotCodesLoading ? (
+                          <View style={styles.depotLoadingContainerWeb}>
+                            <ActivityIndicator size="small" color="#3B82F6" />
+                            <Text style={styles.depotLoadingTextWeb}>Chargement des dépôts...</Text>
+                          </View>
+                        ) : destinationDepotCodes.length > 0 ? (
+                          <View style={styles.depotChipsContainerWeb}>
+                            {destinationDepotCodes.map((code) => (
+                              <TouchableOpacity
+                                key={code}
+                                style={[
+                                  styles.depotChipWeb,
+                                  transferDepotCode === code && styles.depotChipActiveWeb
+                                ]}
+                                onPress={() => setTransferDepotCode(code)}
+                              >
+                                <Text
+                                  style={[
+                                    styles.depotChipTextWeb,
+                                    transferDepotCode === code && styles.depotChipTextActiveWeb
+                                  ]}
+                                >
+                                  {code}
+                                </Text>
+                              </TouchableOpacity>
+                            ))}
+                          </View>
+                        ) : (
+                          <Text style={styles.stockHelperTextWeb}>
+                            Aucun dépôt disponible pour le transfert.
+                          </Text>
+                        )}
+                        {depotCodesError && (
+                          <Text style={styles.stockErrorTextWeb}>{depotCodesError}</Text>
+                        )}
+                      </View>
+
+                      <View style={styles.stockFormRowWeb}>
+                        <View style={styles.stockFormGroupWeb}>
+                          <Text style={styles.stockFormLabelWeb}>Quantité *</Text>
+                          <TextInput
+                            style={styles.stockFormInputWeb}
+                            value={transferQuantity}
+                            onChangeText={setTransferQuantity}
+                            placeholder="Entrez la quantité"
+                            placeholderTextColor="#9CA3AF"
+                            keyboardType="numeric"
+                          />
+                        </View>
+
+                        <View style={styles.stockFormGroupWeb}>
+                          <Text style={styles.stockFormLabelWeb}>Observation</Text>
+                          <TextInput
+                            style={styles.stockFormInputWeb}
+                            value={transferObservation}
+                            onChangeText={setTransferObservation}
+                            placeholder="Observation (optionnel)"
+                            placeholderTextColor="#9CA3AF"
+                          />
+                        </View>
+                      </View>
+
+                      <View style={styles.stockFormActionsWeb}>
+                        <TouchableOpacity
+                          style={[
+                            styles.stockTransferButtonWeb,
+                            (transferLoading || destinationDepotCodes.length === 0) && styles.disabledButtonWeb
+                          ]}
+                          onPress={confirmTransferStock}
+                          disabled={transferLoading || destinationDepotCodes.length === 0}
+                        >
+                          {transferLoading ? (
+                            <ActivityIndicator size="small" color="#FFFFFF" />
+                          ) : (
+                            <Ionicons name="repeat-outline" size={20} color="#FFFFFF" />
+                          )}
+                          <Text style={styles.stockButtonTextWeb}>Transférer</Text>
+                        </TouchableOpacity>
+                      </View>
                     </View>
-                  </View>
-                )}
-              </View>
-            )}
-        </View>
-      )}
+                  )}
+                </View>
+              )}
+            </View>
+          )}
         </ScrollView>
         {historyModal}
       </>
@@ -2880,536 +2917,729 @@ const historyModal = (
   // Version Mobile - Modern Design
   return (
     <>
-    <ScrollView style={styles.containerMobile}>
-      {/* Tabs Navigation Mobile */}
-      <View style={styles.tabsContainerMobile}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabsScrollMobile}>
-          {inventoryTabsConfig.map((tab) => (
-            <TouchableOpacity
-              key={tab.key}
-              style={[styles.tabButtonMobile, activeTab === tab.key && styles.tabButtonMobileActive]}
-              onPress={() => setActiveTab(tab.key)}
-            >
-              <Ionicons
-                name={tab.icon}
-                size={18}
-                color={activeTab === tab.key ? '#FFFFFF' : '#6B7280'}
-              />
-              <Text
-                style={[styles.tabButtonTextMobile, activeTab === tab.key && styles.tabButtonTextMobileActive]}
+      <ScrollView style={styles.containerMobile}>
+        {/* Tabs Navigation Mobile */}
+        <View style={styles.tabsContainerMobile}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabsScrollMobile}>
+            {inventoryTabsConfig.map((tab) => (
+              <TouchableOpacity
+                key={tab.key}
+                style={[styles.tabButtonMobile, activeTab === tab.key && styles.tabButtonMobileActive]}
+                onPress={() => setActiveTab(tab.key)}
               >
-                {tab.mobileLabel}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
-
-      {/* Contenu des onglets */}
-      {activeTab === 'products' && (
-        <View style={styles.tabContentMobile}>
-          {/* Loading et Erreurs */}
-          {(categoriesLoading || productsLoading) && (
-            <View style={styles.loadingContainerMobile}>
-              <ActivityIndicator size="large" color="#7C3AED" />
-              <Text style={styles.loadingTextMobile}>Chargement...</Text>
-            </View>
-          )}
-
-          {(categoriesError || productsError) && (
-            <View style={styles.errorContainerMobile}>
-              <Ionicons name="alert-circle" size={32} color="#EF4444" />
-              <Text style={styles.errorTextMobile}>{categoriesError || productsError}</Text>
-              <TouchableOpacity style={styles.retryButtonMobile} onPress={() => {
-                refetchCategories();
-                refetchProducts();
-              }}>
-                <Text style={styles.retryButtonTextMobile}>Réessayer</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {!categoriesLoading && !productsLoading && !categoriesError && !productsError && (
-            <>
-              {/* Barre de recherche */}
-              <View style={styles.searchContainerMobile}>
-                <View style={styles.searchBarMobile}>
-                  <Ionicons name="search" size={18} color="#6B7280" />
-                  <TextInput 
-                    placeholder="Rechercher..." 
-                    style={styles.searchInputMobile}
-                    value={searchQuery}
-                    onChangeText={setSearchQuery}
-                    placeholderTextColor="#9CA3AF"
-                  />
-                </View>
-                <TouchableOpacity 
-                  style={styles.refreshButtonMobile}
-                  onPress={() => {
-                    refetchCategories();
-                    refetchProducts();
-                  }}
+                <Ionicons
+                  name={tab.icon}
+                  size={18}
+                  color={activeTab === tab.key ? '#FFFFFF' : '#6B7280'}
+                />
+                <Text
+                  style={[styles.tabButtonTextMobile, activeTab === tab.key && styles.tabButtonTextMobileActive]}
                 >
-                  <Ionicons name="refresh" size={20} color="#FFFFFF" />
+                  {tab.mobileLabel}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+
+        {/* Contenu des onglets */}
+        {activeTab === 'products' && (
+          <View style={styles.tabContentMobile}>
+            {/* Loading et Erreurs */}
+            {(categoriesLoading || productsLoading) && (
+              <View style={styles.loadingContainerMobile}>
+                <ActivityIndicator size="large" color="#7C3AED" />
+                <Text style={styles.loadingTextMobile}>Chargement...</Text>
+              </View>
+            )}
+
+            {(categoriesError || productsError) && (
+              <View style={styles.errorContainerMobile}>
+                <Ionicons name="alert-circle" size={32} color="#EF4444" />
+                <Text style={styles.errorTextMobile}>{categoriesError || productsError}</Text>
+                <TouchableOpacity style={styles.retryButtonMobile} onPress={() => {
+                  refetchCategories();
+                  refetchProducts();
+                }}>
+                  <Text style={styles.retryButtonTextMobile}>Réessayer</Text>
                 </TouchableOpacity>
               </View>
+            )}
 
-              {/* Filtres par catégorie */}
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryFiltersMobile}>
-                <TouchableOpacity
-                  style={[styles.categoryFilterMobile, selectedCategory === 'Toutes' && styles.categoryFilterActiveMobile]}
-                  onPress={() => setSelectedCategory('Toutes')}
-                >
-                  <Text style={[styles.categoryFilterTextMobile, selectedCategory === 'Toutes' && styles.categoryFilterTextActiveMobile]}>
-                    Toutes
-                  </Text>
-                </TouchableOpacity>
-                {categories.map((category: any) => (
+            {!categoriesLoading && !productsLoading && !categoriesError && !productsError && (
+              <>
+                {/* Barre de recherche */}
+                <View style={styles.searchContainerMobile}>
+                  <View style={styles.searchBarMobile}>
+                    <Ionicons name="search" size={18} color="#6B7280" />
+                    <TextInput
+                      placeholder="Rechercher..."
+                      style={styles.searchInputMobile}
+                      value={searchQuery}
+                      onChangeText={setSearchQuery}
+                      placeholderTextColor="#9CA3AF"
+                    />
+                  </View>
                   <TouchableOpacity
-                    key={category.id}
-                    style={[styles.categoryFilterMobile, selectedCategory === category.categoryName && styles.categoryFilterActiveMobile]}
-                    onPress={() => setSelectedCategory(category.categoryName)}
+                    style={styles.refreshButtonMobile}
+                    onPress={() => {
+                      refetchCategories();
+                      refetchProducts();
+                    }}
                   >
-                    <Text style={[styles.categoryFilterTextMobile, selectedCategory === category.categoryName && styles.categoryFilterTextActiveMobile]}>
-                      {category.categoryName}
+                    <Ionicons name="refresh" size={20} color="#FFFFFF" />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Filtres par catégorie */}
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryFiltersMobile}>
+                  <TouchableOpacity
+                    style={[styles.categoryFilterMobile, selectedCategory === 'Toutes' && styles.categoryFilterActiveMobile]}
+                    onPress={() => setSelectedCategory('Toutes')}
+                  >
+                    <Text style={[styles.categoryFilterTextMobile, selectedCategory === 'Toutes' && styles.categoryFilterTextActiveMobile]}>
+                      Toutes
                     </Text>
                   </TouchableOpacity>
-                ))}
-              </ScrollView>
-
-              {/* Liste des produits avec FlatList pour virtualisation */}
-              {filteredProducts.length === 0 ? (
-                <View style={styles.emptyStateMobile}>
-                  <Ionicons name="cube-outline" size={48} color="#9CA3AF" />
-                  <Text style={styles.emptyTextMobile}>Aucun produit trouvé</Text>
-                </View>
-              ) : (
-                <FlatList
-                  data={filteredProducts}
-                  keyExtractor={(item: any) => item.id.toString()}
-                  renderItem={({ item }: { item: any }) => (
-                    <ProductItemMobile
-                      product={item}
-                      onEdit={selectProductForEdit}
-                      onHistory={openHistoryModal}
-                      formatDateTime={formatDateTime}
-                      isExpiringWithinSixMonths={isExpiringWithinSixMonths}
-                    />
-                  )}
-                  contentContainerStyle={styles.productsListMobile}
-                  initialNumToRender={10}
-                  maxToRenderPerBatch={10}
-                  windowSize={10}
-                  removeClippedSubviews={true}
-                  getItemLayout={(data, index) => ({
-                    length: 180, // Hauteur approximative d'un item
-                    offset: 180 * index,
-                    index,
-                  })}
-                />
-              )}
-            </>
-          )}
-        </View>
-      )}
-
-      {activeTab === 'categories' && (
-        <View style={styles.tabContentMobile}>
-          {categoriesLoading && (
-            <View style={styles.loadingContainerMobile}>
-              <ActivityIndicator size="large" color="#7C3AED" />
-              <Text style={styles.loadingTextMobile}>Chargement...</Text>
-            </View>
-          )}
-
-          {!categoriesLoading && (
-            <>
-              {/* Formulaire de catégorie */}
-              <View style={styles.formContainerMobile}>
-                <Text style={styles.formTitleMobile}>
-                  {editingCategory ? 'Modifier la catégorie' : 'Nouvelle catégorie'}
-                </Text>
-                <View style={styles.formFieldMobile}>
-                  <Text style={styles.formLabelMobile}>Nom *</Text>
-                  <TextInput
-                    style={styles.formInputMobile}
-                    placeholder="Nom de la catégorie"
-                    placeholderTextColor="#9CA3AF"
-                    value={newCategory.categoryName}
-                    onChangeText={(text) => setNewCategory({...newCategory, categoryName: text})}
-                  />
-                </View>
-                <View style={styles.formFieldMobile}>
-                  <Text style={styles.formLabelMobile}>Description</Text>
-                  <TextInput
-                    style={[styles.formInputMobile, styles.textAreaMobile]}
-                    placeholder="Description (optionnel)"
-                    placeholderTextColor="#9CA3AF"
-                    value={newCategory.description}
-                    onChangeText={(text) => setNewCategory({...newCategory, description: text})}
-                    multiline
-                    numberOfLines={3}
-                  />
-                </View>
-                <View style={styles.formActionsMobile}>
-                  {editingCategory ? (
-                    <>
-                      <TouchableOpacity 
-                        style={[styles.saveButtonMobile, apiLoading && styles.disabledButtonMobile]} 
-                        onPress={handleUpdateCategory}
-                        disabled={apiLoading}
-                      >
-                        {apiLoading ? (
-                          <ActivityIndicator size="small" color="#FFFFFF" />
-                        ) : (
-                          <Ionicons name="checkmark" size={20} color="#FFFFFF" />
-                        )}
-                        <Text style={styles.buttonTextMobile}>Mettre à jour</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity style={styles.cancelButtonMobile} onPress={() => {
-                        setEditingCategory(null);
-                        setNewCategory({ categoryName: '', description: '' });
-                      }}>
-                        <Text style={styles.cancelButtonTextMobile}>Annuler</Text>
-                      </TouchableOpacity>
-                    </>
-                  ) : (
-                    <TouchableOpacity 
-                      style={[styles.createButtonMobile, apiLoading && styles.disabledButtonMobile]} 
-                      onPress={handleCreateCategory}
-                      disabled={apiLoading}
-                    >
-                      {apiLoading ? (
-                        <ActivityIndicator size="small" color="#FFFFFF" />
-                      ) : (
-                        <Ionicons name="add" size={20} color="#FFFFFF" />
-                      )}
-                      <Text style={styles.buttonTextMobile}>Créer</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              </View>
-
-              {/* Liste des catégories */}
-              <View style={styles.categoriesListMobile}>
-                <Text style={styles.listTitleMobile}>Catégories ({categories.length})</Text>
-                {categories.map((category: any) => (
-                  <View key={category.id} style={styles.categoryCardMobile}>
-                    <View style={styles.categoryInfoMobile}>
-                      <Text style={styles.categoryNameMobile}>{category.categoryName}</Text>
-                      <Text style={styles.categoryDescMobile}>{category.description || 'Pas de description'}</Text>
-                    </View>
-                    <View style={styles.categoryActionsMobile}>
-                      <TouchableOpacity onPress={() => editCategory(category)} style={styles.editButtonMobile}>
-                        <Ionicons name="create" size={18} color="#3B82F6" />
-                      </TouchableOpacity>
-                      <TouchableOpacity onPress={() => handleDeleteCategory(category)} style={styles.deleteButtonMobile}>
-                        <Ionicons name="trash" size={18} color="#EF4444" />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                ))}
-              </View>
-            </>
-          )}
-        </View>
-      )}
-
-      {activeTab === 'product-management' && (
-        <View style={styles.tabContentMobile}>
-          {/* Formulaire de produit */}
-          <View style={styles.formContainerMobile}>
-            <Text style={styles.formTitleMobile}>
-              {editingProduct ? 'Modifier le produit' : 'Nouveau produit'}
-            </Text>
-            
-            <View style={styles.formFieldMobile}>
-              <Text style={styles.formLabelMobile}>Nom du produit *</Text>
-              <TextInput
-                style={styles.formInputMobile}
-                placeholder="Nom"
-                placeholderTextColor="#9CA3AF"
-                value={newProduct.productName}
-                onChangeText={(text) => setNewProduct({...newProduct, productName: text})}
-              />
-            </View>
-
-            <View style={styles.formFieldMobile}>
-              <Text style={styles.formLabelMobile}>Catégorie *</Text>
-              <View style={styles.pickerWrapperMobile}>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                   {categories.map((category: any) => (
                     <TouchableOpacity
                       key={category.id}
-                      style={[
-                        styles.categoryPickerMobile,
-                        newProduct.categoryId === category.id && styles.categoryPickerActiveMobile
-                      ]}
-                      onPress={() => setNewProduct({...newProduct, categoryId: category.id})}
+                      style={[styles.categoryFilterMobile, selectedCategory === category.categoryName && styles.categoryFilterActiveMobile]}
+                      onPress={() => setSelectedCategory(category.categoryName)}
                     >
-                      <Text style={[
-                        styles.categoryPickerTextMobile,
-                        newProduct.categoryId === category.id && styles.categoryPickerTextActiveMobile
-                      ]}>
+                      <Text style={[styles.categoryFilterTextMobile, selectedCategory === category.categoryName && styles.categoryFilterTextActiveMobile]}>
                         {category.categoryName}
                       </Text>
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
+
+                {/* Liste des produits avec FlatList pour virtualisation */}
+                {filteredProducts.length === 0 ? (
+                  <View style={styles.emptyStateMobile}>
+                    <Ionicons name="cube-outline" size={48} color="#9CA3AF" />
+                    <Text style={styles.emptyTextMobile}>Aucun produit trouvé</Text>
+                  </View>
+                ) : (
+                  <FlatList
+                    data={filteredProducts}
+                    keyExtractor={(item: any) => item.id.toString()}
+                    renderItem={({ item }: { item: any }) => (
+                      <ProductItemMobile
+                        product={item}
+                        onEdit={selectProductForEdit}
+                        onHistory={openHistoryModal}
+                        formatDateTime={formatDateTime}
+                        isExpiringWithinSixMonths={isExpiringWithinSixMonths}
+                      />
+                    )}
+                    contentContainerStyle={styles.productsListMobile}
+                    initialNumToRender={10}
+                    maxToRenderPerBatch={10}
+                    windowSize={10}
+                    removeClippedSubviews={true}
+                    getItemLayout={(data, index) => ({
+                      length: 180, // Hauteur approximative d'un item
+                      offset: 180 * index,
+                      index,
+                    })}
+                  />
+                )}
+              </>
+            )}
+          </View>
+        )}
+
+        {activeTab === 'categories' && (
+          <View style={styles.tabContentMobile}>
+            {categoriesLoading && (
+              <View style={styles.loadingContainerMobile}>
+                <ActivityIndicator size="large" color="#7C3AED" />
+                <Text style={styles.loadingTextMobile}>Chargement...</Text>
               </View>
-            </View>
+            )}
 
-            <View style={styles.formFieldMobile}>
-              <Text style={styles.formLabelMobile}>Description</Text>
-              <TextInput
-                style={[styles.formInputMobile, styles.textAreaMobile]}
-                placeholder="Description du produit"
-                placeholderTextColor="#9CA3AF"
-                value={newProduct.description}
-                onChangeText={(text) => setNewProduct({...newProduct, description: text})}
-                multiline
-                numberOfLines={2}
-              />
-            </View>
+            {!categoriesLoading && (
+              <>
+                {/* Formulaire de catégorie */}
+                <View style={styles.formContainerMobile}>
+                  <Text style={styles.formTitleMobile}>
+                    {editingCategory ? 'Modifier la catégorie' : 'Nouvelle catégorie'}
+                  </Text>
+                  <View style={styles.formFieldMobile}>
+                    <Text style={styles.formLabelMobile}>Nom *</Text>
+                    <TextInput
+                      style={styles.formInputMobile}
+                      placeholder="Nom de la catégorie"
+                      placeholderTextColor="#9CA3AF"
+                      value={newCategory.categoryName}
+                      onChangeText={(text) => setNewCategory({ ...newCategory, categoryName: text })}
+                    />
+                  </View>
+                  <View style={styles.formFieldMobile}>
+                    <Text style={styles.formLabelMobile}>Description</Text>
+                    <TextInput
+                      style={[styles.formInputMobile, styles.textAreaMobile]}
+                      placeholder="Description (optionnel)"
+                      placeholderTextColor="#9CA3AF"
+                      value={newCategory.description}
+                      onChangeText={(text) => setNewCategory({ ...newCategory, description: text })}
+                      multiline
+                      numberOfLines={3}
+                    />
+                  </View>
+                  <View style={styles.formActionsMobile}>
+                    {editingCategory ? (
+                      <>
+                        <TouchableOpacity
+                          style={[styles.saveButtonMobile, apiLoading && styles.disabledButtonMobile]}
+                          onPress={handleUpdateCategory}
+                          disabled={apiLoading}
+                        >
+                          {apiLoading ? (
+                            <ActivityIndicator size="small" color="#FFFFFF" />
+                          ) : (
+                            <Ionicons name="checkmark" size={20} color="#FFFFFF" />
+                          )}
+                          <Text style={styles.buttonTextMobile}>Mettre à jour</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.cancelButtonMobile} onPress={() => {
+                          setEditingCategory(null);
+                          setNewCategory({ categoryName: '', description: '' });
+                        }}>
+                          <Text style={styles.cancelButtonTextMobile}>Annuler</Text>
+                        </TouchableOpacity>
+                      </>
+                    ) : (
+                      <TouchableOpacity
+                        style={[styles.createButtonMobile, apiLoading && styles.disabledButtonMobile]}
+                        onPress={handleCreateCategory}
+                        disabled={apiLoading}
+                      >
+                        {apiLoading ? (
+                          <ActivityIndicator size="small" color="#FFFFFF" />
+                        ) : (
+                          <Ionicons name="add" size={20} color="#FFFFFF" />
+                        )}
+                        <Text style={styles.buttonTextMobile}>Créer</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                </View>
 
-            <View style={styles.priceGridMobile}>
-              <View style={[styles.formFieldMobile, { flex: 1 }]}>
-                <Text style={styles.formLabelMobile}>Prix USD *</Text>
+                {/* Liste des catégories */}
+                <View style={styles.categoriesListMobile}>
+                  <Text style={styles.listTitleMobile}>Catégories ({categories.length})</Text>
+                  {categories.map((category: any) => (
+                    <View key={category.id} style={styles.categoryCardMobile}>
+                      <View style={styles.categoryInfoMobile}>
+                        <Text style={styles.categoryNameMobile}>{category.categoryName}</Text>
+                        <Text style={styles.categoryDescMobile}>{category.description || 'Pas de description'}</Text>
+                      </View>
+                      <View style={styles.categoryActionsMobile}>
+                        <TouchableOpacity onPress={() => editCategory(category)} style={styles.editButtonMobile}>
+                          <Ionicons name="create" size={18} color="#3B82F6" />
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => handleDeleteCategory(category)} style={styles.deleteButtonMobile}>
+                          <Ionicons name="trash" size={18} color="#EF4444" />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              </>
+            )}
+          </View>
+        )}
+
+        {activeTab === 'product-management' && (
+          <View style={styles.tabContentMobile}>
+            {/* Formulaire de produit */}
+            <View style={styles.formContainerMobile}>
+              <Text style={styles.formTitleMobile}>
+                {editingProduct ? 'Modifier le produit' : 'Nouveau produit'}
+              </Text>
+
+              <View style={styles.formFieldMobile}>
+                <Text style={styles.formLabelMobile}>Nom du produit *</Text>
                 <TextInput
                   style={styles.formInputMobile}
-                  placeholder="0.00"
+                  placeholder="Nom"
                   placeholderTextColor="#9CA3AF"
-                  keyboardType="numeric"
-                  value={newProduct.priceUsd}
-                  onChangeText={(text) => setNewProduct({...newProduct, priceUsd: text})}
+                  value={newProduct.productName}
+                  onChangeText={(text) => setNewProduct({ ...newProduct, productName: text })}
                 />
               </View>
-              <View style={[styles.formFieldMobile, { flex: 1, display: 'none' }]}>
-                <Text style={styles.formLabelMobile}>Prix CDF</Text>
+
+              <View style={styles.formFieldMobile}>
+                <Text style={styles.formLabelMobile}>Catégorie *</Text>
+                <View style={styles.pickerWrapperMobile}>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    {categories.map((category: any) => (
+                      <TouchableOpacity
+                        key={category.id}
+                        style={[
+                          styles.categoryPickerMobile,
+                          newProduct.categoryId === category.id && styles.categoryPickerActiveMobile
+                        ]}
+                        onPress={() => setNewProduct({ ...newProduct, categoryId: category.id })}
+                      >
+                        <Text style={[
+                          styles.categoryPickerTextMobile,
+                          newProduct.categoryId === category.id && styles.categoryPickerTextActiveMobile
+                        ]}>
+                          {category.categoryName}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              </View>
+
+              <View style={styles.formFieldMobile}>
+                <Text style={styles.formLabelMobile}>Description</Text>
+                <TextInput
+                  style={[styles.formInputMobile, styles.textAreaMobile]}
+                  placeholder="Description du produit"
+                  placeholderTextColor="#9CA3AF"
+                  value={newProduct.description}
+                  onChangeText={(text) => setNewProduct({ ...newProduct, description: text })}
+                  multiline
+                  numberOfLines={2}
+                />
+              </View>
+
+              <View style={styles.priceGridMobile}>
+                <View style={[styles.formFieldMobile, { flex: 1 }]}>
+                  <Text style={styles.formLabelMobile}>Prix USD *</Text>
+                  <TextInput
+                    style={styles.formInputMobile}
+                    placeholder="0.00"
+                    placeholderTextColor="#9CA3AF"
+                    keyboardType="numeric"
+                    value={newProduct.priceUsd}
+                    onChangeText={(text) => setNewProduct({ ...newProduct, priceUsd: text })}
+                  />
+                </View>
+                <View style={[styles.formFieldMobile, { flex: 1, display: 'none' }]}>
+                  <Text style={styles.formLabelMobile}>Prix CDF</Text>
+                  <TextInput
+                    style={styles.formInputMobile}
+                    placeholder="0"
+                    placeholderTextColor="#9CA3AF"
+                    keyboardType="numeric"
+                    value={newProduct.priceCdf}
+                    onChangeText={(text) => setNewProduct({ ...newProduct, priceCdf: text })}
+                  />
+                </View>
+              </View>
+
+              <View style={styles.formFieldMobile}>
+                <Text style={styles.formLabelMobile}>Stock minimal</Text>
                 <TextInput
                   style={styles.formInputMobile}
-                  placeholder="0"
+                  placeholder="5"
                   placeholderTextColor="#9CA3AF"
                   keyboardType="numeric"
-                  value={newProduct.priceCdf}
-                  onChangeText={(text) => setNewProduct({...newProduct, priceCdf: text})}
+                  value={newProduct.minimalStock}
+                  onChangeText={(text) => setNewProduct({ ...newProduct, minimalStock: text })}
                 />
               </View>
-            </View>
 
-            <View style={styles.formFieldMobile}>
-              <Text style={styles.formLabelMobile}>Stock minimal</Text>
-              <TextInput
-                style={styles.formInputMobile}
-                placeholder="5"
-                placeholderTextColor="#9CA3AF"
-                keyboardType="numeric"
-                value={newProduct.minimalStock}
-                onChangeText={(text) => setNewProduct({...newProduct, minimalStock: text})}
-              />
-            </View>
-
-            <View style={styles.formFieldMobile}>
-              <Text style={styles.formLabelMobile}>Date d'expiration</Text>
-              <TextInput
-                style={styles.formInputMobile}
-                placeholder="2025-12-31T23:59"
-                placeholderTextColor="#9CA3AF"
-                value={newProduct.expirationDate}
-                onChangeText={(text) => setNewProduct({ ...newProduct, expirationDate: text })}
-                onFocus={(event: any) => {
-                  if (Platform.OS === 'web') {
-                    const target = event?.target as HTMLInputElement | undefined;
-                    if (target) {
-                      target.type = 'datetime-local';
+              <View style={styles.formFieldMobile}>
+                <Text style={styles.formLabelMobile}>Date d'expiration</Text>
+                <TextInput
+                  style={styles.formInputMobile}
+                  placeholder="2025-12-31T23:59"
+                  placeholderTextColor="#9CA3AF"
+                  value={newProduct.expirationDate}
+                  onChangeText={(text) => setNewProduct({ ...newProduct, expirationDate: text })}
+                  onFocus={(event: any) => {
+                    if (Platform.OS === 'web') {
+                      const target = event?.target as HTMLInputElement | undefined;
+                      if (target) {
+                        target.type = 'datetime-local';
+                      }
                     }
-                  }
-                }}
-                onBlur={(event: any) => {
-                  if (Platform.OS === 'web') {
-                    const target = event?.target as HTMLInputElement | undefined;
-                    if (target) {
-                      target.type = 'text';
+                  }}
+                  onBlur={(event: any) => {
+                    if (Platform.OS === 'web') {
+                      const target = event?.target as HTMLInputElement | undefined;
+                      if (target) {
+                        target.type = 'text';
+                      }
                     }
-                  }
-                }}
-              />
-            </View>
+                  }}
+                />
+              </View>
 
-            <View style={styles.formActionsMobile}>
-              {editingProduct ? (
-                <>
-                  <TouchableOpacity 
-                    style={[styles.saveButtonMobile, apiLoading && styles.disabledButtonMobile]} 
-                    onPress={handleUpdateProduct}
+              <View style={styles.formActionsMobile}>
+                {editingProduct ? (
+                  <>
+                    <TouchableOpacity
+                      style={[styles.saveButtonMobile, apiLoading && styles.disabledButtonMobile]}
+                      onPress={handleUpdateProduct}
+                      disabled={apiLoading}
+                    >
+                      {apiLoading ? (
+                        <ActivityIndicator size="small" color="#FFFFFF" />
+                      ) : (
+                        <Ionicons name="checkmark" size={20} color="#FFFFFF" />
+                      )}
+                      <Text style={styles.buttonTextMobile}>Mettre à jour</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.cancelButtonMobile} onPress={() => {
+                      setEditingProduct(null);
+                      setNewProduct({
+                        productName: '',
+                        categoryId: '',
+                        description: '',
+                        priceUsd: '',
+                        priceCdf: '',
+                        minimalStock: '',
+                        imageBase64: 'UkVTVE9NQU5BR0VSQVBQ',
+                        expirationDate: ''
+                      });
+                    }}>
+                      <Text style={styles.cancelButtonTextMobile}>Annuler</Text>
+                    </TouchableOpacity>
+                  </>
+                ) : (
+                  <TouchableOpacity
+                    style={[styles.createButtonMobile, apiLoading && styles.disabledButtonMobile]}
+                    onPress={handleCreateProduct}
                     disabled={apiLoading}
                   >
                     {apiLoading ? (
                       <ActivityIndicator size="small" color="#FFFFFF" />
                     ) : (
-                      <Ionicons name="checkmark" size={20} color="#FFFFFF" />
+                      <Ionicons name="add" size={20} color="#FFFFFF" />
                     )}
-                    <Text style={styles.buttonTextMobile}>Mettre à jour</Text>
+                    <Text style={styles.buttonTextMobile}>Créer le produit</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.cancelButtonMobile} onPress={() => {
-                    setEditingProduct(null);
-                    setNewProduct({
-                      productName: '',
-                      categoryId: '',
-                      description: '',
-                      priceUsd: '',
-                      priceCdf: '',
-                      minimalStock: '',
-                      imageBase64: 'UkVTVE9NQU5BR0VSQVBQ',
-                      expirationDate: ''
-                    });
-                  }}>
-                    <Text style={styles.cancelButtonTextMobile}>Annuler</Text>
-                  </TouchableOpacity>
-                </>
-              ) : (
-                <TouchableOpacity 
-                  style={[styles.createButtonMobile, apiLoading && styles.disabledButtonMobile]} 
-                  onPress={handleCreateProduct}
-                  disabled={apiLoading}
-                >
-                  {apiLoading ? (
-                    <ActivityIndicator size="small" color="#FFFFFF" />
-                  ) : (
-                    <Ionicons name="add" size={20} color="#FFFFFF" />
-                  )}
-                  <Text style={styles.buttonTextMobile}>Créer le produit</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-
-            {/* Section Gestion du stock (si en mode édition) */}
-            {editingProduct && (
-              <View style={styles.stockSectionMobile}>
-                <Text style={styles.stockTitleMobile}>Gestion du stock</Text>
-                <View style={styles.currentStockMobile}>
-                  <Text style={styles.currentStockLabelMobile}>Stock actuel:</Text>
-                  <Text style={styles.currentStockValueMobile}>
-                    {stockManagementTab === 'transfer'
-                      ? sourceProductLoading
-                        ? '...'
-                        : sourceProductError
-                        ? '—'
-                        : sourceProductInfo
-                        ? `${sourceProductInfo.inStock} unités`
-                        : `${editingProduct.inStock || 0} unités`
-                      : adjustProductLoading
-                      ? 'Chargement...'
-                      : adjustProductError
-                      ? '—'
-                      : adjustProductInfo
-                      ? `${adjustProductInfo.inStock} unités`
-                      : `${editingProduct.inStock || 0} unités`}
-                  </Text>
-                  {stockManagementTab === 'adjust' && adjustProductError && (
-                    <Text style={styles.destinationStockErrorMobile}>{adjustProductError}</Text>
-                  )}
-                </View>
-                
-                {stockManagementTab === 'transfer' ? (
-                  <View style={styles.destinationStockMobile}>
-                    <Text style={styles.destinationStockLabelMobile}>
-                      {destinationProductLoading
-                        ? 'Stock destination (chargement...)'
-                        : destinationProductError
-                        ? 'Stock destination indisponible'
-                        : destinationProductInfo
-                        ? destinationProductInfo.productName
-                        : transferDepotCode
-                        ? 'Stock destination indisponible'
-                        : 'Sélectionnez un dépôt de destination'}
-                    </Text>
-                    <Text style={styles.destinationStockValueMobile}>
-                      {destinationProductLoading
-                        ? '...'
-                        : destinationProductError
-                        ? '—'
-                        : destinationProductInfo
-                        ? `${destinationProductInfo.inStock} unités`
-                        : '-'}
-                    </Text>
-                    {destinationProductError ? (
-                      <Text style={styles.destinationStockErrorMobile}>{destinationProductError}</Text>
-                    ) : null}
-                  </View>
-                ) : (
-                  <View style={styles.destinationStockMobile}>
-                    <Text style={styles.destinationStockLabelMobile}>Stock minimum</Text>
-                    <Text style={styles.destinationStockValueMobile}>
-                      {editingProduct.minimalStock || 0} unités
-                    </Text>
-                  </View>
                 )}
-                
-                {stockManagementTab === 'transfer' && sourceProductError ? (
-                  <Text style={styles.destinationStockErrorMobile}>{sourceProductError}</Text>
-                ) : null}
+              </View>
 
-                <View style={styles.stockToggleContainerMobile}>
-                  <TouchableOpacity
-                    style={[
-                      styles.stockToggleButtonMobile,
-                      stockManagementTab === 'adjust' && styles.stockToggleButtonActiveMobile
-                    ]}
-                    onPress={() => setStockManagementTab('adjust')}
-                  >
-                    <Text
-                      style={[
-                        styles.stockToggleTextMobile,
-                        stockManagementTab === 'adjust' && styles.stockToggleTextActiveMobile
-                      ]}
-                    >
-                      Ajuster
+              {/* Section Gestion du stock (si en mode édition) */}
+              {editingProduct && (
+                <View style={styles.stockSectionMobile}>
+                  <Text style={styles.stockTitleMobile}>Gestion du stock</Text>
+                  <View style={styles.currentStockMobile}>
+                    <Text style={styles.currentStockLabelMobile}>Stock actuel:</Text>
+                    <Text style={styles.currentStockValueMobile}>
+                      {stockManagementTab === 'transfer'
+                        ? sourceProductLoading
+                          ? '...'
+                          : sourceProductError
+                            ? '—'
+                            : sourceProductInfo
+                              ? `${sourceProductInfo.inStock} unités`
+                              : `${editingProduct.inStock || 0} unités`
+                        : adjustProductLoading
+                          ? 'Chargement...'
+                          : adjustProductError
+                            ? '—'
+                            : adjustProductInfo
+                              ? `${adjustProductInfo.inStock} unités`
+                              : `${editingProduct.inStock || 0} unités`}
                     </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      styles.stockToggleButtonMobile,
-                      stockManagementTab === 'transfer' && styles.stockToggleButtonActiveMobile
-                    ]}
-                    onPress={() => setStockManagementTab('transfer')}
-                  >
-                    <Text
-                      style={[
-                        styles.stockToggleTextMobile,
-                        stockManagementTab === 'transfer' && styles.stockToggleTextActiveMobile
-                      ]}
-                    >
-                      Transférer
-                    </Text>
-                  </TouchableOpacity>
-                </View>
+                    {stockManagementTab === 'adjust' && adjustProductError && (
+                      <Text style={styles.destinationStockErrorMobile}>{adjustProductError}</Text>
+                    )}
+                  </View>
 
-                {stockManagementTab === 'adjust' ? (
-                  <>
-                    {isAdmin ? (
+                  {stockManagementTab === 'transfer' ? (
+                    <View style={styles.destinationStockMobile}>
+                      <Text style={styles.destinationStockLabelMobile}>
+                        {destinationProductLoading
+                          ? 'Stock destination (chargement...)'
+                          : destinationProductError
+                            ? 'Stock destination indisponible'
+                            : destinationProductInfo
+                              ? destinationProductInfo.productName
+                              : transferDepotCode
+                                ? 'Stock destination indisponible'
+                                : 'Sélectionnez un dépôt de destination'}
+                      </Text>
+                      <Text style={styles.destinationStockValueMobile}>
+                        {destinationProductLoading
+                          ? '...'
+                          : destinationProductError
+                            ? '—'
+                            : destinationProductInfo
+                              ? `${destinationProductInfo.inStock} unités`
+                              : '-'}
+                      </Text>
+                      {destinationProductError ? (
+                        <Text style={styles.destinationStockErrorMobile}>{destinationProductError}</Text>
+                      ) : null}
+                    </View>
+                  ) : (
+                    <View style={styles.destinationStockMobile}>
+                      <Text style={styles.destinationStockLabelMobile}>Stock minimum</Text>
+                      <Text style={styles.destinationStockValueMobile}>
+                        {editingProduct.minimalStock || 0} unités
+                      </Text>
+                    </View>
+                  )}
+
+                  {stockManagementTab === 'transfer' && sourceProductError ? (
+                    <Text style={styles.destinationStockErrorMobile}>{sourceProductError}</Text>
+                  ) : null}
+
+                  <View style={styles.stockToggleContainerMobile}>
+                    <TouchableOpacity
+                      style={[
+                        styles.stockToggleButtonMobile,
+                        stockManagementTab === 'adjust' && styles.stockToggleButtonActiveMobile
+                      ]}
+                      onPress={() => setStockManagementTab('adjust')}
+                    >
+                      <Text
+                        style={[
+                          styles.stockToggleTextMobile,
+                          stockManagementTab === 'adjust' && styles.stockToggleTextActiveMobile
+                        ]}
+                      >
+                        Ajuster
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.stockToggleButtonMobile,
+                        stockManagementTab === 'transfer' && styles.stockToggleButtonActiveMobile
+                      ]}
+                      onPress={() => setStockManagementTab('transfer')}
+                    >
+                      <Text
+                        style={[
+                          styles.stockToggleTextMobile,
+                          stockManagementTab === 'transfer' && styles.stockToggleTextActiveMobile
+                        ]}
+                      >
+                        Transférer
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {stockManagementTab === 'adjust' ? (
+                    <>
+                      {isAdmin ? (
+                        <View style={styles.formFieldMobile}>
+                          <Text style={styles.formLabelMobile}>Dépôt *</Text>
+                          {depotCodesLoading ? (
+                            <View style={styles.depotLoadingContainerMobile}>
+                              <ActivityIndicator size="small" color="#3B82F6" />
+                              <Text style={styles.depotLoadingTextMobile}>Chargement...</Text>
+                            </View>
+                          ) : depotOptions.length > 0 ? (
+                            <View style={styles.depotChipsContainerMobile}>
+                              {depotOptions.map((code) => (
+                                <TouchableOpacity
+                                  key={code}
+                                  style={[
+                                    styles.depotChipMobile,
+                                    stockDepotCode === code && styles.depotChipActiveMobile
+                                  ]}
+                                  onPress={() => setStockDepotCode(code)}
+                                >
+                                  <Text
+                                    style={[
+                                      styles.depotChipTextMobile,
+                                      stockDepotCode === code && styles.depotChipTextActiveMobile
+                                    ]}
+                                  >
+                                    {code}
+                                  </Text>
+                                </TouchableOpacity>
+                              ))}
+                            </View>
+                          ) : (
+                            <Text style={styles.stockInfoTextMobile}>Aucun dépôt disponible.</Text>
+                          )}
+                          {depotCodesError && (
+                            <Text style={styles.stockErrorTextMobile}>{depotCodesError}</Text>
+                          )}
+                        </View>
+                      ) : (
+                        <View style={styles.formFieldMobile}>
+                          <Text style={styles.formLabelMobile}>Dépôt</Text>
+                          <Text style={styles.stockInfoTextMobile}>
+                            {userDepotCode
+                              ? `Le stock sera ajusté pour le dépôt ${userDepotCode}.`
+                              : "Code dépôt de l'utilisateur introuvable."}
+                          </Text>
+                        </View>
+                      )}
+
                       <View style={styles.formFieldMobile}>
-                        <Text style={styles.formLabelMobile}>Dépôt *</Text>
+                        <Text style={styles.formLabelMobile}>Quantité *</Text>
+                        <TextInput
+                          style={styles.formInputMobile}
+                          placeholder="Ex: 10"
+                          placeholderTextColor="#9CA3AF"
+                          keyboardType="numeric"
+                          value={stockQuantity}
+                          onChangeText={setStockQuantity}
+                        />
+                      </View>
+
+                      <View style={styles.formFieldMobile}>
+                        <Text style={styles.formLabelMobile}>Observation</Text>
+                        <TextInput
+                          style={[styles.formInputMobile, styles.textAreaMobile]}
+                          placeholder="Raison..."
+                          placeholderTextColor="#9CA3AF"
+                          value={stockObservation}
+                          onChangeText={setStockObservation}
+                          multiline
+                          numberOfLines={2}
+                        />
+                      </View>
+
+                      <View style={styles.formFieldMobile}>
+                        <Text style={styles.formLabelMobile}>Date d'expiration</Text>
+                        <TextInput
+                          style={styles.formInputMobile}
+                          placeholder="2025-11-13T12:42"
+                          placeholderTextColor="#9CA3AF"
+                          value={adjustExpirationDate}
+                          onChangeText={setAdjustExpirationDate}
+                          onFocus={(event: any) => {
+                            if (Platform.OS === 'web') {
+                              const target = event?.target as HTMLInputElement | undefined;
+                              if (target) {
+                                target.type = 'datetime-local';
+                              }
+                            }
+                          }}
+                          onBlur={(event: any) => {
+                            if (Platform.OS === 'web') {
+                              const target = event?.target as HTMLInputElement | undefined;
+                              if (target) {
+                                target.type = 'text';
+                              }
+                            }
+                          }}
+                        />
+                      </View>
+
+                      <View style={styles.stockActionsMobile}>
+                        <TouchableOpacity
+                          style={styles.stockAddButtonMobile}
+                          onPress={() => confirmStockAction('add')}
+                          disabled={stockLoading}
+                        >
+                          {stockLoading ? (
+                            <ActivityIndicator size="small" color="#FFFFFF" />
+                          ) : (
+                            <>
+                              <Ionicons name="add-circle" size={20} color="#FFFFFF" />
+                              <Text style={styles.buttonTextMobile}>Ajouter</Text>
+                            </>
+                          )}
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[styles.stockRemoveButtonMobile, (editingProduct.inStock || 0) === 0 && styles.disabledButtonMobile]}
+                          onPress={() => confirmStockAction('remove')}
+                          disabled={stockLoading || (editingProduct.inStock || 0) === 0}
+                        >
+                          {stockLoading ? (
+                            <ActivityIndicator size="small" color="#FFFFFF" />
+                          ) : (
+                            <>
+                              <Ionicons name="remove-circle" size={20} color="#FFFFFF" />
+                              <Text style={styles.buttonTextMobile}>
+                                {(editingProduct.inStock || 0) === 0 ? 'Stock vide' : 'Retirer'}
+                              </Text>
+                            </>
+                          )}
+                        </TouchableOpacity>
+                      </View>
+                      {stockFeedback && (
+                        <Text
+                          style={[
+                            styles.stockFeedbackTextMobile,
+                            stockFeedback.type === 'error'
+                              ? styles.stockFeedbackErrorMobile
+                              : styles.stockFeedbackSuccessMobile
+                          ]}
+                        >
+                          {stockFeedback.message}
+                        </Text>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <View style={styles.formFieldMobile}>
+                        {isAdmin ? (
+                          <>
+                            <Text style={styles.formLabelMobile}>Dépôt source *</Text>
+                            {depotCodesLoading ? (
+                              <View style={styles.depotLoadingContainerMobile}>
+                                <ActivityIndicator size="small" color="#3B82F6" />
+                                <Text style={styles.depotLoadingTextMobile}>Chargement...</Text>
+                              </View>
+                            ) : depotOptions.length > 0 ? (
+                              <View style={styles.depotChipsContainerMobile}>
+                                {depotOptions.map((code) => (
+                                  <TouchableOpacity
+                                    key={code}
+                                    style={[
+                                      styles.depotChipMobile,
+                                      transferSourceDepotCode === code && styles.depotChipActiveMobile
+                                    ]}
+                                    onPress={() => setTransferSourceDepotCode(code)}
+                                  >
+                                    <Text
+                                      style={[
+                                        styles.depotChipTextMobile,
+                                        transferSourceDepotCode === code && styles.depotChipTextActiveMobile
+                                      ]}
+                                    >
+                                      {code}
+                                    </Text>
+                                  </TouchableOpacity>
+                                ))}
+                              </View>
+                            ) : (
+                              <Text style={styles.stockInfoTextMobile}>Aucun dépôt disponible.</Text>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            <Text style={styles.formLabelMobile}>Dépôt source</Text>
+                            <Text style={styles.stockInfoTextMobile}>
+                              {userDepotCode
+                                ? `Le transfert partira du dépôt ${userDepotCode}.`
+                                : 'Code dépôt de l’utilisateur introuvable.'}
+                            </Text>
+                          </>
+                        )}
+                      </View>
+
+                      <View style={styles.formFieldMobile}>
+                        <Text style={styles.formLabelMobile}>Dépôt de destination *</Text>
                         {depotCodesLoading ? (
                           <View style={styles.depotLoadingContainerMobile}>
                             <ActivityIndicator size="small" color="#3B82F6" />
                             <Text style={styles.depotLoadingTextMobile}>Chargement...</Text>
                           </View>
-                        ) : depotOptions.length > 0 ? (
+                        ) : destinationDepotCodes.length > 0 ? (
                           <View style={styles.depotChipsContainerMobile}>
-                            {depotOptions.map((code) => (
+                            {destinationDepotCodes.map((code) => (
                               <TouchableOpacity
                                 key={code}
                                 style={[
                                   styles.depotChipMobile,
-                                  stockDepotCode === code && styles.depotChipActiveMobile
+                                  transferDepotCode === code && styles.depotChipActiveMobile
                                 ]}
-                                onPress={() => setStockDepotCode(code)}
+                                onPress={() => setTransferDepotCode(code)}
                               >
                                 <Text
                                   style={[
                                     styles.depotChipTextMobile,
-                                    stockDepotCode === code && styles.depotChipTextActiveMobile
+                                    transferDepotCode === code && styles.depotChipTextActiveMobile
                                   ]}
                                 >
                                   {code}
@@ -3424,251 +3654,58 @@ const historyModal = (
                           <Text style={styles.stockErrorTextMobile}>{depotCodesError}</Text>
                         )}
                       </View>
-                    ) : (
+
                       <View style={styles.formFieldMobile}>
-                        <Text style={styles.formLabelMobile}>Dépôt</Text>
-                        <Text style={styles.stockInfoTextMobile}>
-                          {userDepotCode
-                            ? `Le stock sera ajusté pour le dépôt ${userDepotCode}.`
-                            : "Code dépôt de l'utilisateur introuvable."}
-                        </Text>
+                        <Text style={styles.formLabelMobile}>Quantité *</Text>
+                        <TextInput
+                          style={styles.formInputMobile}
+                          placeholder="Ex: 5"
+                          placeholderTextColor="#9CA3AF"
+                          keyboardType="numeric"
+                          value={transferQuantity}
+                          onChangeText={setTransferQuantity}
+                        />
                       </View>
-                    )}
 
-                    <View style={styles.formFieldMobile}>
-                      <Text style={styles.formLabelMobile}>Quantité *</Text>
-                      <TextInput
-                        style={styles.formInputMobile}
-                        placeholder="Ex: 10"
-                        placeholderTextColor="#9CA3AF"
-                        keyboardType="numeric"
-                        value={stockQuantity}
-                        onChangeText={setStockQuantity}
-                      />
-                    </View>
+                      <View style={styles.formFieldMobile}>
+                        <Text style={styles.formLabelMobile}>Observation</Text>
+                        <TextInput
+                          style={[styles.formInputMobile, styles.textAreaMobile]}
+                          placeholder="Note (optionnel)"
+                          placeholderTextColor="#9CA3AF"
+                          value={transferObservation}
+                          onChangeText={setTransferObservation}
+                          multiline
+                          numberOfLines={2}
+                        />
+                      </View>
 
-                    <View style={styles.formFieldMobile}>
-                      <Text style={styles.formLabelMobile}>Observation</Text>
-                      <TextInput
-                        style={[styles.formInputMobile, styles.textAreaMobile]}
-                        placeholder="Raison..."
-                        placeholderTextColor="#9CA3AF"
-                        value={stockObservation}
-                        onChangeText={setStockObservation}
-                        multiline
-                        numberOfLines={2}
-                      />
-                    </View>
-
-                    <View style={styles.formFieldMobile}>
-                      <Text style={styles.formLabelMobile}>Date d'expiration</Text>
-                      <TextInput
-                        style={styles.formInputMobile}
-                        placeholder="2025-11-13T12:42"
-                        placeholderTextColor="#9CA3AF"
-                        value={adjustExpirationDate}
-                        onChangeText={setAdjustExpirationDate}
-                        onFocus={(event: any) => {
-                          if (Platform.OS === 'web') {
-                            const target = event?.target as HTMLInputElement | undefined;
-                            if (target) {
-                              target.type = 'datetime-local';
-                            }
-                          }
-                        }}
-                        onBlur={(event: any) => {
-                          if (Platform.OS === 'web') {
-                            const target = event?.target as HTMLInputElement | undefined;
-                            if (target) {
-                              target.type = 'text';
-                            }
-                          }
-                        }}
-                      />
-                    </View>
-
-                    <View style={styles.stockActionsMobile}>
-                      <TouchableOpacity 
-                        style={styles.stockAddButtonMobile} 
-                        onPress={() => confirmStockAction('add')}
-                        disabled={stockLoading}
-                      >
-                        {stockLoading ? (
-                          <ActivityIndicator size="small" color="#FFFFFF" />
-                        ) : (
-                          <>
-                            <Ionicons name="add-circle" size={20} color="#FFFFFF" />
-                            <Text style={styles.buttonTextMobile}>Ajouter</Text>
-                          </>
-                        )}
-                      </TouchableOpacity>
-                      <TouchableOpacity 
-                        style={[styles.stockRemoveButtonMobile, (editingProduct.inStock || 0) === 0 && styles.disabledButtonMobile]} 
-                        onPress={() => confirmStockAction('remove')}
-                        disabled={stockLoading || (editingProduct.inStock || 0) === 0}
-                      >
-                        {stockLoading ? (
-                          <ActivityIndicator size="small" color="#FFFFFF" />
-                        ) : (
-                          <>
-                            <Ionicons name="remove-circle" size={20} color="#FFFFFF" />
-                            <Text style={styles.buttonTextMobile}>
-                              {(editingProduct.inStock || 0) === 0 ? 'Stock vide' : 'Retirer'}
-                            </Text>
-                          </>
-                        )}
-                      </TouchableOpacity>
-                    </View>
-                    {stockFeedback && (
-                      <Text
+                      <TouchableOpacity
                         style={[
-                          styles.stockFeedbackTextMobile,
-                          stockFeedback.type === 'error'
-                            ? styles.stockFeedbackErrorMobile
-                            : styles.stockFeedbackSuccessMobile
+                          styles.stockTransferButtonMobile,
+                          (transferLoading || destinationDepotCodes.length === 0) && styles.disabledButtonMobile
                         ]}
+                        onPress={confirmTransferStock}
+                        disabled={transferLoading || destinationDepotCodes.length === 0}
                       >
-                        {stockFeedback.message}
-                      </Text>
-                    )}
-                  </>
-                ) : (
-                  <>
-                  <View style={styles.formFieldMobile}>
-                    {isAdmin ? (
-                      <>
-                        <Text style={styles.formLabelMobile}>Dépôt source *</Text>
-                        {depotCodesLoading ? (
-                          <View style={styles.depotLoadingContainerMobile}>
-                            <ActivityIndicator size="small" color="#3B82F6" />
-                            <Text style={styles.depotLoadingTextMobile}>Chargement...</Text>
-                          </View>
-                        ) : depotOptions.length > 0 ? (
-                          <View style={styles.depotChipsContainerMobile}>
-                            {depotOptions.map((code) => (
-                              <TouchableOpacity
-                                key={code}
-                                style={[
-                                  styles.depotChipMobile,
-                                  transferSourceDepotCode === code && styles.depotChipActiveMobile
-                                ]}
-                                onPress={() => setTransferSourceDepotCode(code)}
-                              >
-                                <Text
-                                  style={[
-                                    styles.depotChipTextMobile,
-                                    transferSourceDepotCode === code && styles.depotChipTextActiveMobile
-                                  ]}
-                                >
-                                  {code}
-                                </Text>
-                              </TouchableOpacity>
-                            ))}
-                          </View>
+                        {transferLoading ? (
+                          <ActivityIndicator size="small" color="#FFFFFF" />
                         ) : (
-                          <Text style={styles.stockInfoTextMobile}>Aucun dépôt disponible.</Text>
+                          <>
+                            <Ionicons name="repeat-outline" size={20} color="#FFFFFF" />
+                            <Text style={styles.buttonTextMobile}>Transférer</Text>
+                          </>
                         )}
-                      </>
-                    ) : (
-                      <>
-                        <Text style={styles.formLabelMobile}>Dépôt source</Text>
-                        <Text style={styles.stockInfoTextMobile}>
-                          {userDepotCode
-                            ? `Le transfert partira du dépôt ${userDepotCode}.`
-                            : 'Code dépôt de l’utilisateur introuvable.'}
-                        </Text>
-                      </>
-                    )}
-                  </View>
-
-                  <View style={styles.formFieldMobile}>
-                    <Text style={styles.formLabelMobile}>Dépôt de destination *</Text>
-                    {depotCodesLoading ? (
-                      <View style={styles.depotLoadingContainerMobile}>
-                        <ActivityIndicator size="small" color="#3B82F6" />
-                        <Text style={styles.depotLoadingTextMobile}>Chargement...</Text>
-                      </View>
-                    ) : destinationDepotCodes.length > 0 ? (
-                      <View style={styles.depotChipsContainerMobile}>
-                        {destinationDepotCodes.map((code) => (
-                          <TouchableOpacity
-                            key={code}
-                            style={[
-                              styles.depotChipMobile,
-                              transferDepotCode === code && styles.depotChipActiveMobile
-                            ]}
-                            onPress={() => setTransferDepotCode(code)}
-                          >
-                            <Text
-                              style={[
-                                styles.depotChipTextMobile,
-                                transferDepotCode === code && styles.depotChipTextActiveMobile
-                              ]}
-                            >
-                              {code}
-                            </Text>
-                          </TouchableOpacity>
-                        ))}
-                      </View>
-                    ) : (
-                      <Text style={styles.stockInfoTextMobile}>Aucun dépôt disponible.</Text>
-                    )}
-                    {depotCodesError && (
-                      <Text style={styles.stockErrorTextMobile}>{depotCodesError}</Text>
-                    )}
-                  </View>
-
-                    <View style={styles.formFieldMobile}>
-                      <Text style={styles.formLabelMobile}>Quantité *</Text>
-                      <TextInput
-                        style={styles.formInputMobile}
-                        placeholder="Ex: 5"
-                        placeholderTextColor="#9CA3AF"
-                        keyboardType="numeric"
-                        value={transferQuantity}
-                        onChangeText={setTransferQuantity}
-                      />
-                    </View>
-
-                    <View style={styles.formFieldMobile}>
-                      <Text style={styles.formLabelMobile}>Observation</Text>
-                      <TextInput
-                        style={[styles.formInputMobile, styles.textAreaMobile]}
-                        placeholder="Note (optionnel)"
-                        placeholderTextColor="#9CA3AF"
-                        value={transferObservation}
-                        onChangeText={setTransferObservation}
-                        multiline
-                        numberOfLines={2}
-                      />
-                    </View>
-
-                    <TouchableOpacity
-                      style={[
-                        styles.stockTransferButtonMobile,
-                        (transferLoading || destinationDepotCodes.length === 0) && styles.disabledButtonMobile
-                      ]}
-                      onPress={confirmTransferStock}
-                      disabled={transferLoading || destinationDepotCodes.length === 0}
-                    >
-                      {transferLoading ? (
-                        <ActivityIndicator size="small" color="#FFFFFF" />
-                      ) : (
-                        <>
-                          <Ionicons name="repeat-outline" size={20} color="#FFFFFF" />
-                          <Text style={styles.buttonTextMobile}>Transférer</Text>
-                        </>
-                      )}
-                    </TouchableOpacity>
-                  </>
-                )}
-              </View>
-            )}
+                      </TouchableOpacity>
+                    </>
+                  )}
+                </View>
+              )}
+            </View>
           </View>
-        </View>
-      )}
-    </ScrollView>
-    {historyModal}
+        )}
+      </ScrollView>
+      {historyModal}
     </>
   );
 };
@@ -3765,6 +3802,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 2,
     elevation: 1,
+  },
+  excelButtonTextWeb: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 6,
   },
   categoryFiltersWeb: {
     marginBottom: 16,
@@ -5296,7 +5339,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#6B7280',
   },
-  
+
   // Styles pour l'affichage du stock actuel
   currentStockInfoWeb: {
     flexDirection: 'row',
